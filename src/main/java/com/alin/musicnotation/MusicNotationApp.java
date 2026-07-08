@@ -14,9 +14,12 @@ import javafx.stage.Stage;
 
 public class MusicNotationApp extends Application {
 
+    private static final double WINDOW_WIDTH = 800;
+    private static final double WINDOW_HEIGHT = 600;
+
     private static final int STAFF_LINE_COUNT = 5;
-    private static final double STAFF_LINE_SPACING = 10;
-    private static final double STAFF_MARGIN = 40;
+    private static final double STAFF_LINE_SPACING = 16;
+    private static final double STAFF_MARGIN = 60;
 
     @Override
     public void start(Stage primaryStage) {
@@ -41,12 +44,11 @@ public class MusicNotationApp extends Application {
         root.setCenter(workspace);
         root.setBottom(statusBar);
 
-        Scene scene = new Scene(root, 1024, 768);
+        Scene scene = new Scene(root, WINDOW_WIDTH, WINDOW_HEIGHT);
 
         primaryStage.setTitle("Music Notation");
         primaryStage.setScene(scene);
         primaryStage.show();
-        drawStaff(canvas);
     }
 
     private void drawStaff(Canvas canvas) {
@@ -67,6 +69,13 @@ public class MusicNotationApp extends Application {
             double y = firstLineY + i * STAFF_LINE_SPACING;
             gc.strokeLine(lineStartX, y, lineEndX, y);
         }
+
+        drawBarLine(gc, lineStartX, firstLineY, staffHeight);
+        drawBarLine(gc, lineEndX, firstLineY, staffHeight);
+    }
+
+    private void drawBarLine(GraphicsContext gc, double x, double firstLineY, double staffHeight) {
+        gc.strokeLine(x, firstLineY, x, firstLineY + staffHeight);
     }
 
     public static void main(String[] args) {
