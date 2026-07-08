@@ -21,6 +21,17 @@ public class MusicNotationApp extends Application {
     private static final double STAFF_LINE_SPACING = 16;
     private static final double STAFF_MARGIN = 60;
 
+    private static final Pitch TOP_LINE_PITCH = Pitch.of("F5");
+    private static final int TOP_LINE_POSITION = 0;
+    private static final int BOTTOM_LINE_POSITION = (STAFF_LINE_COUNT - 1) * 2;
+
+    private static final double NOTE_START_OFFSET = 40;
+    private static final double NOTE_SPACING_X = 80;
+    private static final double NOTE_HEAD_WIDTH = STAFF_LINE_SPACING * 1.4;
+    private static final double NOTE_HEAD_HEIGHT = STAFF_LINE_SPACING;
+
+    private final Score score = createSampleScore();
+
     @Override
     public void start(Stage primaryStage) {
         MenuBar menuBar = new MenuBar(
@@ -72,6 +83,53 @@ public class MusicNotationApp extends Application {
 
         drawBarLine(gc, lineStartX, firstLineY, staffHeight);
         drawBarLine(gc, lineEndX, firstLineY, staffHeight);
+
+        drawNotes(gc, lineStartX, firstLineY);
+    }
+
+    private void drawNotes(GraphicsContext gc, double lineStartX, double firstLineY) {
+        double x = lineStartX + NOTE_START_OFFSET;
+
+        for (Measure measure : score.measures()) {
+            for (Note note : measure.notes()) {
+                Integer position = staffPosition(note.pitch());
+                if (position != null) {
+                    double y = firstLineY + position * (STAFF_LINE_SPACING / 2);
+                    gc.setFill(Color.BLACK);
+                    gc.fillOval(
+                            x - NOTE_HEAD_WIDTH / 2,
+                            y - NOTE_HEAD_HEIGHT / 2,
+                            NOTE_HEAD_WIDTH,
+                            NOTE_HEAD_HEIGHT
+                    );
+                }
+                x += NOTE_SPACING_X;
+            }
+        }
+    }
+
+    private Integer staffPosition(Pitch pitch) {
+        int position = diatonicIndex(TOP_LINE_PITCH) - diatonicIndex(pitch);
+        if (position < TOP_LINE_POSITION || position > BOTTOM_LINE_POSITION) {
+            return null;
+        }
+        return position;
+    }
+
+    private static int diatonicIndex(Pitch pitch) {
+        return pitch.octave() * 7 + pitch.step().ordinal();
+    }
+
+    private static Score createSampleScore() {
+        Measure measure = new Measure();
+        measure.addNote(new Note(Pitch.of("C4"), Duration.QUARTER));
+        measure.addNote(new Note(Pitch.of("E4"), Duration.QUARTER));
+        measure.addNote(new Note(Pitch.of("G4"), Duration.QUARTER));
+        measure.addNote(new Note(Pitch.of("C5"), Duration.QUARTER));
+
+        Score sampleScore = new Score();
+        sampleScore.addMeasure(measure);
+        return sampleScore;
     }
 
     private void drawBarLine(GraphicsContext gc, double x, double firstLineY, double staffHeight) {
