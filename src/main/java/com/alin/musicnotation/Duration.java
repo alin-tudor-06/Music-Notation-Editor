@@ -47,4 +47,12 @@ public enum Duration {
     public boolean isBeamable() {
         return denominator >= EIGHTH.denominator;
     }
+
+    /**
+     * Whether notes of this duration are notated with a stem.
+     * A whole note has no stem; every shorter duration does.
+     */
+    public boolean requiresStem() {
+        return this != WHOLE;
+    }
 }

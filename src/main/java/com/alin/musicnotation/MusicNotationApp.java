@@ -29,6 +29,7 @@ public class MusicNotationApp extends Application {
     private static final double NOTE_SPACING_X = 80;
     private static final double NOTE_HEAD_WIDTH = STAFF_LINE_SPACING * 1.4;
     private static final double NOTE_HEAD_HEIGHT = STAFF_LINE_SPACING;
+    private static final double STEM_HEIGHT = STAFF_LINE_SPACING * 3;
 
     private final Score score = createSampleScore();
 
@@ -95,17 +96,35 @@ public class MusicNotationApp extends Application {
                 Integer position = staffPosition(note.pitch());
                 if (position != null) {
                     double y = firstLineY + position * (STAFF_LINE_SPACING / 2);
-                    gc.setFill(Color.BLACK);
-                    gc.fillOval(
-                            x - NOTE_HEAD_WIDTH / 2,
-                            y - NOTE_HEAD_HEIGHT / 2,
-                            NOTE_HEAD_WIDTH,
-                            NOTE_HEAD_HEIGHT
-                    );
+                    drawNote(gc, x, y, note);
                 }
                 x += NOTE_SPACING_X;
             }
         }
+    }
+
+    private void drawNote(GraphicsContext gc, double x, double y, Note note) {
+        drawNoteHead(gc, x, y);
+        if (note.duration().requiresStem()) {
+            drawStem(gc, x, y);
+        }
+    }
+
+    private void drawNoteHead(GraphicsContext gc, double x, double y) {
+        gc.setFill(Color.BLACK);
+        gc.fillOval(
+                x - NOTE_HEAD_WIDTH / 2,
+                y - NOTE_HEAD_HEIGHT / 2,
+                NOTE_HEAD_WIDTH,
+                NOTE_HEAD_HEIGHT
+        );
+    }
+
+    private void drawStem(GraphicsContext gc, double x, double y) {
+        double stemX = x + NOTE_HEAD_WIDTH / 2;
+        gc.setStroke(Color.BLACK);
+        gc.setLineWidth(1);
+        gc.strokeLine(stemX, y, stemX, y - STEM_HEIGHT);
     }
 
     private Integer staffPosition(Pitch pitch) {
