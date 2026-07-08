@@ -30,6 +30,7 @@ public class MusicNotationApp extends Application {
     private static final double NOTE_HEAD_WIDTH = STAFF_LINE_SPACING * 1.4;
     private static final double NOTE_HEAD_HEIGHT = STAFF_LINE_SPACING;
     private static final double STEM_HEIGHT = STAFF_LINE_SPACING * 3;
+    private static final double LEDGER_LINE_EXTENSION = 4;
 
     private final Score score = createSampleScore();
 
@@ -93,11 +94,10 @@ public class MusicNotationApp extends Application {
 
         for (Measure measure : score.measures()) {
             for (Note note : measure.notes()) {
-                Integer position = staffPosition(note.pitch());
-                if (position != null) {
-                    double y = firstLineY + position * (STAFF_LINE_SPACING / 2);
-                    drawNote(gc, x, y, note);
-                }
+                int position = staffPosition(note.pitch());
+                double y = firstLineY + position * (STAFF_LINE_SPACING / 2);
+                drawLedgerLines(gc, x, firstLineY, position);
+                drawNote(gc, x, y, note);
                 x += NOTE_SPACING_X;
             }
         }
@@ -127,12 +127,33 @@ public class MusicNotationApp extends Application {
         gc.strokeLine(stemX, y, stemX, y - STEM_HEIGHT);
     }
 
-    private Integer staffPosition(Pitch pitch) {
-        int position = diatonicIndex(TOP_LINE_PITCH) - diatonicIndex(pitch);
-        if (position < TOP_LINE_POSITION || position > BOTTOM_LINE_POSITION) {
-            return null;
+    private void drawLedgerLines(GraphicsContext gc, double x, double firstLineY, int position) {
+        if (position < TOP_LINE_POSITION) {
+            int count = -position / 2;
+            for (int i = 1; i <= count; i++) {
+                int ledgerPosition = -2 * i;
+                double y = firstLineY + ledgerPosition * (STAFF_LINE_SPACING / 2);
+                drawLedgerLine(gc, x, y);
+            }
+        } else if (position > BOTTOM_LINE_POSITION) {
+            int count = (position - BOTTOM_LINE_POSITION) / 2;
+            for (int i = 1; i <= count; i++) {
+                int ledgerPosition = BOTTOM_LINE_POSITION + 2 * i;
+                double y = firstLineY + ledgerPosition * (STAFF_LINE_SPACING / 2);
+                drawLedgerLine(gc, x, y);
+            }
         }
-        return position;
+    }
+
+    private void drawLedgerLine(GraphicsContext gc, double x, double y) {
+        double halfWidth = NOTE_HEAD_WIDTH / 2 + LEDGER_LINE_EXTENSION;
+        gc.setStroke(Color.BLACK);
+        gc.setLineWidth(1);
+        gc.strokeLine(x - halfWidth, y, x + halfWidth, y);
+    }
+
+    private int staffPosition(Pitch pitch) {
+        return diatonicIndex(TOP_LINE_PITCH) - diatonicIndex(pitch);
     }
 
     private static int diatonicIndex(Pitch pitch) {
@@ -144,7 +165,7 @@ public class MusicNotationApp extends Application {
         measure.addNote(new Note(Pitch.of("C4"), Duration.QUARTER));
         measure.addNote(new Note(Pitch.of("E4"), Duration.QUARTER));
         measure.addNote(new Note(Pitch.of("G4"), Duration.QUARTER));
-        measure.addNote(new Note(Pitch.of("C5"), Duration.QUARTER));
+        measure.addNote(new Note(Pitch.of("A5"), Duration.QUARTER));
 
         Score sampleScore = new Score();
         sampleScore.addMeasure(measure);
