@@ -26,7 +26,7 @@ public class MusicNotationApp extends Application {
     private static final int BOTTOM_LINE_POSITION = (STAFF_LINE_COUNT - 1) * 2;
 
     private static final double NOTE_START_OFFSET = 40;
-    private static final double NOTE_SPACING_X = 80;
+    private static final double NOTE_SPACING_PER_QUARTER = 60;
     private static final double NOTE_HEAD_WIDTH = STAFF_LINE_SPACING * 1.4;
     private static final double NOTE_HEAD_HEIGHT = STAFF_LINE_SPACING;
     private static final double STEM_HEIGHT = STAFF_LINE_SPACING * 3;
@@ -98,7 +98,7 @@ public class MusicNotationApp extends Application {
                 double y = firstLineY + position * (STAFF_LINE_SPACING / 2);
                 drawLedgerLines(gc, x, firstLineY, position);
                 drawNote(gc, x, y, note);
-                x += NOTE_SPACING_X;
+                x += noteSpacing(note.duration());
             }
         }
     }
@@ -152,6 +152,10 @@ public class MusicNotationApp extends Application {
         gc.strokeLine(x - halfWidth, y, x + halfWidth, y);
     }
 
+    private double noteSpacing(Duration duration) {
+        return NOTE_SPACING_PER_QUARTER * duration.toQuarterNoteFraction();
+    }
+
     private int staffPosition(Pitch pitch) {
         return diatonicIndex(TOP_LINE_PITCH) - diatonicIndex(pitch);
     }
@@ -162,10 +166,10 @@ public class MusicNotationApp extends Application {
 
     private static Score createSampleScore() {
         Measure measure = new Measure();
-        measure.addNote(new Note(Pitch.of("C4"), Duration.QUARTER));
+        measure.addNote(new Note(Pitch.of("C4"), Duration.HALF));
         measure.addNote(new Note(Pitch.of("E4"), Duration.QUARTER));
-        measure.addNote(new Note(Pitch.of("G4"), Duration.QUARTER));
-        measure.addNote(new Note(Pitch.of("A5"), Duration.QUARTER));
+        measure.addNote(new Note(Pitch.of("G4"), Duration.EIGHTH));
+        measure.addNote(new Note(Pitch.of("A5"), Duration.EIGHTH));
 
         Score sampleScore = new Score();
         sampleScore.addMeasure(measure);
