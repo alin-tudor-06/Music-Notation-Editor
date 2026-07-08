@@ -2,14 +2,21 @@ package com.alin.musicnotation;
 
 import javafx.application.Application;
 import javafx.scene.Scene;
+import javafx.scene.canvas.Canvas;
+import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Label;
 import javafx.scene.control.Menu;
 import javafx.scene.control.MenuBar;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.Pane;
+import javafx.scene.paint.Color;
 import javafx.stage.Stage;
 
 public class MusicNotationApp extends Application {
+
+    private static final int STAFF_LINE_COUNT = 5;
+    private static final double STAFF_LINE_SPACING = 10;
+    private static final double STAFF_MARGIN = 40;
 
     @Override
     public void start(Stage primaryStage) {
@@ -20,7 +27,12 @@ public class MusicNotationApp extends Application {
                 new Menu("Playback")
         );
 
-        Pane workspace = new Pane();
+        Canvas canvas = new Canvas();
+        Pane workspace = new Pane(canvas);
+        canvas.widthProperty().bind(workspace.widthProperty());
+        canvas.heightProperty().bind(workspace.heightProperty());
+        canvas.widthProperty().addListener((observable, oldValue, newValue) -> drawStaff(canvas));
+        canvas.heightProperty().addListener((observable, oldValue, newValue) -> drawStaff(canvas));
 
         Label statusBar = new Label("Ready");
 
@@ -29,11 +41,32 @@ public class MusicNotationApp extends Application {
         root.setCenter(workspace);
         root.setBottom(statusBar);
 
-        Scene scene = new Scene(root, 800, 600);
+        Scene scene = new Scene(root, 1024, 768);
 
         primaryStage.setTitle("Music Notation");
         primaryStage.setScene(scene);
         primaryStage.show();
+        drawStaff(canvas);
+    }
+
+    private void drawStaff(Canvas canvas) {
+        double width = canvas.getWidth();
+        double height = canvas.getHeight();
+
+        GraphicsContext gc = canvas.getGraphicsContext2D();
+        gc.clearRect(0, 0, width, height);
+
+        double staffHeight = (STAFF_LINE_COUNT - 1) * STAFF_LINE_SPACING;
+        double firstLineY = (height - staffHeight) / 2;
+        double lineStartX = STAFF_MARGIN;
+        double lineEndX = width - STAFF_MARGIN;
+
+        gc.setStroke(Color.BLACK);
+        gc.setLineWidth(1);
+        for (int i = 0; i < STAFF_LINE_COUNT; i++) {
+            double y = firstLineY + i * STAFF_LINE_SPACING;
+            gc.strokeLine(lineStartX, y, lineEndX, y);
+        }
     }
 
     public static void main(String[] args) {
