@@ -8,16 +8,18 @@ package com.alin.musicnotation;
  */
 public enum Duration {
 
-    WHOLE(1),
-    HALF(2),
-    QUARTER(4),
-    EIGHTH(8),
-    SIXTEENTH(16);
+    WHOLE(1, 0),
+    HALF(2, 0),
+    QUARTER(4, 0),
+    EIGHTH(8, 1),
+    SIXTEENTH(16, 2);
 
     private final int denominator;
+    private final int flagCount;
 
-    Duration(int denominator) {
+    Duration(int denominator, int flagCount) {
         this.denominator = denominator;
+        this.flagCount = flagCount;
     }
 
     public int denominator() {
@@ -54,5 +56,21 @@ public enum Duration {
      */
     public boolean requiresStem() {
         return this != WHOLE;
+    }
+
+    /**
+     * Whether notes of this duration are notated with a filled (solid)
+     * note head. Whole and half notes use an empty (hollow) note head.
+     */
+    public boolean isFilled() {
+        return denominator >= QUARTER.denominator;
+    }
+
+    /**
+     * How many flags this duration is notated with (0 for quarter notes
+     * and longer, 1 for eighth notes, 2 for sixteenth notes).
+     */
+    public int flagCount() {
+        return flagCount;
     }
 }

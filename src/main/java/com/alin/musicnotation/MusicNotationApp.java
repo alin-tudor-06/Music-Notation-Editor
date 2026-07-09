@@ -31,6 +31,10 @@ public class MusicNotationApp extends Application {
     private static final double NOTE_HEAD_HEIGHT = STAFF_LINE_SPACING;
     private static final double STEM_HEIGHT = STAFF_LINE_SPACING * 3;
     private static final double LEDGER_LINE_EXTENSION = 4;
+    private static final double NOTE_HEAD_OUTLINE_WIDTH = 2;
+    private static final double FLAG_WIDTH = 10;
+    private static final double FLAG_HEIGHT = 14;
+    private static final double FLAG_SPACING = 6;
 
     private final Score score = createSampleScore();
 
@@ -89,6 +93,10 @@ public class MusicNotationApp extends Application {
         drawNotes(gc, lineStartX, firstLineY);
     }
 
+    private void drawBarLine(GraphicsContext gc, double x, double firstLineY, double staffHeight) {
+        gc.strokeLine(x, firstLineY, x, firstLineY + staffHeight);
+    }
+
     private void drawNotes(GraphicsContext gc, double lineStartX, double firstLineY) {
         double x = lineStartX + NOTE_START_OFFSET;
 
@@ -104,27 +112,59 @@ public class MusicNotationApp extends Application {
     }
 
     private void drawNote(GraphicsContext gc, double x, double y, Note note) {
-        drawNoteHead(gc, x, y);
-        if (note.duration().requiresStem()) {
-            drawStem(gc, x, y);
+        Duration duration = note.duration();
+        drawNoteHead(gc, x, y, duration);
+
+        if (duration.requiresStem()) {
+            double stemX = x + NOTE_HEAD_WIDTH / 2;
+            double stemTopY = y - STEM_HEIGHT;
+            drawStem(gc, stemX, y, stemTopY);
+
+            if (duration.flagCount() > 0) {
+                drawFlags(gc, stemX, stemTopY, duration.flagCount());
+            }
         }
     }
 
-    private void drawNoteHead(GraphicsContext gc, double x, double y) {
-        gc.setFill(Color.BLACK);
-        gc.fillOval(
-                x - NOTE_HEAD_WIDTH / 2,
-                y - NOTE_HEAD_HEIGHT / 2,
-                NOTE_HEAD_WIDTH,
-                NOTE_HEAD_HEIGHT
-        );
+    private void drawNoteHead(GraphicsContext gc, double x, double y, Duration duration) {
+        double headX = x - NOTE_HEAD_WIDTH / 2;
+        double headY = y - NOTE_HEAD_HEIGHT / 2;
+
+        if (duration.isFilled()) {
+            gc.setFill(Color.BLACK);
+            gc.fillOval(headX, headY, NOTE_HEAD_WIDTH, NOTE_HEAD_HEIGHT);
+        } else {
+            gc.setStroke(Color.BLACK);
+            gc.setLineWidth(NOTE_HEAD_OUTLINE_WIDTH);
+            gc.strokeOval(headX, headY, NOTE_HEAD_WIDTH, NOTE_HEAD_HEIGHT);
+        }
     }
 
-    private void drawStem(GraphicsContext gc, double x, double y) {
-        double stemX = x + NOTE_HEAD_WIDTH / 2;
+    private void drawStem(GraphicsContext gc, double stemX, double stemBottomY, double stemTopY) {
         gc.setStroke(Color.BLACK);
         gc.setLineWidth(1);
-        gc.strokeLine(stemX, y, stemX, y - STEM_HEIGHT);
+        gc.strokeLine(stemX, stemBottomY, stemX, stemTopY);
+    }
+
+    private void drawFlags(GraphicsContext gc, double stemX, double stemTopY, int flagCount) {
+        for (int i = 0; i < flagCount; i++) {
+            double flagStartY = stemTopY + i * FLAG_SPACING;
+            drawFlag(gc, stemX, flagStartY);
+        }
+    }
+
+    private void drawFlag(GraphicsContext gc, double startX, double startY) {
+        double controlX = startX + FLAG_WIDTH;
+        double controlY = startY + FLAG_HEIGHT / 2;
+        double endX = startX + FLAG_WIDTH * 0.6;
+        double endY = startY + FLAG_HEIGHT;
+
+        gc.setStroke(Color.BLACK);
+        gc.setLineWidth(1);
+        gc.beginPath();
+        gc.moveTo(startX, startY);
+        gc.quadraticCurveTo(controlX, controlY, endX, endY);
+        gc.stroke();
     }
 
     private void drawLedgerLines(GraphicsContext gc, double x, double firstLineY, int position) {
@@ -165,19 +205,20 @@ public class MusicNotationApp extends Application {
     }
 
     private static Score createSampleScore() {
-        Measure measure = new Measure();
-        measure.addNote(new Note(Pitch.of("C4"), Duration.HALF));
-        measure.addNote(new Note(Pitch.of("E4"), Duration.QUARTER));
-        measure.addNote(new Note(Pitch.of("G4"), Duration.EIGHTH));
-        measure.addNote(new Note(Pitch.of("A5"), Duration.EIGHTH));
+        Measure wholeNoteMeasure = new Measure();
+        wholeNoteMeasure.addNote(new Note(Pitch.of("C4"), Duration.WHOLE));
+
+        Measure mixedMeasure = new Measure();
+        mixedMeasure.addNote(new Note(Pitch.of("C4"), Duration.HALF));
+        mixedMeasure.addNote(new Note(Pitch.of("E4"), Duration.QUARTER));
+        mixedMeasure.addNote(new Note(Pitch.of("G4"), Duration.EIGHTH));
+        mixedMeasure.addNote(new Note(Pitch.of("A5"), Duration.SIXTEENTH));
+        mixedMeasure.addNote(new Note(Pitch.of("B5"), Duration.SIXTEENTH));
 
         Score sampleScore = new Score();
-        sampleScore.addMeasure(measure);
+        sampleScore.addMeasure(wholeNoteMeasure);
+        sampleScore.addMeasure(mixedMeasure);
         return sampleScore;
-    }
-
-    private void drawBarLine(GraphicsContext gc, double x, double firstLineY, double staffHeight) {
-        gc.strokeLine(x, firstLineY, x, firstLineY + staffHeight);
     }
 
     public static void main(String[] args) {
