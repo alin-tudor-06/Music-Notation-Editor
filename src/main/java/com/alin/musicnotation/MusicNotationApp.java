@@ -50,7 +50,8 @@ public class MusicNotationApp extends Application {
     private static final double FLAG_WIDTH = 10;
     private static final double FLAG_HEIGHT = 14;
     private static final double FLAG_SPACING = 6;
-    private static final double BEAM_THICKNESS = 3;
+    private static final double BEAM_THICKNESS = 5;
+    private static final double MAX_BEAM_SLOPE = 0.25;
 
     private final Score score = createSampleScore();
 
@@ -268,26 +269,54 @@ public class MusicNotationApp extends Application {
      * stems are simply extended to reach the beam - stems always point up,
      * and the beam is never sloped.
      */
-    private void drawBeamedGroup(GraphicsContext gc, List<NoteLayout> group) {
-        double beamY = group.stream()
-                .mapToDouble(layout -> layout.y() - STEM_HEIGHT)
-                .min()
-                .orElseThrow();
 
+    private void drawBeamedGroup(GraphicsContext gc, List<NoteLayout> group) {
+        NoteLayout first = group.get(0);
+        NoteLayout last = group.get(group.size() - 1);
+
+        double xStart = first.x() + NOTE_HEAD_WIDTH / 2;
+        double xEnd = last.x() + NOTE_HEAD_WIDTH / 2;
+        double yStartTip = first.y() - STEM_HEIGHT;
+        double yEndTip = last.y() - STEM_HEIGHT;
+
+        // Calculează panta inițială
+        double slope = (yEndTip - yStartTip) / (xEnd - xStart);
+        // Limitează panta
+        slope = Math.max(-MAX_BEAM_SLOPE, Math.min(MAX_BEAM_SLOPE, slope));
+
+        // Calculează interceptul b pentru a plasa beam-ul deasupra tuturor notelor
+        double b = Double.MAX_VALUE;
         for (NoteLayout layout : group) {
             double stemX = layout.x() + NOTE_HEAD_WIDTH / 2;
+            double candidateB = (layout.y() - STEM_HEIGHT) - slope * stemX;
+            if (candidateB < b) b = candidateB;
+        }
+
+        // Desenează tijele
+        for (NoteLayout layout : group) {
+            double stemX = layout.x() + NOTE_HEAD_WIDTH / 2;
+            double beamY = slope * stemX + b;
             drawStem(gc, stemX, layout.y(), beamY);
         }
 
-        double beamStartX = group.get(0).x() + NOTE_HEAD_WIDTH / 2;
-        double beamEndX = group.get(group.size() - 1).x() + NOTE_HEAD_WIDTH / 2;
-        drawBeam(gc, beamStartX, beamEndX, beamY);
+        // Desenează beam-ul înclinat (versiunea cu linie groasă)
+        drawBeam(gc, xStart, slope * xStart + b, xEnd, slope * xEnd + b);
     }
 
-    private void drawBeam(GraphicsContext gc, double startX, double endX, double y) {
-        gc.setStroke(Color.BLACK);
-        gc.setLineWidth(BEAM_THICKNESS);
-        gc.strokeLine(startX, y, endX, y);
+    private void drawBeam(GraphicsContext gc, double x1, double y1, double x2, double y2) {
+        double thickness = BEAM_THICKNESS;
+        // Calculează un vector perpendicular pe direcția beam-ului
+        double dx = x2 - x1;
+        double dy = y2 - y1;
+        double len = Math.hypot(dx, dy);
+        if (len == 0) return;
+        double nx = -dy / len * thickness / 2;
+        double ny =  dx / len * thickness / 2;
+
+        double[] xPoints = { x1 + nx, x1 - nx, x2 - nx, x2 + nx };
+        double[] yPoints = { y1 + ny, y1 - ny, y2 - ny, y2 + ny };
+        gc.setFill(Color.BLACK);
+        gc.fillPolygon(xPoints, yPoints, 4);
     }
 
     private void drawNoteHead(GraphicsContext gc, double x, double y, Duration duration) {
