@@ -12,6 +12,9 @@ import javafx.scene.layout.Pane;
 import javafx.scene.paint.Color;
 import javafx.stage.Stage;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class MusicNotationApp extends Application {
 
     private static final double WINDOW_WIDTH = 800;
@@ -35,6 +38,7 @@ public class MusicNotationApp extends Application {
     private static final double FLAG_WIDTH = 10;
     private static final double FLAG_HEIGHT = 14;
     private static final double FLAG_SPACING = 6;
+    private static final double BEAM_THICKNESS = 3;
 
     private final Score score = createSampleScore();
 
@@ -97,33 +101,115 @@ public class MusicNotationApp extends Application {
         gc.strokeLine(x, firstLineY, x, firstLineY + staffHeight);
     }
 
+    /**
+     * The computed screen position of a single note, laid out horizontally
+     * along the staff. Used as an intermediate step so that consecutive
+     * beamable notes can be grouped before stems/beams are drawn.
+     */
+    private record NoteLayout(double x, double y, Note note, int position) {
+    }
+
     private void drawNotes(GraphicsContext gc, double lineStartX, double firstLineY) {
         double x = lineStartX + NOTE_START_OFFSET;
 
         for (Measure measure : score.measures()) {
+            List<NoteLayout> layouts = new ArrayList<>();
             for (Note note : measure.notes()) {
                 int position = staffPosition(note.pitch());
                 double y = firstLineY + position * (STAFF_LINE_SPACING / 2);
-                drawLedgerLines(gc, x, firstLineY, position);
-                drawNote(gc, x, y, note);
+                layouts.add(new NoteLayout(x, y, note, position));
                 x += noteSpacing(note.duration());
+            }
+            drawMeasureNotes(gc, firstLineY, layouts);
+        }
+    }
+
+    private void drawMeasureNotes(GraphicsContext gc, double firstLineY, List<NoteLayout> layouts) {
+        for (NoteLayout layout : layouts) {
+            drawLedgerLines(gc, layout.x(), firstLineY, layout.position());
+            drawNoteHead(gc, layout.x(), layout.y(), layout.note().duration());
+        }
+
+        for (List<NoteLayout> group : groupBeamableNotes(layouts)) {
+            if (group.size() >= 2) {
+                drawBeamedGroup(gc, group);
+            } else {
+                drawUnbeamedNote(gc, group.get(0));
             }
         }
     }
 
-    private void drawNote(GraphicsContext gc, double x, double y, Note note) {
-        Duration duration = note.duration();
-        drawNoteHead(gc, x, y, duration);
+    /**
+     * Splits a measure's notes into runs of consecutive beamable notes
+     * (eighth notes and shorter) and single-note groups for everything
+     * else. A run of length 1 is treated the same as a non-beamable note.
+     */
+    private List<List<NoteLayout>> groupBeamableNotes(List<NoteLayout> layouts) {
+        List<List<NoteLayout>> groups = new ArrayList<>();
+        List<NoteLayout> currentRun = new ArrayList<>();
 
-        if (duration.requiresStem()) {
-            double stemX = x + NOTE_HEAD_WIDTH / 2;
-            double stemTopY = y - STEM_HEIGHT;
-            drawStem(gc, stemX, y, stemTopY);
-
-            if (duration.flagCount() > 0) {
-                drawFlags(gc, stemX, stemTopY, duration.flagCount());
+        for (NoteLayout layout : layouts) {
+            if (layout.note().duration().isBeamable()) {
+                currentRun.add(layout);
+            } else {
+                flushRun(groups, currentRun);
+                groups.add(List.of(layout));
             }
         }
+        flushRun(groups, currentRun);
+
+        return groups;
+    }
+
+    private void flushRun(List<List<NoteLayout>> groups, List<NoteLayout> currentRun) {
+        if (!currentRun.isEmpty()) {
+            groups.add(List.copyOf(currentRun));
+            currentRun.clear();
+        }
+    }
+
+    private void drawUnbeamedNote(GraphicsContext gc, NoteLayout layout) {
+        Duration duration = layout.note().duration();
+        if (!duration.requiresStem()) {
+            return;
+        }
+
+        double stemX = layout.x() + NOTE_HEAD_WIDTH / 2;
+        double stemTopY = layout.y() - STEM_HEIGHT;
+        drawStem(gc, stemX, layout.y(), stemTopY);
+
+        if (duration.flagCount() > 0) {
+            drawFlags(gc, stemX, stemTopY, duration.flagCount());
+        }
+    }
+
+    /**
+     * Draws stems for every note in the group up to a single shared beam
+     * height, then connects them with one horizontal beam. Beam height is
+     * the highest (smallest y) of the individual stem tops, so shorter
+     * stems are simply extended to reach the beam - stems always point up,
+     * and the beam is never sloped.
+     */
+    private void drawBeamedGroup(GraphicsContext gc, List<NoteLayout> group) {
+        double beamY = group.stream()
+                .mapToDouble(layout -> layout.y() - STEM_HEIGHT)
+                .min()
+                .orElseThrow();
+
+        for (NoteLayout layout : group) {
+            double stemX = layout.x() + NOTE_HEAD_WIDTH / 2;
+            drawStem(gc, stemX, layout.y(), beamY);
+        }
+
+        double beamStartX = group.get(0).x() + NOTE_HEAD_WIDTH / 2;
+        double beamEndX = group.get(group.size() - 1).x() + NOTE_HEAD_WIDTH / 2;
+        drawBeam(gc, beamStartX, beamEndX, beamY);
+    }
+
+    private void drawBeam(GraphicsContext gc, double startX, double endX, double y) {
+        gc.setStroke(Color.BLACK);
+        gc.setLineWidth(BEAM_THICKNESS);
+        gc.strokeLine(startX, y, endX, y);
     }
 
     private void drawNoteHead(GraphicsContext gc, double x, double y, Duration duration) {
