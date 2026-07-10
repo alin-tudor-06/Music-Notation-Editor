@@ -16,6 +16,7 @@ import javafx.scene.text.TextAlignment;
 import javafx.stage.Stage;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 public class MusicNotationApp extends Application {
@@ -51,6 +52,8 @@ public class MusicNotationApp extends Application {
     private static final double FLAG_HEIGHT = 14;
     private static final double FLAG_SPACING = 6;
     private static final double BEAM_THICKNESS = 5;
+    private static final double BEAM_SPACING = BEAM_THICKNESS + 2;  // gap between beam levels
+    private static final double BEAM_HOOK_LENGTH = NOTE_HEAD_WIDTH * 0.6;
     private static final double MAX_BEAM_SLOPE = 0.25;
 
     private final Score score = createSampleScore();
@@ -271,41 +274,93 @@ public class MusicNotationApp extends Application {
      */
 
     private void drawBeamedGroup(GraphicsContext gc, List<NoteLayout> group) {
+        // 1. Obținem flagCount‑urile
+        int[] flagCounts = group.stream()
+                .mapToInt(layout -> layout.note().duration().flagCount())
+                .toArray();
+        int maxFlags = Arrays.stream(flagCounts).max().orElse(0);
+        if (maxFlags == 0) return;
+
+        // 2. Calculăm panta dintre prima și ultima notă (cu limitare)
         NoteLayout first = group.get(0);
         NoteLayout last = group.get(group.size() - 1);
-
         double xStart = first.x() + NOTE_HEAD_WIDTH / 2;
-        double xEnd = last.x() + NOTE_HEAD_WIDTH / 2;
+        double xEnd   = last.x()  + NOTE_HEAD_WIDTH / 2;
         double yStartTip = first.y() - STEM_HEIGHT;
-        double yEndTip = last.y() - STEM_HEIGHT;
+        double yEndTip   = last.y()  - STEM_HEIGHT;
 
-        // Calculează panta inițială
         double slope = (yEndTip - yStartTip) / (xEnd - xStart);
-        // Limitează panta
         slope = Math.max(-MAX_BEAM_SLOPE, Math.min(MAX_BEAM_SLOPE, slope));
 
-        // Calculează interceptul b pentru a plasa beam-ul deasupra tuturor notelor
+        // 3. Calculăm interceptul b astfel încât toate beam‑urile să fie deasupra capetelor
         double b = Double.MAX_VALUE;
-        for (NoteLayout layout : group) {
+        for (int i = 0; i < group.size(); i++) {
+            NoteLayout layout = group.get(i);
             double stemX = layout.x() + NOTE_HEAD_WIDTH / 2;
-            double candidateB = (layout.y() - STEM_HEIGHT) - slope * stemX;
+            double candidateB = (layout.y() - STEM_HEIGHT) - slope * stemX - (flagCounts[i] - 1) * BEAM_SPACING;
             if (candidateB < b) b = candidateB;
         }
 
-        // Desenează tijele
-        for (NoteLayout layout : group) {
+        // 4. Desenăm tijele – fiecare se termină la nivelul corespunzător flagCount‑ului
+        for (int i = 0; i < group.size(); i++) {
+            NoteLayout layout = group.get(i);
             double stemX = layout.x() + NOTE_HEAD_WIDTH / 2;
-            double beamY = slope * stemX + b;
-            drawStem(gc, stemX, layout.y(), beamY);
+            double topY = slope * stemX + b + (flagCounts[i] - 1) * BEAM_SPACING;
+            drawStem(gc, stemX, layout.y(), topY);
         }
 
-        // Desenează beam-ul înclinat (versiunea cu linie groasă)
-        drawBeam(gc, xStart, slope * xStart + b, xEnd, slope * xEnd + b);
+        // 5. Desenăm beam‑urile și cârligele pentru fiecare nivel
+        for (int level = 1; level <= maxFlags; level++) {
+            // Identificăm run‑urile de note care au flagCount >= level
+            List<int[]> runs = new ArrayList<>();
+            int start = -1;
+            for (int i = 0; i < group.size(); i++) {
+                if (flagCounts[i] >= level) {
+                    if (start == -1) start = i;
+                } else {
+                    if (start != -1) {
+                        runs.add(new int[]{start, i - 1});
+                        start = -1;
+                    }
+                }
+            }
+            if (start != -1) runs.add(new int[]{start, group.size() - 1});
+
+            // Desenăm fiecare run
+            for (int[] run : runs) {
+                int firstIdx = run[0];
+                int lastIdx  = run[1];
+                double x1 = group.get(firstIdx).x() + NOTE_HEAD_WIDTH / 2;
+                double x2 = group.get(lastIdx).x()  + NOTE_HEAD_WIDTH / 2;
+                double y1 = slope * x1 + b + (level - 1) * BEAM_SPACING;
+                double y2 = slope * x2 + b + (level - 1) * BEAM_SPACING;
+
+                if (firstIdx == lastIdx) {
+                    // Cârlig (hook) – înclinat, nu orizontal
+                    drawSlopedHook(gc, x1, y1, slope, firstIdx, group.size());
+                    // Conectare verticală la beam‑ul superior (dacă există)
+                    if (level > 1) {
+                        gc.setStroke(Color.BLACK);
+                        gc.setLineWidth(1);
+                        gc.strokeLine(x1, y1, x1, y1 - BEAM_SPACING);
+                    }
+                } else {
+                    // Beam continuu
+                    drawBeam(gc, x1, y1, x2, y2);
+                    // Conectare verticală la beam‑ul superior (doar pentru nivelul 2)
+                    if (level == 2) {
+                        gc.setStroke(Color.BLACK);
+                        gc.setLineWidth(1);
+                        gc.strokeLine(x1, y1, x1, y1 - BEAM_SPACING);
+                        gc.strokeLine(x2, y2, x2, y2 - BEAM_SPACING);
+                    }
+                }
+            }
+        }
     }
 
     private void drawBeam(GraphicsContext gc, double x1, double y1, double x2, double y2) {
         double thickness = BEAM_THICKNESS;
-        // Calculează un vector perpendicular pe direcția beam-ului
         double dx = x2 - x1;
         double dy = y2 - y1;
         double len = Math.hypot(dx, dy);
@@ -317,6 +372,18 @@ public class MusicNotationApp extends Application {
         double[] yPoints = { y1 + ny, y1 - ny, y2 - ny, y2 + ny };
         gc.setFill(Color.BLACK);
         gc.fillPolygon(xPoints, yPoints, 4);
+    }
+
+    private void drawSlopedHook(GraphicsContext gc, double stemX, double y, double slope, int index, int total) {
+        double length = BEAM_HOOK_LENGTH;
+        // Direcția: spre dreapta pentru primul element, spre stânga pentru ultimul,
+        // altfel spre dreapta (se poate ajusta după preferințe)
+        double direction = (index == 0) ? 1 : (index == total - 1) ? -1 : 1;
+        double endX = stemX + direction * length;
+        double endY = y + slope * direction * length;  // se respectă panta
+        gc.setStroke(Color.BLACK);
+        gc.setLineWidth(BEAM_THICKNESS);
+        gc.strokeLine(stemX, y, endX, endY);
     }
 
     private void drawNoteHead(GraphicsContext gc, double x, double y, Duration duration) {
@@ -404,9 +471,9 @@ public class MusicNotationApp extends Application {
         Measure mixedMeasure = new Measure();
         mixedMeasure.addNote(new Note(Pitch.of("C4"), Duration.HALF));
         mixedMeasure.addNote(new Note(Pitch.of("E4"), Duration.QUARTER));
-        mixedMeasure.addNote(new Note(Pitch.of("G4"), Duration.EIGHTH));
-        mixedMeasure.addNote(new Note(Pitch.of("A5"), Duration.SIXTEENTH));
-        mixedMeasure.addNote(new Note(Pitch.of("B5"), Duration.SIXTEENTH));
+        mixedMeasure.addNote(new Note(Pitch.of("C3"), Duration.SIXTEENTH));
+        mixedMeasure.addNote(new Note(Pitch.of("C4"), Duration.EIGHTH));
+        mixedMeasure.addNote(new Note(Pitch.of("E5"), Duration.SIXTEENTH));
 
         Score sampleScore = new Score();
         sampleScore.addMeasure(wholeNoteMeasure);
