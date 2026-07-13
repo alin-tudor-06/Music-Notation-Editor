@@ -31,17 +31,16 @@ public class MusicNotationApp extends Application {
     private static final Pitch TOP_LINE_PITCH = Pitch.of("F5");
     private static final int TOP_LINE_POSITION = 0;
     private static final int BOTTOM_LINE_POSITION = (STAFF_LINE_COUNT - 1) * 2;
+    private static final int MIDDLE_LINE_POSITION = BOTTOM_LINE_POSITION / 2;
 
-    // Horizontal layout of the header (clef + time signature), reserved
-    // before any notes are drawn. All offsets are relative to lineStartX.
     private static final double CLEF_X_OFFSET = 6;
-    private static final double CLEF_FONT_SIZE_FACTOR = 4.0; // relative to STAFF_LINE_SPACING
+    private static final double CLEF_FONT_SIZE_FACTOR = 4.0;
     private static final double TIME_SIGNATURE_X_OFFSET = 72;
-    private static final double TIME_SIGNATURE_FONT_SIZE_FACTOR = 2.2; // relative to STAFF_LINE_SPACING
+    private static final double TIME_SIGNATURE_FONT_SIZE_FACTOR = 2.2;
     private static final double NOTE_START_OFFSET = 120;
 
     private static final double NOTE_SPACING_PER_QUARTER = 60;
-    private static final double MEASURE_START_PADDING = 12*2;
+    private static final double MEASURE_START_PADDING = 12 * 2;
     private static final double MEASURE_END_PADDING = 12;
     private static final double NOTE_HEAD_WIDTH = STAFF_LINE_SPACING * 1.4;
     private static final double NOTE_HEAD_HEIGHT = STAFF_LINE_SPACING;
@@ -52,9 +51,15 @@ public class MusicNotationApp extends Application {
     private static final double FLAG_HEIGHT = 14;
     private static final double FLAG_SPACING = 6;
     private static final double BEAM_THICKNESS = 5;
-    private static final double BEAM_SPACING = BEAM_THICKNESS + 2;  // gap between beam levels
+    private static final double BEAM_SPACING = BEAM_THICKNESS + 2;
     private static final double BEAM_HOOK_LENGTH = NOTE_HEAD_WIDTH * 0.6;
     private static final double MAX_BEAM_SLOPE = 0.25;
+    private static final double BEAMABLE_EXTRA_SPACING = 8; // spațiu suplimentar pentru note cu beam
+
+    // Constante pentru pauze
+    private static final double REST_WIDTH = STAFF_LINE_SPACING * 0.8;
+    private static final double REST_HEIGHT = STAFF_LINE_SPACING * 0.6;
+    private static final double EIGHTH_REST_SLANT = 2.0;
 
     private final Score score = createSampleScore();
 
@@ -82,7 +87,6 @@ public class MusicNotationApp extends Application {
         root.setBottom(statusBar);
 
         Scene scene = new Scene(root, WINDOW_WIDTH, WINDOW_HEIGHT);
-
         primaryStage.setTitle("Music Notation");
         primaryStage.setScene(scene);
         primaryStage.show();
@@ -108,10 +112,8 @@ public class MusicNotationApp extends Application {
         }
 
         drawBarLine(gc, lineStartX, firstLineY, staffHeight);
-
         drawClef(gc, lineStartX, firstLineY, staffHeight);
         drawTimeSignature(gc, lineStartX, firstLineY, staffHeight);
-
         drawNotes(gc, lineStartX, firstLineY, staffHeight);
     }
 
@@ -119,20 +121,8 @@ public class MusicNotationApp extends Application {
         gc.strokeLine(x, firstLineY, x, firstLineY + staffHeight);
     }
 
-    /**
-     * Draws a treble (G) clef at the start of the staff, using the Unicode
-     * musical symbol glyph rendered with a serif font. Purely visual - no
-     * Clef model object exists yet; the G clef is simply assumed, matching
-     * TOP_LINE_PITCH already being hardcoded to F5 elsewhere in this class.
-     * <p>
-     * The clef's curl is conventionally centered on the G4 line (the second
-     * line from the bottom), so the glyph is vertically anchored there.
-     * The font size is capped to the staff height so the glyph stays fully
-     * within the 5 lines instead of overflowing above/below the staff.
-     */
     private void drawClef(GraphicsContext gc, double lineStartX, double firstLineY, double staffHeight) {
         double gLineY = firstLineY + staffHeight - 2 * STAFF_LINE_SPACING;
-
         gc.setFill(Color.BLACK);
         gc.setFont(Font.font("Serif", STAFF_LINE_SPACING * CLEF_FONT_SIZE_FACTOR));
         gc.setTextAlign(TextAlignment.LEFT);
@@ -140,13 +130,6 @@ public class MusicNotationApp extends Application {
         gc.fillText("\uD834\uDD1E", lineStartX + CLEF_X_OFFSET, gLineY);
     }
 
-    /**
-     * Draws a fixed 4/4 time signature as two stacked digits, one centered
-     * on the top half of the staff and one on the bottom half. No
-     * TimeSignature model exists yet; the meter is assumed 4/4, matching
-     * Measure's own hardcoded capacity. Positioned with enough horizontal
-     * offset to sit clearly clear of the (now smaller) clef glyph.
-     */
     private void drawTimeSignature(GraphicsContext gc, double lineStartX, double firstLineY, double staffHeight) {
         double x = lineStartX + TIME_SIGNATURE_X_OFFSET;
         double topY = firstLineY + staffHeight * 0.25;
@@ -160,27 +143,24 @@ public class MusicNotationApp extends Application {
         gc.fillText("4", x, bottomY);
     }
 
-    /**
-     * The computed screen position of a single note, laid out horizontally
-     * along the staff. Used as an intermediate step so that consecutive
-     * beamable notes can be grouped before stems/beams are drawn.
-     */
     private record NoteLayout(double x, double y, Note note, int position) {
     }
 
-    /**
-     * Lays out and draws each measure in sequence, then closes it with a
-     * vertical bar line.
-     * <p>
-     * The gap between the last note and the bar line is made of two parts:
-     * - half of that note's own duration-based spacing (the same
-     *   {@link #noteSpacing(Duration)} used between notes), so a WHOLE or
-     *   HALF note - which visually "owns" more horizontal space - keeps a
-     *   proportionally larger, more natural gap before the bar line than a
-     *   QUARTER, EIGHTH or SIXTEENTH note;
-     * - a small fixed {@link #MEASURE_END_PADDING}, guaranteeing a minimum
-     *   breathing room even for the shortest durations.
-     */
+    private enum StemDirection {
+        UP(-1),
+        DOWN(1);
+
+        private final int sign;
+
+        StemDirection(int sign) {
+            this.sign = sign;
+        }
+
+        int sign() {
+            return sign;
+        }
+    }
+
     private void drawNotes(GraphicsContext gc, double lineStartX, double firstLineY, double staffHeight) {
         double x = lineStartX + NOTE_START_OFFSET;
 
@@ -189,8 +169,15 @@ public class MusicNotationApp extends Application {
             double lastNoteX = x;
             Duration lastDuration = null;
             for (Note note : measure.notes()) {
-                int position = staffPosition(note.pitch());
-                double y = firstLineY + position * (STAFF_LINE_SPACING / 2);
+                int position = 0;
+                double y;
+                if (note.isRest()) {
+                    y = getRestY(firstLineY, staffHeight, note.duration());
+                    // poziția nu este folosită pentru pauze
+                } else {
+                    position = staffPosition(note.pitch());
+                    y = firstLineY + position * (STAFF_LINE_SPACING / 2);
+                }
                 layouts.add(new NoteLayout(x, y, note, position));
                 lastNoteX = x;
                 lastDuration = note.duration();
@@ -206,13 +193,47 @@ public class MusicNotationApp extends Application {
         }
     }
 
+    /**
+     * Calculează poziția verticală (Y) pentru o pauză în funcție de durată.
+     * Conform convenției:
+     * - Pauza întreagă atârnă de linia a 4-a (index 3) în jos.
+     * - Pauza de jumătate stă pe linia a 3-a (index 2) în sus.
+     * - Pauzele de sfert, optime și șaisprezecime sunt centrate în jurul liniei a 3-a.
+     */
+    private double getRestY(double firstLineY, double staffHeight, Duration duration) {
+        // Linia a 4-a (index 3) de jos: y = firstLineY + 3 * STAFF_LINE_SPACING
+        // Linia a 3-a (index 2): y = firstLineY + 2 * STAFF_LINE_SPACING
+        double line3 = firstLineY + 2 * STAFF_LINE_SPACING; // a 3-a linie (0-indexed)
+        double line4 = firstLineY + 3 * STAFF_LINE_SPACING; // a 4-a linie
+
+        if (duration == Duration.WHOLE) {
+            // Pauză întreagă: atârnă de linia a 4-a, partea superioară atinge linia
+            return line4 - REST_HEIGHT;
+        } else if (duration == Duration.HALF) {
+            // Pauză de jumătate: stă pe linia a 3-a, partea inferioară atinge linia
+            return line3 + REST_HEIGHT;
+        } else {
+            // Sfert, optime, șaisprezecime: centrate în jurul liniei a 3-a
+            return line3 + STAFF_LINE_SPACING * 0.1;
+        }
+    }
+
     private void drawMeasureNotes(GraphicsContext gc, double firstLineY, List<NoteLayout> layouts) {
         for (NoteLayout layout : layouts) {
-            drawLedgerLines(gc, layout.x(), firstLineY, layout.position());
-            drawNoteHead(gc, layout.x(), layout.y(), layout.note().duration());
+            if (layout.note().isRest()) {
+                drawRest(gc, layout.x(), layout.y(), layout.note().duration());
+            } else {
+                drawLedgerLines(gc, layout.x(), firstLineY, layout.position());
+                drawNoteHead(gc, layout.x(), layout.y(), layout.note().duration());
+            }
         }
 
-        for (List<NoteLayout> group : groupBeamableNotes(layouts)) {
+        // Filtrăm pauzele înainte de a grupa notele pentru beam
+        List<NoteLayout> nonRests = layouts.stream()
+                .filter(l -> !l.note().isRest())
+                .toList();
+
+        for (List<NoteLayout> group : groupBeamableNotes(nonRests)) {
             if (group.size() >= 2) {
                 drawBeamedGroup(gc, group);
             } else {
@@ -221,11 +242,6 @@ public class MusicNotationApp extends Application {
         }
     }
 
-    /**
-     * Splits a measure's notes into runs of consecutive beamable notes
-     * (eighth notes and shorter) and single-note groups for everything
-     * else. A run of length 1 is treated the same as a non-beamable note.
-     */
     private List<List<NoteLayout>> groupBeamableNotes(List<NoteLayout> layouts) {
         List<List<NoteLayout>> groups = new ArrayList<>();
         List<NoteLayout> currentRun = new ArrayList<>();
@@ -250,68 +266,82 @@ public class MusicNotationApp extends Application {
         }
     }
 
+    private StemDirection stemDirection(int position) {
+        return position > MIDDLE_LINE_POSITION ? StemDirection.UP : StemDirection.DOWN;
+    }
+
+    private StemDirection stemDirection(List<NoteLayout> group) {
+        double averagePosition = group.stream()
+                .mapToInt(NoteLayout::position)
+                .average()
+                .orElse(MIDDLE_LINE_POSITION);
+        return averagePosition > MIDDLE_LINE_POSITION ? StemDirection.UP : StemDirection.DOWN;
+    }
+
+    private double stemAttachX(NoteLayout layout, StemDirection direction) {
+        return direction == StemDirection.UP
+                ? layout.x() + NOTE_HEAD_WIDTH / 2
+                : layout.x() - NOTE_HEAD_WIDTH / 2;
+    }
+
     private void drawUnbeamedNote(GraphicsContext gc, NoteLayout layout) {
         Duration duration = layout.note().duration();
         if (!duration.requiresStem()) {
             return;
         }
 
-        double stemX = layout.x() + NOTE_HEAD_WIDTH / 2;
-        double stemTopY = layout.y() - STEM_HEIGHT;
-        drawStem(gc, stemX, layout.y(), stemTopY);
+        StemDirection direction = stemDirection(layout.position());
+        double stemX = stemAttachX(layout, direction);
+        double stemTipY = layout.y() + direction.sign() * STEM_HEIGHT;
+        drawStem(gc, stemX, layout.y(), stemTipY);
 
         if (duration.flagCount() > 0) {
-            drawFlags(gc, stemX, stemTopY, duration.flagCount());
+            drawFlags(gc, stemX, stemTipY, duration.flagCount(), direction);
         }
     }
 
-    /**
-     * Draws stems for every note in the group up to a single shared beam
-     * height, then connects them with one horizontal beam. Beam height is
-     * the highest (smallest y) of the individual stem tops, so shorter
-     * stems are simply extended to reach the beam - stems always point up,
-     * and the beam is never sloped.
-     */
-
     private void drawBeamedGroup(GraphicsContext gc, List<NoteLayout> group) {
-        // 1. Obținem flagCount‑urile
         int[] flagCounts = group.stream()
                 .mapToInt(layout -> layout.note().duration().flagCount())
                 .toArray();
         int maxFlags = Arrays.stream(flagCounts).max().orElse(0);
         if (maxFlags == 0) return;
 
-        // 2. Calculăm panta dintre prima și ultima notă (cu limitare)
+        StemDirection direction = stemDirection(group);
+        int sign = direction.sign();
+
         NoteLayout first = group.get(0);
         NoteLayout last = group.get(group.size() - 1);
-        double xStart = first.x() + NOTE_HEAD_WIDTH / 2;
-        double xEnd   = last.x()  + NOTE_HEAD_WIDTH / 2;
-        double yStartTip = first.y() - STEM_HEIGHT;
-        double yEndTip   = last.y()  - STEM_HEIGHT;
+        double xStart = stemAttachX(first, direction);
+        double xEnd   = stemAttachX(last, direction);
+        double yStartTip = first.y() + sign * STEM_HEIGHT;
+        double yEndTip   = last.y()  + sign * STEM_HEIGHT;
 
         double slope = (yEndTip - yStartTip) / (xEnd - xStart);
         slope = Math.max(-MAX_BEAM_SLOPE, Math.min(MAX_BEAM_SLOPE, slope));
 
-        // 3. Calculăm interceptul b astfel încât toate beam‑urile să fie deasupra capetelor
-        double b = Double.MAX_VALUE;
+        // Interceptul b: offset pentru beam-ul secundar între primar și cap
+        double b = sign < 0 ? Double.MAX_VALUE : -Double.MAX_VALUE;
         for (int i = 0; i < group.size(); i++) {
             NoteLayout layout = group.get(i);
-            double stemX = layout.x() + NOTE_HEAD_WIDTH / 2;
-            double candidateB = (layout.y() - STEM_HEIGHT) - slope * stemX - (flagCounts[i] - 1) * BEAM_SPACING;
-            if (candidateB < b) b = candidateB;
+            double stemX = stemAttachX(layout, direction);
+            double candidateB = (layout.y() + sign * STEM_HEIGHT) - slope * stemX
+                    - sign * (flagCounts[i] - 1) * BEAM_SPACING;
+            if (sign < 0) {
+                if (candidateB < b) b = candidateB;
+            } else {
+                if (candidateB > b) b = candidateB;
+            }
         }
 
-        // 4. Desenăm tijele – fiecare se termină la nivelul corespunzător flagCount‑ului
         for (int i = 0; i < group.size(); i++) {
             NoteLayout layout = group.get(i);
-            double stemX = layout.x() + NOTE_HEAD_WIDTH / 2;
-            double topY = slope * stemX + b + (flagCounts[i] - 1) * BEAM_SPACING;
+            double stemX = stemAttachX(layout, direction);
+            double topY = slope * stemX + b - sign * (flagCounts[i] - 1) * BEAM_SPACING;
             drawStem(gc, stemX, layout.y(), topY);
         }
 
-        // 5. Desenăm beam‑urile și cârligele pentru fiecare nivel
         for (int level = 1; level <= maxFlags; level++) {
-            // Identificăm run‑urile de note care au flagCount >= level
             List<int[]> runs = new ArrayList<>();
             int start = -1;
             for (int i = 0; i < group.size(); i++) {
@@ -326,33 +356,28 @@ public class MusicNotationApp extends Application {
             }
             if (start != -1) runs.add(new int[]{start, group.size() - 1});
 
-            // Desenăm fiecare run
             for (int[] run : runs) {
                 int firstIdx = run[0];
                 int lastIdx  = run[1];
-                double x1 = group.get(firstIdx).x() + NOTE_HEAD_WIDTH / 2;
-                double x2 = group.get(lastIdx).x()  + NOTE_HEAD_WIDTH / 2;
-                double y1 = slope * x1 + b + (level - 1) * BEAM_SPACING;
-                double y2 = slope * x2 + b + (level - 1) * BEAM_SPACING;
+                double x1 = stemAttachX(group.get(firstIdx), direction);
+                double x2 = stemAttachX(group.get(lastIdx), direction);
+                double y1 = slope * x1 + b - sign * (level - 1) * BEAM_SPACING;
+                double y2 = slope * x2 + b - sign * (level - 1) * BEAM_SPACING;
 
                 if (firstIdx == lastIdx) {
-                    // Cârlig (hook) – înclinat, nu orizontal
                     drawSlopedHook(gc, x1, y1, slope, firstIdx, group.size());
-                    // Conectare verticală la beam‑ul superior (dacă există)
                     if (level > 1) {
                         gc.setStroke(Color.BLACK);
                         gc.setLineWidth(1);
-                        gc.strokeLine(x1, y1, x1, y1 - BEAM_SPACING);
+                        gc.strokeLine(x1, y1, x1, y1 - sign * BEAM_SPACING);
                     }
                 } else {
-                    // Beam continuu
                     drawBeam(gc, x1, y1, x2, y2);
-                    // Conectare verticală la beam‑ul superior (doar pentru nivelul 2)
                     if (level == 2) {
                         gc.setStroke(Color.BLACK);
                         gc.setLineWidth(1);
-                        gc.strokeLine(x1, y1, x1, y1 - BEAM_SPACING);
-                        gc.strokeLine(x2, y2, x2, y2 - BEAM_SPACING);
+                        gc.strokeLine(x1, y1, x1, y1 - sign * BEAM_SPACING);
+                        gc.strokeLine(x2, y2, x2, y2 - sign * BEAM_SPACING);
                     }
                 }
             }
@@ -376,11 +401,9 @@ public class MusicNotationApp extends Application {
 
     private void drawSlopedHook(GraphicsContext gc, double stemX, double y, double slope, int index, int total) {
         double length = BEAM_HOOK_LENGTH;
-        // Direcția: spre dreapta pentru primul element, spre stânga pentru ultimul,
-        // altfel spre dreapta (se poate ajusta după preferințe)
         double direction = (index == 0) ? 1 : (index == total - 1) ? -1 : 1;
         double endX = stemX + direction * length;
-        double endY = y + slope * direction * length;  // se respectă panta
+        double endY = y + slope * direction * length;
         gc.setStroke(Color.BLACK);
         gc.setLineWidth(BEAM_THICKNESS);
         gc.strokeLine(stemX, y, endX, endY);
@@ -406,18 +429,20 @@ public class MusicNotationApp extends Application {
         gc.strokeLine(stemX, stemBottomY, stemX, stemTopY);
     }
 
-    private void drawFlags(GraphicsContext gc, double stemX, double stemTopY, int flagCount) {
+    private void drawFlags(GraphicsContext gc, double stemX, double stemTipY, int flagCount, StemDirection direction) {
+        int towardNoteheadSign = -direction.sign();
         for (int i = 0; i < flagCount; i++) {
-            double flagStartY = stemTopY + i * FLAG_SPACING;
-            drawFlag(gc, stemX, flagStartY);
+            double flagStartY = stemTipY + i * FLAG_SPACING * towardNoteheadSign;
+            drawFlag(gc, stemX, flagStartY, direction);
         }
     }
 
-    private void drawFlag(GraphicsContext gc, double startX, double startY) {
+    private void drawFlag(GraphicsContext gc, double startX, double startY, StemDirection direction) {
+        int towardNoteheadSign = -direction.sign();
         double controlX = startX + FLAG_WIDTH;
-        double controlY = startY + FLAG_HEIGHT / 2;
+        double controlY = startY + towardNoteheadSign * FLAG_HEIGHT / 2;
         double endX = startX + FLAG_WIDTH * 0.6;
-        double endY = startY + FLAG_HEIGHT;
+        double endY = startY + towardNoteheadSign * FLAG_HEIGHT;
 
         gc.setStroke(Color.BLACK);
         gc.setLineWidth(1);
@@ -426,6 +451,54 @@ public class MusicNotationApp extends Application {
         gc.quadraticCurveTo(controlX, controlY, endX, endY);
         gc.stroke();
     }
+
+    // ===================== DESENAREA PAUZELOR =====================
+
+    private void drawRest(GraphicsContext gc, double x, double y, Duration duration) {
+        gc.setStroke(Color.BLACK);
+        gc.setFill(Color.BLACK);
+        gc.setLineWidth(1.5);
+
+        double w = REST_WIDTH;
+        double h = REST_HEIGHT;
+
+        if (duration == Duration.WHOLE) {
+            // Pauză întreagă – dreptunghi umplut, atârnă de linie (y este sus)
+            gc.fillRect(x - w / 2, y, w, h);
+        } else if (duration == Duration.HALF) {
+            // Pauză de jumătate – dreptunghi umplut, stă pe linie (y este jos)
+            gc.fillRect(x - w / 2, y - h, w, h);
+        } else if (duration == Duration.QUARTER) {
+            // Pauză de sfert – formă curbă stilizată (squiggly)
+            double cx = x;
+            double cy = y;
+            gc.beginPath();
+            gc.moveTo(cx - w / 2, cy + h / 2);
+            gc.quadraticCurveTo(cx - w / 2, cy - h / 2, cx, cy - h / 2);
+            gc.quadraticCurveTo(cx + w / 2, cy - h / 2, cx + w / 2, cy);
+            gc.quadraticCurveTo(cx + w / 2, cy + h / 2, cx, cy + h / 2);
+            gc.quadraticCurveTo(cx - w / 2, cy + h / 2, cx - w / 2, cy + h / 2);
+            gc.closePath();
+            gc.fill();
+        } else if (duration == Duration.EIGHTH || duration == Duration.SIXTEENTH) {
+            // Pauze de optime și șaisprezecime – linie înclinată cu cârlige
+            double slant = EIGHTH_REST_SLANT;
+            double height = STAFF_LINE_SPACING * 0.8;
+            double startX = x - w / 2;
+            double startY = y - height / 2;
+            double endX = x + w / 2;
+            double endY = y + height / 2 + slant;
+            gc.strokeLine(startX, startY, endX, endY);
+            int hooks = (duration == Duration.SIXTEENTH) ? 2 : 1;
+            for (int i = 0; i < hooks; i++) {
+                double hookX = endX - i * 4;
+                double hookY = endY - i * 6;
+                gc.strokeLine(endX, endY, hookX, hookY);
+            }
+        }
+    }
+
+    // ===================== SFÂRȘIT DESENARE PAUZE =====================
 
     private void drawLedgerLines(GraphicsContext gc, double x, double firstLineY, int position) {
         if (position < TOP_LINE_POSITION) {
@@ -453,7 +526,11 @@ public class MusicNotationApp extends Application {
     }
 
     private double noteSpacing(Duration duration) {
-        return NOTE_SPACING_PER_QUARTER * duration.toQuarterNoteFraction();
+        double base = NOTE_SPACING_PER_QUARTER * duration.toQuarterNoteFraction();
+        if (duration.isBeamable()) {
+            base += BEAMABLE_EXTRA_SPACING;
+        }
+        return base;
     }
 
     private int staffPosition(Pitch pitch) {
@@ -465,19 +542,20 @@ public class MusicNotationApp extends Application {
     }
 
     private static Score createSampleScore() {
-        Measure wholeNoteMeasure = new Measure();
-        wholeNoteMeasure.addNote(new Note(Pitch.of("C4"), Duration.WHOLE));
+        Measure measure1 = new Measure();
+        measure1.addNote(new Note(Pitch.of("C4"), Duration.WHOLE));
 
-        Measure mixedMeasure = new Measure();
-        mixedMeasure.addNote(new Note(Pitch.of("C4"), Duration.HALF));
-        mixedMeasure.addNote(new Note(Pitch.of("E4"), Duration.QUARTER));
-        mixedMeasure.addNote(new Note(Pitch.of("C3"), Duration.SIXTEENTH));
-        mixedMeasure.addNote(new Note(Pitch.of("C4"), Duration.EIGHTH));
-        mixedMeasure.addNote(new Note(Pitch.of("E5"), Duration.SIXTEENTH));
+        Measure measure2 = new Measure();
+        measure2.addNote(new Note(Pitch.of("C5"), Duration.HALF));
+        measure2.addNote(new Note(Pitch.of("E4"), Duration.QUARTER));
+        measure2.addNote(new Note(Duration.SIXTEENTH));
+        measure2.addNote(new Note(Pitch.of("E4"), Duration.EIGHTH));
+        measure2.addNote(new Note(Pitch.of("E4"), Duration.SIXTEENTH));
+
 
         Score sampleScore = new Score();
-        sampleScore.addMeasure(wholeNoteMeasure);
-        sampleScore.addMeasure(mixedMeasure);
+        sampleScore.addMeasure(measure1);
+        sampleScore.addMeasure(measure2);
 
         return sampleScore;
     }
