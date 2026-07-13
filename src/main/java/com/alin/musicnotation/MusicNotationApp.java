@@ -547,10 +547,7 @@ public class MusicNotationApp extends Application {
 
         Measure measure2 = new Measure();
         measure2.addNote(new Note(Pitch.of("C5"), Duration.HALF));
-        measure2.addNote(new Note(Pitch.of("E4"), Duration.QUARTER));
-        measure2.addNote(new Note(Duration.SIXTEENTH));
-        measure2.addNote(new Note(Pitch.of("E4"), Duration.EIGHTH));
-        measure2.addNote(new Note(Pitch.of("E4"), Duration.SIXTEENTH));
+        measure2.addNote(new Note(Duration.HALF));
 
 
         Score sampleScore = new Score();
