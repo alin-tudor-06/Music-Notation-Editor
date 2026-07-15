@@ -34,10 +34,12 @@ public class MusicNotationApp extends Application {
     private static final int MIDDLE_LINE_POSITION = BOTTOM_LINE_POSITION / 2;
 
     private static final double CLEF_X_OFFSET = 6;
+    private static final double KEY_SIGNATURE_X_OFFSET = 44;
+    private static final double KEY_ACCIDENTAL_SPACING = 8;
+    private static final double ACCIDENTAL_FONT_SIZE_FACTOR = 1.2;
     private static final double CLEF_FONT_SIZE_FACTOR = 4.0;
-    private static final double TIME_SIGNATURE_X_OFFSET = 72;
     private static final double TIME_SIGNATURE_FONT_SIZE_FACTOR = 2.2;
-    private static final double NOTE_START_OFFSET = 120;
+    private static final double TIME_SIGNATURE_WIDTH = 30;
 
     private static final double NOTE_SPACING_PER_QUARTER = 60;
     private static final double MEASURE_START_PADDING = 12 * 2;
@@ -55,15 +57,12 @@ public class MusicNotationApp extends Application {
     private static final double BEAM_HOOK_LENGTH = NOTE_HEAD_WIDTH * 0.6;
     private static final double MAX_BEAM_SLOPE = 0.25;
     private static final double BEAMABLE_EXTRA_SPACING = 8;
+    private static final double ACCIDENTAL_EXTRA_SPACING = 14;
+    private static final double ACCIDENTAL_GAP = 6;
 
-    // Constante pentru pauze
     private static final double REST_WIDTH = STAFF_LINE_SPACING * 0.8;
     private static final double REST_HEIGHT = STAFF_LINE_SPACING * 0.6;
     private static final double EIGHTH_REST_SLANT = 2.0;
-
-    // Constante pentru alterații
-    private static final double ACCIDENTAL_EXTRA_SPACING = 14;
-    private static final double ACCIDENTAL_GAP = 6;
 
     private final Score score = createSampleScore();
 
@@ -116,9 +115,20 @@ public class MusicNotationApp extends Application {
         }
 
         drawBarLine(gc, lineStartX, firstLineY, staffHeight);
+
+        // Clef
         drawClef(gc, lineStartX, firstLineY, staffHeight);
-        drawTimeSignature(gc, lineStartX, firstLineY, staffHeight);
-        drawNotes(gc, lineStartX, firstLineY, staffHeight);
+
+        // Key signature – calculăm poziția finală
+        double keySigEndX = drawKeySignature(gc, lineStartX, firstLineY, staffHeight);
+
+        // Time signature – poziționat după key signature
+        double timeSigX = keySigEndX + 10;
+        drawTimeSignature(gc, timeSigX, firstLineY, staffHeight);
+
+        // Note – poziționat după time signature
+        double noteStartX = timeSigX + TIME_SIGNATURE_WIDTH + MEASURE_START_PADDING;
+        drawNotes(gc, firstLineY, staffHeight, noteStartX);
     }
 
     private void drawBarLine(GraphicsContext gc, double x, double firstLineY, double staffHeight) {
@@ -134,8 +144,24 @@ public class MusicNotationApp extends Application {
         gc.fillText("\uD834\uDD1E", lineStartX + CLEF_X_OFFSET, gLineY);
     }
 
-    private void drawTimeSignature(GraphicsContext gc, double lineStartX, double firstLineY, double staffHeight) {
-        double x = lineStartX + TIME_SIGNATURE_X_OFFSET;
+    private double drawKeySignature(GraphicsContext gc, double lineStartX, double firstLineY, double staffHeight) {
+        KeySignature ks = score.keySignature();
+        List<Pitch> alteredPitches = ks.alteredPitches();
+        if (alteredPitches.isEmpty()) {
+            return lineStartX + CLEF_X_OFFSET + KEY_SIGNATURE_X_OFFSET;
+        }
+
+        double x = lineStartX + CLEF_X_OFFSET + KEY_SIGNATURE_X_OFFSET;
+        for (Pitch pitch : alteredPitches) {
+            int position = staffPosition(pitch);
+            double y = firstLineY + position * (STAFF_LINE_SPACING / 2);
+            drawAccidental(gc, x, y, pitch.accidental());
+            x += KEY_ACCIDENTAL_SPACING + STAFF_LINE_SPACING * 0.7;
+        }
+        return x;
+    }
+
+    private void drawTimeSignature(GraphicsContext gc, double x, double firstLineY, double staffHeight) {
         double topY = firstLineY + staffHeight * 0.25;
         double bottomY = firstLineY + staffHeight * 0.75;
 
@@ -165,8 +191,8 @@ public class MusicNotationApp extends Application {
         }
     }
 
-    private void drawNotes(GraphicsContext gc, double lineStartX, double firstLineY, double staffHeight) {
-        double x = lineStartX + NOTE_START_OFFSET;
+    private void drawNotes(GraphicsContext gc, double firstLineY, double staffHeight, double startX) {
+        double x = startX;
 
         for (Measure measure : score.measures()) {
             List<NoteLayout> layouts = new ArrayList<>();
@@ -186,9 +212,9 @@ public class MusicNotationApp extends Application {
                 layouts.add(new NoteLayout(x, y, note, position, currentSixteenths));
                 lastNoteX = x;
                 lastDuration = note.duration();
+
                 double spacing = noteSpacing(note.duration());
-                // Spațiu suplimentar pentru notele cu alterație
-                if (!note.isRest() && note.pitch().accidental() != Accidental.NONE) {
+                if (!note.isRest() && shouldDisplayAccidental(note.pitch())) {
                     spacing += ACCIDENTAL_EXTRA_SPACING;
                 }
                 x += spacing;
@@ -218,19 +244,19 @@ public class MusicNotationApp extends Application {
     }
 
     private void drawMeasureNotes(GraphicsContext gc, double firstLineY, List<NoteLayout> layouts) {
-        // Desenăm capete, pauze și linii adiționale
         for (NoteLayout layout : layouts) {
             if (layout.note().isRest()) {
                 drawRest(gc, layout.x(), layout.y(), layout.note().duration());
             } else {
                 drawLedgerLines(gc, layout.x(), firstLineY, layout.position());
-                drawAccidental(gc, layout.x(), layout.y(), layout.note().pitch().accidental());
+                if (shouldDisplayAccidental(layout.note().pitch())) {
+                    double symbolX = layout.x() - NOTE_HEAD_WIDTH / 2 - ACCIDENTAL_GAP;
+                    drawAccidental(gc, symbolX, layout.y(), layout.note().pitch().accidental());
+                }
                 drawNoteHead(gc, layout.x(), layout.y(), layout.note().duration());
             }
         }
 
-        // Desenăm tijele pentru notele care nu sunt beamable (sferturi, jumătăți, întregi)
-        // și pentru notele care sunt beamable dar nu sunt grupate (cazuri rare)
         for (NoteLayout layout : layouts) {
             if (layout.note().isRest()) continue;
             Duration duration = layout.note().duration();
@@ -239,12 +265,10 @@ public class MusicNotationApp extends Application {
             }
         }
 
-        // Procesăm grupurile de beam
         for (List<NoteLayout> group : groupBeamsByBeat(layouts)) {
             if (group.size() >= 2) {
                 drawBeamedGroup(gc, group);
             } else if (group.size() == 1) {
-                // Deja desenat mai sus pentru non-beamable, dar pentru beamable singure trebuie să desenăm tijele
                 drawUnbeamedNote(gc, group.get(0));
             }
         }
@@ -283,13 +307,6 @@ public class MusicNotationApp extends Application {
         return groups;
     }
 
-    private void flushRun(List<List<NoteLayout>> groups, List<NoteLayout> currentRun) {
-        if (!currentRun.isEmpty()) {
-            groups.add(List.copyOf(currentRun));
-            currentRun.clear();
-        }
-    }
-
     private StemDirection stemDirection(int position) {
         return position > MIDDLE_LINE_POSITION ? StemDirection.UP : StemDirection.DOWN;
     }
@@ -308,53 +325,25 @@ public class MusicNotationApp extends Application {
                 : layout.x() - NOTE_HEAD_WIDTH / 2;
     }
 
-    /**
-     * Calculează coordonata Y a vârfului tijei pentru o notă individuală.
-     * Regula:
-     * - normal: lungime = 3.5 spații.
-     * - dacă nota este în afara portativului, tija se prelungește până la linia mediană.
-     */
     private double computeStemTipY(NoteLayout layout, StemDirection direction, double middleLineY) {
         double y = layout.y();
-        int position = layout.position();
-
-        // Linia mediană pentru această notă (absolută)
-        double noteMiddleLineY = y + (MIDDLE_LINE_POSITION - position) * (STAFF_LINE_SPACING / 2);
-        // Folosim middleLineY global pentru consistență
-        double targetMiddleLineY = middleLineY;
-
         double standardTipY = y + direction.sign() * STEM_LENGTH_STANDARD;
 
         if (direction == StemDirection.UP) {
-            // Pentru note sub linia mediană, tija trebuie să ajungă cel puțin la middleLineY
-            if (y > middleLineY) {
-                return Math.min(standardTipY, targetMiddleLineY);
-            } else {
-                return standardTipY;
-            }
-        } else { // DOWN
-            // Pentru note deasupra liniei mediane, tija trebuie să ajungă cel puțin la middleLineY
-            if (y < middleLineY) {
-                return Math.max(standardTipY, targetMiddleLineY);
-            } else {
-                return standardTipY;
-            }
+            return Math.min(standardTipY, middleLineY);
+        } else {
+            return Math.max(standardTipY, middleLineY);
         }
     }
 
     private void drawUnbeamedNote(GraphicsContext gc, NoteLayout layout) {
-        if (layout.note().isRest()) {
-            return;
-        }
-
+        if (layout.note().isRest()) return;
         Duration duration = layout.note().duration();
-        if (!duration.requiresStem()) {
-            return;
-        }
+        if (!duration.requiresStem()) return;
 
         StemDirection direction = stemDirection(layout.position());
-        double stemX = stemAttachX(layout, direction);
         double middleLineY = layout.y() + (MIDDLE_LINE_POSITION - layout.position()) * (STAFF_LINE_SPACING / 2);
+        double stemX = stemAttachX(layout, direction);
         double stemTipY = computeStemTipY(layout, direction, middleLineY);
         drawStem(gc, stemX, layout.y(), stemTipY);
 
@@ -471,6 +460,30 @@ public class MusicNotationApp extends Application {
         gc.strokeLine(stemX, y, endX, endY);
     }
 
+    private void drawAccidental(GraphicsContext gc, double x, double y, Accidental accidental) {
+        if (accidental == Accidental.NONE) return;
+        String symbol = accidental.unicodeSymbol();
+        gc.setFill(Color.BLACK);
+        gc.setFont(Font.font("Serif", STAFF_LINE_SPACING * ACCIDENTAL_FONT_SIZE_FACTOR));
+        gc.setTextAlign(TextAlignment.CENTER);
+        gc.setTextBaseline(javafx.geometry.VPos.CENTER);
+        gc.fillText(symbol, x, y);
+    }
+
+    private boolean shouldDisplayAccidental(Pitch pitch) {
+        Accidental pitchAcc = pitch.accidental();
+        KeySignature ks = score.keySignature();
+        Accidental keyAcc = ks.accidentalForStep(pitch.step());
+
+        if (pitchAcc == Accidental.NONE) {
+            return false;
+        }
+        if (pitchAcc == Accidental.NATURAL) {
+            return keyAcc != Accidental.NONE;
+        }
+        return keyAcc != pitchAcc;
+    }
+
     private void drawNoteHead(GraphicsContext gc, double x, double y, Duration duration) {
         double headX = x - NOTE_HEAD_WIDTH / 2;
         double headY = y - NOTE_HEAD_HEIGHT / 2;
@@ -514,21 +527,6 @@ public class MusicNotationApp extends Application {
         gc.stroke();
     }
 
-    // ===== DESENAREA ALTERAȚIILOR =====
-
-    private void drawAccidental(GraphicsContext gc, double x, double y, Accidental accidental) {
-        if (accidental == Accidental.NONE) return;
-        String symbol = accidental.unicodeSymbol();
-        gc.setFill(Color.BLACK);
-        gc.setFont(Font.font("Serif", STAFF_LINE_SPACING * 1.2));
-        gc.setTextAlign(TextAlignment.CENTER);
-        gc.setTextBaseline(javafx.geometry.VPos.CENTER);
-        double symbolX = x - NOTE_HEAD_WIDTH / 2 - ACCIDENTAL_GAP;
-        gc.fillText(symbol, symbolX, y);
-    }
-
-    // ===== DESENAREA PAUZELOR =====
-
     private void drawRest(GraphicsContext gc, double x, double y, Duration duration) {
         gc.setStroke(Color.BLACK);
         gc.setFill(Color.BLACK);
@@ -568,8 +566,6 @@ public class MusicNotationApp extends Application {
             }
         }
     }
-
-    // ===== SFÂRȘIT DESENARE PAUZE =====
 
     private void drawLedgerLines(GraphicsContext gc, double x, double firstLineY, int position) {
         if (position < TOP_LINE_POSITION) {
@@ -613,25 +609,26 @@ public class MusicNotationApp extends Application {
     }
 
     private static Score createSampleScore() {
+        Score score = new Score(KeySignature.F_SHARP_MAJOR); // 6 diezi
+
         Measure measure1 = new Measure();
         measure1.addNote(new Note(Pitch.of("C4"), Duration.WHOLE));
 
         Measure measure2 = new Measure();
         measure2.addNote(new Note(Pitch.of("F#4"), Duration.HALF));
-        measure2.addNote(new Note(Pitch.of("Bb4"), Duration.HALF));
+        measure2.addNote(new Note(Pitch.of("Fn4"), Duration.HALF));
 
         Measure measure3 = new Measure();
-        measure3.addNote(new Note(Pitch.of("Fn5"), Duration.QUARTER));
         measure3.addNote(new Note(Pitch.of("C5"), Duration.QUARTER));
+        measure3.addNote(new Note(Pitch.of("G4"), Duration.QUARTER));
+        measure3.addNote(new Note(Pitch.of("F#4"), Duration.EIGHTH));
         measure3.addNote(new Note(Pitch.of("G#4"), Duration.EIGHTH));
-        measure3.addNote(new Note(Pitch.of("E4"), Duration.EIGHTH));
 
-        Score sampleScore = new Score();
-        sampleScore.addMeasure(measure1);
-        sampleScore.addMeasure(measure2);
-        sampleScore.addMeasure(measure3);
+        score.addMeasure(measure1);
+        score.addMeasure(measure2);
+        score.addMeasure(measure3);
 
-        return sampleScore;
+        return score;
     }
 
     public static void main(String[] args) {
