@@ -1,15 +1,6 @@
 package com.alin.musicnotation;
 
-/**
- * Represents a musical pitch such as C4, D4, F#5 or Bb3.
- * <p>
- * A pitch is defined by:
- * - step: the letter name of the note (C, D, E, F, G, A, B);
- * - alter: the number of semitones applied by an accidental
- *   (negative for flats, positive for sharps, zero for natural);
- * - octave: the scientific pitch notation octave number.
- */
-public record Pitch(Step step, int alter, int octave) {
+public record Pitch(Step step, Accidental accidental, int octave) {
 
     private static final int[] STEP_SEMITONES = {0, 2, 4, 5, 7, 9, 11};
 
@@ -17,42 +8,52 @@ public record Pitch(Step step, int alter, int octave) {
         C, D, E, F, G, A, B
     }
 
-    public Pitch {
-        if (alter < -2 || alter > 2) {
-            throw new IllegalArgumentException("Alter must be between -2 and 2");
-        }
+    /**
+     * Constructor simplu pentru note fără alterație (NONE).
+     */
+    public Pitch(Step step, int octave) {
+        this(step, Accidental.NONE, octave);
     }
 
     /**
-     * Parses a pitch from scientific pitch notation, e.g. "C4", "F#5", "Bb3".
+     * Parsează un pitch din notația științifică, e.g. "C4", "F#5", "Bb3", "Fn4".
      */
     public static Pitch of(String name) {
         Step step = Step.valueOf(name.substring(0, 1).toUpperCase());
 
         int index = 1;
-        int alter = 0;
-        if (index < name.length() && name.charAt(index) == '#') {
-            alter = 1;
-            index++;
-        } else if (index < name.length() && name.charAt(index) == 'b') {
-            alter = -1;
-            index++;
+        Accidental accidental = Accidental.NONE;
+        if (index < name.length()) {
+            char c = name.charAt(index);
+            if (c == '#') {
+                accidental = Accidental.SHARP;
+                index++;
+            } else if (c == 'b') {
+                accidental = Accidental.FLAT;
+                index++;
+            } else if (c == 'n') {
+                accidental = Accidental.NATURAL;
+                index++;
+            }
         }
 
         int octave = Integer.parseInt(name.substring(index));
-        return new Pitch(step, alter, octave);
+        return new Pitch(step, accidental, octave);
     }
 
     /**
-     * Converts this pitch to its MIDI note number (C4 = 60).
+     * Numărul MIDI al notei (C4 = 60).
      */
     public int toMidiNumber() {
-        return (octave + 1) * 12 + STEP_SEMITONES[step.ordinal()] + alter;
+        return (octave + 1) * 12 + STEP_SEMITONES[step.ordinal()] + accidental.semitoneOffset();
     }
 
     @Override
     public String toString() {
-        String accidental = alter > 0 ? "#".repeat(alter) : "b".repeat(-alter);
-        return step.name() + accidental + octave;
+        String accidentalStr = accidental == Accidental.SHARP ? "#"
+                : accidental == Accidental.FLAT ? "b"
+                : accidental == Accidental.NATURAL ? "n"
+                : "";
+        return step.name() + accidentalStr + octave;
     }
 }
