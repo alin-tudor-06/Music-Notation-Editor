@@ -73,4 +73,12 @@ public enum Duration {
     public int flagCount() {
         return flagCount;
     }
+
+    /**
+     * Numărul de șaisprezecimi echivalent cu această durată.
+     * De exemplu, o durată QUARTER = 4, EIGHTH = 2, SIXTEENTH = 1.
+     */
+    public int sixteenths() {
+        return 16 / denominator;
+    }
 }

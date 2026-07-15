@@ -54,7 +54,7 @@ public class MusicNotationApp extends Application {
     private static final double BEAM_SPACING = BEAM_THICKNESS + 2;
     private static final double BEAM_HOOK_LENGTH = NOTE_HEAD_WIDTH * 0.6;
     private static final double MAX_BEAM_SLOPE = 0.25;
-    private static final double BEAMABLE_EXTRA_SPACING = 8; // spațiu suplimentar pentru note cu beam
+    private static final double BEAMABLE_EXTRA_SPACING = 8;
 
     // Constante pentru pauze
     private static final double REST_WIDTH = STAFF_LINE_SPACING * 0.8;
@@ -143,7 +143,8 @@ public class MusicNotationApp extends Application {
         gc.fillText("4", x, bottomY);
     }
 
-    private record NoteLayout(double x, double y, Note note, int position) {
+    // ----- MODIFICAT: adăugat startSixteenths -----
+    private record NoteLayout(double x, double y, Note note, int position, int startSixteenths) {
     }
 
     private enum StemDirection {
@@ -168,20 +169,22 @@ public class MusicNotationApp extends Application {
             List<NoteLayout> layouts = new ArrayList<>();
             double lastNoteX = x;
             Duration lastDuration = null;
+            int currentSixteenths = 0; // timpul curent în șaisprezecimi de la începutul măsurii
+
             for (Note note : measure.notes()) {
                 int position = 0;
                 double y;
                 if (note.isRest()) {
                     y = getRestY(firstLineY, staffHeight, note.duration());
-                    // poziția nu este folosită pentru pauze
                 } else {
                     position = staffPosition(note.pitch());
                     y = firstLineY + position * (STAFF_LINE_SPACING / 2);
                 }
-                layouts.add(new NoteLayout(x, y, note, position));
+                layouts.add(new NoteLayout(x, y, note, position, currentSixteenths));
                 lastNoteX = x;
                 lastDuration = note.duration();
                 x += noteSpacing(note.duration());
+                currentSixteenths += note.duration().sixteenths(); // folosește metoda nouă
             }
             drawMeasureNotes(gc, firstLineY, layouts);
 
@@ -193,32 +196,22 @@ public class MusicNotationApp extends Application {
         }
     }
 
-    /**
-     * Calculează poziția verticală (Y) pentru o pauză în funcție de durată.
-     * Conform convenției:
-     * - Pauza întreagă atârnă de linia a 4-a (index 3) în jos.
-     * - Pauza de jumătate stă pe linia a 3-a (index 2) în sus.
-     * - Pauzele de sfert, optime și șaisprezecime sunt centrate în jurul liniei a 3-a.
-     */
     private double getRestY(double firstLineY, double staffHeight, Duration duration) {
-        // Linia a 4-a (index 3) de jos: y = firstLineY + 3 * STAFF_LINE_SPACING
-        // Linia a 3-a (index 2): y = firstLineY + 2 * STAFF_LINE_SPACING
-        double line3 = firstLineY + 2 * STAFF_LINE_SPACING; // a 3-a linie (0-indexed)
-        double line4 = firstLineY + 3 * STAFF_LINE_SPACING; // a 4-a linie
+        double line3 = firstLineY + 2 * STAFF_LINE_SPACING;
+        double line4 = firstLineY + 3 * STAFF_LINE_SPACING;
 
         if (duration == Duration.WHOLE) {
-            // Pauză întreagă: atârnă de linia a 4-a, partea superioară atinge linia
             return line4 - REST_HEIGHT;
         } else if (duration == Duration.HALF) {
-            // Pauză de jumătate: stă pe linia a 3-a, partea inferioară atinge linia
             return line3 + REST_HEIGHT;
         } else {
-            // Sfert, optime, șaisprezecime: centrate în jurul liniei a 3-a
             return line3 + STAFF_LINE_SPACING * 0.1;
         }
     }
 
+    // În drawMeasureNotes:
     private void drawMeasureNotes(GraphicsContext gc, double firstLineY, List<NoteLayout> layouts) {
+        // Desenează capetele de notă și liniile auxiliare (pentru notele care nu sunt pauze)
         for (NoteLayout layout : layouts) {
             if (layout.note().isRest()) {
                 drawRest(gc, layout.x(), layout.y(), layout.note().duration());
@@ -228,36 +221,60 @@ public class MusicNotationApp extends Application {
             }
         }
 
-        // Filtrăm pauzele înainte de a grupa notele pentru beam
-        List<NoteLayout> nonRests = layouts.stream()
-                .filter(l -> !l.note().isRest())
-                .toList();
-
-        for (List<NoteLayout> group : groupBeamableNotes(nonRests)) {
+        // Grupează și desenează stem-uri / beam-uri / flags
+        for (List<NoteLayout> group : groupBeamsByBeat(layouts)) {
             if (group.size() >= 2) {
                 drawBeamedGroup(gc, group);
             } else {
+                // desenează nota individuală (poate fi beamable sau nu)
                 drawUnbeamedNote(gc, group.get(0));
             }
         }
     }
 
-    private List<List<NoteLayout>> groupBeamableNotes(List<NoteLayout> layouts) {
+    // groupBeamsByBeat rescrisă:
+    private List<List<NoteLayout>> groupBeamsByBeat(List<NoteLayout> layouts) {
         List<List<NoteLayout>> groups = new ArrayList<>();
-        List<NoteLayout> currentRun = new ArrayList<>();
+        List<NoteLayout> currentRun = null;
+        int currentBeat = -1;
 
         for (NoteLayout layout : layouts) {
-            if (layout.note().duration().isBeamable()) {
-                currentRun.add(layout);
-            } else {
-                flushRun(groups, currentRun);
+            Duration dur = layout.note().duration();
+            if (!dur.isBeamable()) {
+                // notă non-beamable: închide grupul curent (dacă există) și adaugă această notă ca grup individual
+                if (currentRun != null && !currentRun.isEmpty()) {
+                    groups.add(currentRun);
+                    currentRun = null;
+                }
                 groups.add(List.of(layout));
+            } else {
+                // notă beamable: încearcă să o adauge la grupul curent dacă este în aceeași bătaie
+                int beat = layout.startSixteenths() / 4; // o bătaie = 4 șaisprezecimi
+                if (currentRun == null) {
+                    currentRun = new ArrayList<>();
+                    currentRun.add(layout);
+                    currentBeat = beat;
+                } else if (beat == currentBeat) {
+                    currentRun.add(layout);
+                } else {
+                    // bătaie diferită: închide grupul curent și începe unul nou
+                    groups.add(currentRun);
+                    currentRun = new ArrayList<>();
+                    currentRun.add(layout);
+                    currentBeat = beat;
+                }
             }
         }
-        flushRun(groups, currentRun);
-
+        if (currentRun != null && !currentRun.isEmpty()) {
+            groups.add(currentRun);
+        }
         return groups;
     }
+
+// drawUnbeamedNote trebuie să fie pregătită să deseneze note fără stem (whole notes)
+// Deja are verificarea duration.requiresStem() la început.
+
+    // ----- METODA VECHE groupBeamableNotes a fost eliminată (nu mai este folosită) -----
 
     private void flushRun(List<List<NoteLayout>> groups, List<NoteLayout> currentRun) {
         if (!currentRun.isEmpty()) {
@@ -285,6 +302,11 @@ public class MusicNotationApp extends Application {
     }
 
     private void drawUnbeamedNote(GraphicsContext gc, NoteLayout layout) {
+        // Pauzele nu au tijă
+        if (layout.note().isRest()) {
+            return;
+        }
+
         Duration duration = layout.note().duration();
         if (!duration.requiresStem()) {
             return;
@@ -320,7 +342,6 @@ public class MusicNotationApp extends Application {
         double slope = (yEndTip - yStartTip) / (xEnd - xStart);
         slope = Math.max(-MAX_BEAM_SLOPE, Math.min(MAX_BEAM_SLOPE, slope));
 
-        // Interceptul b: offset pentru beam-ul secundar între primar și cap
         double b = sign < 0 ? Double.MAX_VALUE : -Double.MAX_VALUE;
         for (int i = 0; i < group.size(); i++) {
             NoteLayout layout = group.get(i);
@@ -452,7 +473,7 @@ public class MusicNotationApp extends Application {
         gc.stroke();
     }
 
-    // ===================== DESENAREA PAUZELOR =====================
+    // ===== DESENAREA PAUZELOR =====
 
     private void drawRest(GraphicsContext gc, double x, double y, Duration duration) {
         gc.setStroke(Color.BLACK);
@@ -463,13 +484,10 @@ public class MusicNotationApp extends Application {
         double h = REST_HEIGHT;
 
         if (duration == Duration.WHOLE) {
-            // Pauză întreagă – dreptunghi umplut, atârnă de linie (y este sus)
             gc.fillRect(x - w / 2, y, w, h);
         } else if (duration == Duration.HALF) {
-            // Pauză de jumătate – dreptunghi umplut, stă pe linie (y este jos)
             gc.fillRect(x - w / 2, y - h, w, h);
         } else if (duration == Duration.QUARTER) {
-            // Pauză de sfert – formă curbă stilizată (squiggly)
             double cx = x;
             double cy = y;
             gc.beginPath();
@@ -481,7 +499,6 @@ public class MusicNotationApp extends Application {
             gc.closePath();
             gc.fill();
         } else if (duration == Duration.EIGHTH || duration == Duration.SIXTEENTH) {
-            // Pauze de optime și șaisprezecime – linie înclinată cu cârlige
             double slant = EIGHTH_REST_SLANT;
             double height = STAFF_LINE_SPACING * 0.8;
             double startX = x - w / 2;
@@ -498,7 +515,7 @@ public class MusicNotationApp extends Application {
         }
     }
 
-    // ===================== SFÂRȘIT DESENARE PAUZE =====================
+    // ===== FINAL DESENARE PAUZE =====
 
     private void drawLedgerLines(GraphicsContext gc, double x, double firstLineY, int position) {
         if (position < TOP_LINE_POSITION) {
@@ -549,10 +566,17 @@ public class MusicNotationApp extends Application {
         measure2.addNote(new Note(Pitch.of("C5"), Duration.HALF));
         measure2.addNote(new Note(Duration.HALF));
 
+        // Exemplu cu mai multe note pentru a testa gruparea după bătăi
+        Measure measure3 = new Measure();
+        measure3.addNote(new Note(Pitch.of("C4"), Duration.QUARTER));
+        measure3.addNote(new Note(Pitch.of("D4"), Duration.EIGHTH));
+        measure3.addNote(new Note(Pitch.of("G4"), Duration.EIGHTH));
+        measure3.addNote(new Note(Pitch.of("A4"), Duration.QUARTER));
 
         Score sampleScore = new Score();
         sampleScore.addMeasure(measure1);
         sampleScore.addMeasure(measure2);
+        sampleScore.addMeasure(measure3);
 
         return sampleScore;
     }
