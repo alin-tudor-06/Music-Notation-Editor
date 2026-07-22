@@ -1,4 +1,4 @@
-package com.alin.musicnotation.model;
+package com.alin.musicnotation.model.layout;
 
 public enum StemDirection {
     UP(-1),

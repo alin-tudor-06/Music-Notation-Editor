@@ -1,7 +1,6 @@
-package com.alin.musicnotation;
+package com.alin.musicnotation.model;
 
 public enum Duration {
-
     WHOLE(1, 0),
     HALF(2, 0),
     QUARTER(4, 0),

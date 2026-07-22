@@ -1,4 +1,4 @@
-package com.alin.musicnotation;
+package com.alin.musicnotation.model;
 
 import java.util.HashSet;
 import java.util.List;
@@ -26,17 +26,9 @@ public final class Slur {
         this.notes = List.copyOf(notes);
     }
 
-    public List<Note> notes() {
-        return notes;
-    }
-
-    public Note firstNote() {
-        return notes.get(0);
-    }
-
-    public Note lastNote() {
-        return notes.get(notes.size() - 1);
-    }
+    public List<Note> notes() { return notes; }
+    public Note firstNote() { return notes.get(0); }
+    public Note lastNote() { return notes.get(notes.size() - 1); }
 
     @Override
     public String toString() {

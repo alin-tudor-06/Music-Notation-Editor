@@ -1,14 +1,18 @@
 package com.alin.musicnotation.renderer;
 
-import com.alin.musicnotation.*;
-import com.alin.musicnotation.model.NoteLayout;
-import com.alin.musicnotation.model.StemDirection;
+import com.alin.musicnotation.model.Note;
+import com.alin.musicnotation.model.Measure;
+import com.alin.musicnotation.model.layout.NoteLayout;
+import com.alin.musicnotation.model.layout.StemDirection;
+import com.alin.musicnotation.model.articulation.Articulation;
+import com.alin.musicnotation.model.articulation.ArticulationPlacement;
+import com.alin.musicnotation.model.articulation.ArticulationType;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.TextAlignment;
 
-import java.util.*;
+import java.util.Map;
 
 public class ArticulationRenderer {
 

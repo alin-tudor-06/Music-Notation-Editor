@@ -1,8 +1,5 @@
-package com.alin.musicnotation;
+package com.alin.musicnotation.model.articulation;
 
-/**
- * Standard articulation types.
- */
 public enum ArticulationType {
     STACCATO,
     STACCATISSIMO,

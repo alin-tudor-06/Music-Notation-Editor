@@ -1,7 +1,10 @@
 package com.alin.musicnotation;
 
-import com.alin.musicnotation.model.NoteLayout;
-import com.alin.musicnotation.model.StemDirection;
+import com.alin.musicnotation.model.*;
+import com.alin.musicnotation.model.articulation.*;
+import com.alin.musicnotation.model.dynamic.*;
+import com.alin.musicnotation.model.layout.NoteLayout;
+import com.alin.musicnotation.model.layout.StemDirection;
 import com.alin.musicnotation.renderer.*;
 import javafx.application.Application;
 import javafx.scene.Scene;
@@ -22,7 +25,6 @@ import java.util.*;
 
 public class MusicNotationApp extends Application {
 
-    // ----- Constants -----
     private static final double WINDOW_WIDTH = 800;
     private static final double WINDOW_HEIGHT = 600;
 
@@ -76,7 +78,7 @@ public class MusicNotationApp extends Application {
     private static final double DYNAMIC_FONT_SIZE_FACTOR = 0.8;
     private static final double DYNAMIC_OFFSET = STAFF_LINE_SPACING * 0.9;
 
-    // ----- Renderer instances -----
+    // Renderer instances
     private final NoteRenderer noteRenderer = new NoteRenderer();
     private final BeamRenderer beamRenderer = new BeamRenderer();
     private final TupletRenderer tupletRenderer = new TupletRenderer();
@@ -206,7 +208,7 @@ public class MusicNotationApp extends Application {
         return keyAcc != pitchAcc;
     }
 
-    // ----- Layout and orchestration -----
+    // Layout and orchestration
     private List<NoteLayout> drawNotes(GraphicsContext gc, double firstLineY, double staffHeight, double startX) {
         List<NoteLayout> allLayouts = new ArrayList<>();
         double x = startX;
@@ -292,7 +294,7 @@ public class MusicNotationApp extends Application {
                 DYNAMIC_FONT_SIZE_FACTOR, DYNAMIC_OFFSET, STAFF_LINE_SPACING);
     }
 
-    // ----- Ties -----
+    // Ties
     private void drawTies(GraphicsContext gc, List<NoteLayout> allLayouts) {
         if (allLayouts.size() < 2) return;
         for (int i = 0; i < allLayouts.size() - 1; i++) {
@@ -331,7 +333,7 @@ public class MusicNotationApp extends Application {
         gc.stroke();
     }
 
-    // ----- Positioning helpers -----
+    // Positioning helpers
     private double noteSpacing(Duration duration) {
         double base = NOTE_SPACING_PER_QUARTER * duration.toQuarterNoteFraction();
         if (duration.isBeamable()) base += BEAMABLE_EXTRA_SPACING;
@@ -346,7 +348,7 @@ public class MusicNotationApp extends Application {
         return pitch.octave() * 7 + pitch.step().ordinal();
     }
 
-    // ----- Sample score -----
+    // Sample score
     private static Score createSampleScore() {
         Score score = new Score(KeySignature.C_MAJOR);
 

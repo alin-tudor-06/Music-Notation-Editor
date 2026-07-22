@@ -1,4 +1,4 @@
-package com.alin.musicnotation;
+package com.alin.musicnotation.model;
 
 import java.util.Collections;
 import java.util.List;
@@ -8,24 +8,30 @@ import java.util.stream.IntStream;
 
 public final class KeySignature {
 
-    // Order of sharps and flats (as steps)
     private static final Pitch.Step[] SHARP_ORDER = {
-            Pitch.Step.F, Pitch.Step.C, Pitch.Step.G, Pitch.Step.D,
-            Pitch.Step.A, Pitch.Step.E, Pitch.Step.B
+            Pitch.Step.F, Pitch.Step.C, Pitch.Step.G, Pitch.Step.D, Pitch.Step.A, Pitch.Step.E, Pitch.Step.B
     };
     private static final Pitch.Step[] FLAT_ORDER = {
-            Pitch.Step.B, Pitch.Step.E, Pitch.Step.A, Pitch.Step.D,
-            Pitch.Step.G, Pitch.Step.C, Pitch.Step.F
+            Pitch.Step.B, Pitch.Step.E, Pitch.Step.A, Pitch.Step.D, Pitch.Step.G, Pitch.Step.C, Pitch.Step.F
     };
 
-    // Standard treble clef positions
     private static final Pitch[] SHARP_PITCHES = {
-            Pitch.of("F#4"), Pitch.of("C#5"), Pitch.of("G#4"), Pitch.of("D#5"),
-            Pitch.of("A#4"), Pitch.of("E#5"), Pitch.of("B#4")
+            Pitch.of("F#4"),
+            Pitch.of("C#5"),
+            Pitch.of("G#4"),
+            Pitch.of("D#5"),
+            Pitch.of("A#4"),
+            Pitch.of("E#5"),
+            Pitch.of("B#4")
     };
     private static final Pitch[] FLAT_PITCHES = {
-            Pitch.of("Bb4"), Pitch.of("Eb5"), Pitch.of("Ab4"), Pitch.of("Db5"),
-            Pitch.of("Gb4"), Pitch.of("Cb5"), Pitch.of("Fb4")
+            Pitch.of("Bb4"),
+            Pitch.of("Eb5"),
+            Pitch.of("Ab4"),
+            Pitch.of("Db5"),
+            Pitch.of("Gb4"),
+            Pitch.of("Cb5"),
+            Pitch.of("Fb4")
     };
 
     public static final KeySignature C_MAJOR = new KeySignature("C major", 0);
@@ -58,50 +64,25 @@ public final class KeySignature {
 
     private static List<Pitch> buildAlteredPitches(int sharps) {
         if (sharps > 0) {
-            return IntStream.range(0, sharps)
-                    .mapToObj(i -> SHARP_PITCHES[i])
-                    .collect(Collectors.toList());
+            return IntStream.range(0, sharps).mapToObj(i -> SHARP_PITCHES[i]).collect(Collectors.toList());
         } else if (sharps < 0) {
             int flats = -sharps;
-            return IntStream.range(0, flats)
-                    .mapToObj(i -> FLAT_PITCHES[i])
-                    .collect(Collectors.toList());
+            return IntStream.range(0, flats).mapToObj(i -> FLAT_PITCHES[i]).collect(Collectors.toList());
         } else {
             return Collections.emptyList();
         }
     }
 
     private static Map<Pitch.Step, Accidental> buildStepMap(List<Pitch> alteredPitches) {
-        return alteredPitches.stream()
-                .collect(Collectors.toMap(
-                        p -> p.step(),
-                        p -> p.accidental(),
-                        (a, b) -> a
-                ));
+        return alteredPitches.stream().collect(Collectors.toMap(p -> p.step(), p -> p.accidental(), (a, b) -> a));
     }
 
-    public String name() {
-        return name;
-    }
-
-    public int sharps() {
-        return sharps;
-    }
-
-    public List<Pitch> alteredPitches() {
-        return Collections.unmodifiableList(alteredPitches);
-    }
-
-    public Accidental accidentalForStep(Pitch.Step step) {
-        return stepAlteration.getOrDefault(step, Accidental.NONE);
-    }
-
-    public boolean altersStep(Pitch.Step step) {
-        return stepAlteration.containsKey(step);
-    }
+    public String name() { return name; }
+    public int sharps() { return sharps; }
+    public List<Pitch> alteredPitches() { return Collections.unmodifiableList(alteredPitches); }
+    public Accidental accidentalForStep(Pitch.Step step) { return stepAlteration.getOrDefault(step, Accidental.NONE); }
+    public boolean altersStep(Pitch.Step step) { return stepAlteration.containsKey(step); }
 
     @Override
-    public String toString() {
-        return name;
-    }
+    public String toString() { return name; }
 }

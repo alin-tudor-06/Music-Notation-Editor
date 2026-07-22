@@ -1,4 +1,4 @@
-package com.alin.musicnotation;
+package com.alin.musicnotation.model;
 
 import java.util.HashSet;
 import java.util.List;
@@ -40,21 +40,10 @@ public final class Tuplet {
         }
     }
 
-    public int numerator() {
-        return numerator;
-    }
-
-    public int denominator() {
-        return denominator;
-    }
-
-    public List<Note> notes() {
-        return notes;
-    }
-
-    public double durationFactor() {
-        return (double) denominator / numerator;
-    }
+    public int numerator() { return numerator; }
+    public int denominator() { return denominator; }
+    public List<Note> notes() { return notes; }
+    public double durationFactor() { return (double) denominator / numerator; }
 
     @Override
     public String toString() {

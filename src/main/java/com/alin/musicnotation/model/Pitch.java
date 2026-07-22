@@ -1,12 +1,10 @@
-package com.alin.musicnotation;
+package com.alin.musicnotation.model;
 
 public record Pitch(Step step, Accidental accidental, int octave) {
 
     private static final int[] STEP_SEMITONES = {0, 2, 4, 5, 7, 9, 11};
 
-    public enum Step {
-        C, D, E, F, G, A, B
-    }
+    public enum Step { C, D, E, F, G, A, B }
 
     public Pitch(Step step, int octave) {
         this(step, Accidental.NONE, octave);
@@ -18,16 +16,9 @@ public record Pitch(Step step, Accidental accidental, int octave) {
         Accidental accidental = Accidental.NONE;
         if (index < name.length()) {
             char c = name.charAt(index);
-            if (c == '#') {
-                accidental = Accidental.SHARP;
-                index++;
-            } else if (c == 'b') {
-                accidental = Accidental.FLAT;
-                index++;
-            } else if (c == 'n') {
-                accidental = Accidental.NATURAL;
-                index++;
-            }
+            if (c == '#') { accidental = Accidental.SHARP; index++; }
+            else if (c == 'b') { accidental = Accidental.FLAT; index++; }
+            else if (c == 'n') { accidental = Accidental.NATURAL; index++; }
         }
         int octave = Integer.parseInt(name.substring(index));
         return new Pitch(step, accidental, octave);

@@ -1,11 +1,8 @@
-package com.alin.musicnotation;
+package com.alin.musicnotation.model.articulation;
 
+import com.alin.musicnotation.model.Note;
 import java.util.Objects;
 
-/**
- * An articulation attached to a single note.
- * Immutable value object.
- */
 public final class Articulation {
     private final Note note;
     private final ArticulationType type;
@@ -24,17 +21,9 @@ public final class Articulation {
         }
     }
 
-    public Note note() {
-        return note;
-    }
-
-    public ArticulationType type() {
-        return type;
-    }
-
-    public ArticulationPlacement placement() {
-        return placement;
-    }
+    public Note note() { return note; }
+    public ArticulationType type() { return type; }
+    public ArticulationPlacement placement() { return placement; }
 
     @Override
     public String toString() {

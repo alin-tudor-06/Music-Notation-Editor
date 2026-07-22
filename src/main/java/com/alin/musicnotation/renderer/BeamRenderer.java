@@ -1,9 +1,9 @@
 package com.alin.musicnotation.renderer;
 
-import com.alin.musicnotation.Measure;
-import com.alin.musicnotation.Note;                // ← import adăugat
-import com.alin.musicnotation.model.NoteLayout;
-import com.alin.musicnotation.model.StemDirection;
+import com.alin.musicnotation.model.Note;
+import com.alin.musicnotation.model.Measure;
+import com.alin.musicnotation.model.layout.NoteLayout;
+import com.alin.musicnotation.model.layout.StemDirection;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 

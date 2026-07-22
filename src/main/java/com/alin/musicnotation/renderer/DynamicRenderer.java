@@ -1,13 +1,18 @@
 package com.alin.musicnotation.renderer;
 
-import com.alin.musicnotation.*;
-import com.alin.musicnotation.model.NoteLayout;
+import com.alin.musicnotation.model.Note;
+import com.alin.musicnotation.model.Measure;
+import com.alin.musicnotation.model.layout.NoteLayout;
+import com.alin.musicnotation.model.dynamic.Dynamic;
+import com.alin.musicnotation.model.dynamic.DynamicPlacement;
+import com.alin.musicnotation.model.dynamic.DynamicType;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.TextAlignment;
 
-import java.util.*;
+import java.util.Map;
+
 
 public class DynamicRenderer {
 

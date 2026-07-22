@@ -1,14 +1,15 @@
 package com.alin.musicnotation.renderer;
 
-import com.alin.musicnotation.Duration;
-import com.alin.musicnotation.Measure;
-import com.alin.musicnotation.Note;
-import com.alin.musicnotation.model.NoteLayout;
-import com.alin.musicnotation.model.StemDirection;
+import com.alin.musicnotation.model.Note;
+import com.alin.musicnotation.model.Measure;
+import com.alin.musicnotation.model.Duration;
+import com.alin.musicnotation.model.layout.NoteLayout;
+import com.alin.musicnotation.model.layout.StemDirection;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 
 import java.util.Map;
+
 
 public class NoteRenderer {
 

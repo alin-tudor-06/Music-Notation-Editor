@@ -1,4 +1,4 @@
-package com.alin.musicnotation;
+package com.alin.musicnotation.model;
 
 import java.util.ArrayList;
 import java.util.List;

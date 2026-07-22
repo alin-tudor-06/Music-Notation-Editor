@@ -1,7 +1,7 @@
 package com.alin.musicnotation.renderer;
 
-import com.alin.musicnotation.model.NoteLayout;
-import com.alin.musicnotation.model.StemDirection;
+import com.alin.musicnotation.model.layout.NoteLayout;
+import com.alin.musicnotation.model.layout.StemDirection;
 
 import java.util.ArrayList;
 import java.util.List;

@@ -1,4 +1,4 @@
-package com.alin.musicnotation;
+package com.alin.musicnotation.model;
 
 public enum Accidental {
     NONE(0),

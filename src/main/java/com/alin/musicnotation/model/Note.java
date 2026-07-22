@@ -1,6 +1,4 @@
-package com.alin.musicnotation;
-
-import java.util.Objects;
+package com.alin.musicnotation.model;
 
 public final class Note {
     private final Pitch pitch;
@@ -30,32 +28,14 @@ public final class Note {
         this.tieEnd = false;
     }
 
-    public Pitch pitch() {
-        return pitch;
-    }
-
-    public Duration duration() {
-        return duration;
-    }
-
-    public boolean isRest() {
-        return isRest;
-    }
-
-    public boolean tieStart() {
-        return tieStart;
-    }
-
-    public boolean tieEnd() {
-        return tieEnd;
-    }
-
-    public Tuplet tuplet() {
-        return tuplet;
-    }
+    public Pitch pitch() { return pitch; }
+    public Duration duration() { return duration; }
+    public boolean isRest() { return isRest; }
+    public boolean tieStart() { return tieStart; }
+    public boolean tieEnd() { return tieEnd; }
+    public Tuplet tuplet() { return tuplet; }
 
     void setTuplet(Tuplet tuplet) {
-        Objects.requireNonNull(tuplet, "tuplet must not be null");
         if (this.tuplet != null && this.tuplet != tuplet) {
             throw new IllegalStateException("Note already belongs to another tuplet: " + this.tuplet);
         }
@@ -64,9 +44,7 @@ public final class Note {
 
     @Override
     public String toString() {
-        if (isRest) {
-            return "Rest(" + duration + ")";
-        }
+        if (isRest) return "Rest(" + duration + ")";
         StringBuilder sb = new StringBuilder("Note(" + pitch + ", " + duration);
         if (tieStart) sb.append(", tieStart");
         if (tieEnd) sb.append(", tieEnd");
