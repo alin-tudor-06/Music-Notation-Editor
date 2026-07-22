@@ -1,5 +1,8 @@
 package com.alin.musicnotation;
 
+import com.alin.musicnotation.model.NoteLayout;
+import com.alin.musicnotation.model.StemDirection;
+import com.alin.musicnotation.renderer.*;
 import javafx.application.Application;
 import javafx.scene.Scene;
 import javafx.scene.canvas.Canvas;
@@ -15,11 +18,7 @@ import javafx.scene.text.FontWeight;
 import javafx.scene.text.TextAlignment;
 import javafx.stage.Stage;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
+import java.util.*;
 
 public class MusicNotationApp extends Application {
 
@@ -46,9 +45,9 @@ public class MusicNotationApp extends Application {
     private static final double NOTE_SPACING_PER_QUARTER = 60;
     private static final double MEASURE_START_PADDING = 12 * 2;
     private static final double MEASURE_END_PADDING = 12;
-    private static final double NOTE_HEAD_WIDTH = STAFF_LINE_SPACING * 1.4;
+    public static final double NOTE_HEAD_WIDTH = STAFF_LINE_SPACING * 1.4;
     private static final double NOTE_HEAD_HEIGHT = STAFF_LINE_SPACING;
-    private static final double STEM_LENGTH_STANDARD = STAFF_LINE_SPACING * 3.5;
+    public static final double STEM_LENGTH_STANDARD = STAFF_LINE_SPACING * 3.5;
     private static final double LEDGER_LINE_EXTENSION = 4;
     private static final double NOTE_HEAD_OUTLINE_WIDTH = 2;
     private static final double FLAG_WIDTH = 10;
@@ -71,12 +70,17 @@ public class MusicNotationApp extends Application {
     private static final double TUPLET_NUMBER_FONT_SIZE_FACTOR = 0.9;
 
     private static final double SLUR_OFFSET = STAFF_LINE_SPACING * 1.2;
-
     private static final double ARTICULATION_FONT_SIZE_FACTOR = 1.0;
     private static final double ARTICULATION_OFFSET = STAFF_LINE_SPACING * 0.8;
-
     private static final double DYNAMIC_FONT_SIZE_FACTOR = 0.8;
     private static final double DYNAMIC_OFFSET = STAFF_LINE_SPACING * 0.9;
+
+    private final NoteRenderer noteRenderer = new NoteRenderer();
+    private final BeamRenderer beamRenderer = new BeamRenderer();
+    private final TupletRenderer tupletRenderer = new TupletRenderer();
+    private final SlurRenderer slurRenderer = new SlurRenderer();
+    private final ArticulationRenderer articulationRenderer = new ArticulationRenderer();
+    private final DynamicRenderer dynamicRenderer = new DynamicRenderer();
 
     private final Score score = createSampleScore();
 
@@ -181,22 +185,23 @@ public class MusicNotationApp extends Application {
         gc.fillText("4", x, bottomY);
     }
 
-    private record NoteLayout(double x, double y, Note note, int position, int startSixteenths) {
+    private void drawAccidental(GraphicsContext gc, double x, double y, Accidental accidental) {
+        if (accidental == Accidental.NONE) return;
+        String symbol = accidental.unicodeSymbol();
+        gc.setFill(Color.BLACK);
+        gc.setFont(Font.font("Serif", STAFF_LINE_SPACING * ACCIDENTAL_FONT_SIZE_FACTOR));
+        gc.setTextAlign(TextAlignment.CENTER);
+        gc.setTextBaseline(javafx.geometry.VPos.CENTER);
+        gc.fillText(symbol, x, y);
     }
 
-    private enum StemDirection {
-        UP(-1),
-        DOWN(1);
-
-        private final int sign;
-
-        StemDirection(int sign) {
-            this.sign = sign;
-        }
-
-        int sign() {
-            return sign;
-        }
+    private boolean shouldDisplayAccidental(Pitch pitch) {
+        Accidental pitchAcc = pitch.accidental();
+        KeySignature ks = score.keySignature();
+        Accidental keyAcc = ks.accidentalForStep(pitch.step());
+        if (pitchAcc == Accidental.NONE) return false;
+        if (pitchAcc == Accidental.NATURAL) return keyAcc != Accidental.NONE;
+        return keyAcc != pitchAcc;
     }
 
     private List<NoteLayout> drawNotes(GraphicsContext gc, double firstLineY, double staffHeight, double startX) {
@@ -224,13 +229,7 @@ public class MusicNotationApp extends Application {
                 lastNoteX = x;
                 lastDuration = note.duration();
 
-                double spacing;
-                if (note.tuplet() != null) {
-                    double factor = note.tuplet().durationFactor();
-                    spacing = calculateNoteSpacing(note.duration(), factor);
-                } else {
-                    spacing = noteSpacing(note.duration());
-                }
+                double spacing = noteSpacing(note.duration());
                 if (!note.isRest() && shouldDisplayAccidental(note.pitch())) {
                     spacing += ACCIDENTAL_EXTRA_SPACING;
                 }
@@ -249,79 +248,117 @@ public class MusicNotationApp extends Application {
         return allLayouts;
     }
 
-    private double calculateNoteSpacing(Duration duration, double factor) {
-        double base = NOTE_SPACING_PER_QUARTER * duration.toQuarterNoteFraction() * factor;
-        if (duration.isBeamable()) {
-            base += BEAMABLE_EXTRA_SPACING;
-        }
-        return base;
-    }
-
     private double getRestY(double firstLineY, double staffHeight, Duration duration) {
         double line3 = firstLineY + 2 * STAFF_LINE_SPACING;
         double line4 = firstLineY + 3 * STAFF_LINE_SPACING;
-
-        if (duration == Duration.WHOLE) {
-            return line4 - REST_HEIGHT;
-        } else if (duration == Duration.HALF) {
-            return line3 + REST_HEIGHT;
-        } else {
-            return line3 + STAFF_LINE_SPACING * 0.1;
-        }
+        if (duration == Duration.WHOLE) return line4 - REST_HEIGHT;
+        if (duration == Duration.HALF) return line3 + REST_HEIGHT;
+        return line3 + STAFF_LINE_SPACING * 0.1;
     }
 
     private void drawMeasureNotes(GraphicsContext gc, double firstLineY, Measure measure, List<NoteLayout> layouts) {
-        // Draw note heads, ledger lines, accidentals, rests
+        Map<Note, NoteLayout> layoutMap = new HashMap<>();
         for (NoteLayout layout : layouts) {
-            if (layout.note().isRest()) {
-                drawRest(gc, layout.x(), layout.y(), layout.note().duration());
-            } else {
-                drawLedgerLines(gc, layout.x(), firstLineY, layout.position());
-                if (shouldDisplayAccidental(layout.note().pitch())) {
-                    double symbolX = layout.x() - NOTE_HEAD_WIDTH / 2 - ACCIDENTAL_GAP;
-                    drawAccidental(gc, symbolX, layout.y(), layout.note().pitch().accidental());
-                }
-                drawNoteHead(gc, layout.x(), layout.y(), layout.note().duration());
-            }
+            layoutMap.put(layout.note(), layout);
         }
+        double middleLineY = firstLineY + MIDDLE_LINE_POSITION * (STAFF_LINE_SPACING / 2);
 
-        // Draw stems for non-beamable notes
-        for (NoteLayout layout : layouts) {
-            if (layout.note().isRest()) continue;
-            Duration duration = layout.note().duration();
-            if (!duration.isBeamable()) {
-                drawUnbeamedNote(gc, layout);
-            }
-        }
+        noteRenderer.draw(gc, measure, layoutMap, firstLineY, middleLineY,
+                NOTE_HEAD_WIDTH, NOTE_HEAD_HEIGHT, STEM_LENGTH_STANDARD,
+                LEDGER_LINE_EXTENSION, NOTE_HEAD_OUTLINE_WIDTH,
+                FLAG_WIDTH, FLAG_HEIGHT, FLAG_SPACING,
+                REST_WIDTH, REST_HEIGHT, EIGHTH_REST_SLANT,
+                TOP_LINE_POSITION, BOTTOM_LINE_POSITION, STAFF_LINE_SPACING);
 
-        // Draw beams for beamable notes
-        List<NoteLayout> beamableLayouts = layouts.stream()
-                .filter(l -> !l.note().isRest() && l.note().duration().isBeamable())
-                .toList();
-        for (List<NoteLayout> group : groupBeamsByBeat(beamableLayouts)) {
-            if (group.size() >= 2) {
-                drawBeamedGroup(gc, group);
-            } else if (group.size() == 1) {
-                drawUnbeamedNote(gc, group.get(0));
-            }
-        }
+        beamRenderer.draw(gc, measure, layoutMap, middleLineY,
+                BEAM_THICKNESS, BEAM_SPACING, BEAM_HOOK_LENGTH,
+                MAX_BEAM_SLOPE, STEM_LENGTH_STANDARD, NOTE_HEAD_WIDTH);
 
-        Map<Note, NoteLayout> layoutMap = layouts.stream()
-                .collect(Collectors.toMap(l -> l.note(), l -> l));
+        tupletRenderer.draw(gc, measure, layoutMap,
+                TUPLET_OFFSET, TUPLET_BRACKET_HEIGHT, TUPLET_NUMBER_FONT_SIZE_FACTOR,
+                NOTE_HEAD_WIDTH, STEM_LENGTH_STANDARD, STAFF_LINE_SPACING);
 
-        drawTuplets(gc, measure, layoutMap);
-        drawSlurs(gc, measure, layoutMap);
-        drawArticulations(gc, measure, layoutMap);
-        drawDynamics(gc, measure, layoutMap);
+        slurRenderer.draw(gc, measure, layoutMap, middleLineY,
+                SLUR_OFFSET, STAFF_LINE_SPACING, NOTE_HEAD_WIDTH);
+
+        articulationRenderer.draw(gc, measure, layoutMap, middleLineY,
+                ARTICULATION_FONT_SIZE_FACTOR, ARTICULATION_OFFSET,
+                STAFF_LINE_SPACING, NOTE_HEAD_WIDTH);
+
+        dynamicRenderer.draw(gc, measure, layoutMap, middleLineY,
+                DYNAMIC_FONT_SIZE_FACTOR, DYNAMIC_OFFSET, STAFF_LINE_SPACING);
     }
 
-    // ---- Beam grouping ----
+    private void drawTies(GraphicsContext gc, List<NoteLayout> allLayouts) {
+        if (allLayouts.size() < 2) return;
+        for (int i = 0; i < allLayouts.size() - 1; i++) {
+            NoteLayout current = allLayouts.get(i);
+            NoteLayout next = allLayouts.get(i + 1);
+            if (current.note().isRest() || next.note().isRest()) continue;
+            if (!current.note().tieStart() || !next.note().tieEnd()) continue;
+            if (!current.note().pitch().equals(next.note().pitch())) continue;
+            boolean above = determineTieDirection(current, next);
+            double startX = current.x() + NOTE_HEAD_WIDTH / 2;
+            double endX = next.x() - NOTE_HEAD_WIDTH / 2;
+            double startY = current.y();
+            double endY = next.y();
+            drawTie(gc, startX, startY, endX, endY, above);
+        }
+    }
 
-    private List<List<NoteLayout>> groupBeamsByBeat(List<NoteLayout> layouts) {
+    private boolean determineTieDirection(NoteLayout first, NoteLayout second) {
+        StemDirection dir1 = stemDirection(first.position());
+        StemDirection dir2 = stemDirection(second.position());
+        if (dir1 == dir2) return dir1 == StemDirection.DOWN;
+        if (!first.note().duration().requiresStem() || !second.note().duration().requiresStem()) return true;
+        return true;
+    }
+
+    private void drawTie(GraphicsContext gc, double startX, double startY, double endX, double endY, boolean above) {
+        double midX = (startX + endX) / 2;
+        double offset = STAFF_LINE_SPACING * 0.75;
+        double controlY = above ? startY - offset : startY + offset;
+        gc.setStroke(Color.BLACK);
+        gc.setLineWidth(2.0);
+        gc.setLineCap(javafx.scene.shape.StrokeLineCap.ROUND);
+        gc.beginPath();
+        gc.moveTo(startX, startY);
+        gc.quadraticCurveTo(midX, controlY, endX, endY);
+        gc.stroke();
+    }
+
+    // ----- Public static helpers (temporarily here) -----
+
+    public static StemDirection stemDirection(int position) {
+        return position > MIDDLE_LINE_POSITION ? StemDirection.UP : StemDirection.DOWN;
+    }
+
+    public static StemDirection stemDirection(List<NoteLayout> group) {
+        double avg = group.stream().mapToInt(NoteLayout::position).average().orElse(MIDDLE_LINE_POSITION);
+        return avg > MIDDLE_LINE_POSITION ? StemDirection.UP : StemDirection.DOWN;
+    }
+
+    public static double stemAttachX(NoteLayout layout, StemDirection direction, double noteHeadWidth) {
+        return direction == StemDirection.UP
+                ? layout.x() + noteHeadWidth / 2
+                : layout.x() - noteHeadWidth / 2;
+    }
+
+    public static double computeStemTipY(NoteLayout layout, StemDirection direction,
+                                         double stemLengthStandard, double middleLineY) {
+        double y = layout.y();
+        double standardTipY = y + direction.sign() * stemLengthStandard;
+        if (direction == StemDirection.UP) {
+            return Math.min(standardTipY, middleLineY);
+        } else {
+            return Math.max(standardTipY, middleLineY);
+        }
+    }
+
+    public static List<List<NoteLayout>> groupBeamsByBeat(List<NoteLayout> layouts) {
         List<List<NoteLayout>> groups = new ArrayList<>();
         List<NoteLayout> currentGroup = null;
         int currentBeat = -1;
-
         for (NoteLayout layout : layouts) {
             if (!layout.note().duration().isBeamable()) {
                 if (currentGroup != null && !currentGroup.isEmpty()) {
@@ -344,310 +381,15 @@ public class MusicNotationApp extends Application {
                 currentBeat = beat;
             }
         }
-        if (currentGroup != null && !currentGroup.isEmpty()) {
-            groups.add(currentGroup);
-        }
+        if (currentGroup != null && !currentGroup.isEmpty()) groups.add(currentGroup);
         return groups;
     }
 
-    // ---- Stem and beam drawing ----
-
-    private StemDirection stemDirection(int position) {
-        return position > MIDDLE_LINE_POSITION ? StemDirection.UP : StemDirection.DOWN;
-    }
-
-    private StemDirection stemDirection(List<NoteLayout> group) {
-        double averagePosition = group.stream()
-                .mapToInt(NoteLayout::position)
-                .average()
-                .orElse(MIDDLE_LINE_POSITION);
-        return averagePosition > MIDDLE_LINE_POSITION ? StemDirection.UP : StemDirection.DOWN;
-    }
-
-    private double stemAttachX(NoteLayout layout, StemDirection direction) {
-        return direction == StemDirection.UP
-                ? layout.x() + NOTE_HEAD_WIDTH / 2
-                : layout.x() - NOTE_HEAD_WIDTH / 2;
-    }
-
-    private double computeStemTipY(NoteLayout layout, StemDirection direction, double middleLineY) {
-        double y = layout.y();
-        double standardTipY = y + direction.sign() * STEM_LENGTH_STANDARD;
-
-        if (direction == StemDirection.UP) {
-            return Math.min(standardTipY, middleLineY);
-        } else {
-            return Math.max(standardTipY, middleLineY);
-        }
-    }
-
-    private void drawUnbeamedNote(GraphicsContext gc, NoteLayout layout) {
-        if (layout.note().isRest()) return;
-        Duration duration = layout.note().duration();
-        if (!duration.requiresStem()) return;
-
-        StemDirection direction = stemDirection(layout.position());
-        double middleLineY = layout.y() + (MIDDLE_LINE_POSITION - layout.position()) * (STAFF_LINE_SPACING / 2);
-        double stemX = stemAttachX(layout, direction);
-        double stemTipY = computeStemTipY(layout, direction, middleLineY);
-        drawStem(gc, stemX, layout.y(), stemTipY);
-
-        if (duration.flagCount() > 0) {
-            drawFlags(gc, stemX, stemTipY, duration.flagCount(), direction);
-        }
-    }
-
-    private void drawBeamedGroup(GraphicsContext gc, List<NoteLayout> group) {
-        int[] flagCounts = group.stream()
-                .mapToInt(layout -> layout.note().duration().flagCount())
-                .toArray();
-        int maxFlags = Arrays.stream(flagCounts).max().orElse(0);
-        if (maxFlags == 0) return;
-
-        StemDirection direction = stemDirection(group);
-        int sign = direction.sign();
-
-        NoteLayout first = group.get(0);
-        NoteLayout last = group.get(group.size() - 1);
-        double xStart = stemAttachX(first, direction);
-        double xEnd = stemAttachX(last, direction);
-        double yStartTip = first.y() + sign * STEM_LENGTH_STANDARD;
-        double yEndTip = last.y() + sign * STEM_LENGTH_STANDARD;
-
-        double slope = (yEndTip - yStartTip) / (xEnd - xStart);
-        slope = Math.max(-MAX_BEAM_SLOPE, Math.min(MAX_BEAM_SLOPE, slope));
-
-        double b = sign < 0 ? Double.MAX_VALUE : -Double.MAX_VALUE;
-        for (int i = 0; i < group.size(); i++) {
-            NoteLayout layout = group.get(i);
-            double stemX = stemAttachX(layout, direction);
-            double candidateB = (layout.y() + sign * STEM_LENGTH_STANDARD) - slope * stemX
-                    - sign * (flagCounts[i] - 1) * BEAM_SPACING;
-            if (sign < 0) {
-                if (candidateB < b) b = candidateB;
-            } else {
-                if (candidateB > b) b = candidateB;
-            }
-        }
-
-        for (int i = 0; i < group.size(); i++) {
-            NoteLayout layout = group.get(i);
-            double stemX = stemAttachX(layout, direction);
-            double topY = slope * stemX + b - sign * (flagCounts[i] - 1) * BEAM_SPACING;
-            drawStem(gc, stemX, layout.y(), topY);
-        }
-
-        for (int level = 1; level <= maxFlags; level++) {
-            List<int[]> runs = new ArrayList<>();
-            int start = -1;
-            for (int i = 0; i < group.size(); i++) {
-                if (flagCounts[i] >= level) {
-                    if (start == -1) start = i;
-                } else {
-                    if (start != -1) {
-                        runs.add(new int[]{start, i - 1});
-                        start = -1;
-                    }
-                }
-            }
-            if (start != -1) runs.add(new int[]{start, group.size() - 1});
-
-            for (int[] run : runs) {
-                int firstIdx = run[0];
-                int lastIdx = run[1];
-                double x1 = stemAttachX(group.get(firstIdx), direction);
-                double x2 = stemAttachX(group.get(lastIdx), direction);
-                double y1 = slope * x1 + b - sign * (level - 1) * BEAM_SPACING;
-                double y2 = slope * x2 + b - sign * (level - 1) * BEAM_SPACING;
-
-                if (firstIdx == lastIdx) {
-                    drawSlopedHook(gc, x1, y1, slope, firstIdx, group.size());
-                    if (level > 1) {
-                        gc.setStroke(Color.BLACK);
-                        gc.setLineWidth(1);
-                        gc.strokeLine(x1, y1, x1, y1 - sign * BEAM_SPACING);
-                    }
-                } else {
-                    drawBeam(gc, x1, y1, x2, y2);
-                    if (level == 2) {
-                        gc.setStroke(Color.BLACK);
-                        gc.setLineWidth(1);
-                        gc.strokeLine(x1, y1, x1, y1 - sign * BEAM_SPACING);
-                        gc.strokeLine(x2, y2, x2, y2 - sign * BEAM_SPACING);
-                    }
-                }
-            }
-        }
-    }
-
-    private void drawBeam(GraphicsContext gc, double x1, double y1, double x2, double y2) {
-        double thickness = BEAM_THICKNESS;
-        double dx = x2 - x1;
-        double dy = y2 - y1;
-        double len = Math.hypot(dx, dy);
-        if (len == 0) return;
-        double nx = -dy / len * thickness / 2;
-        double ny = dx / len * thickness / 2;
-
-        double[] xPoints = {x1 + nx, x1 - nx, x2 - nx, x2 + nx};
-        double[] yPoints = {y1 + ny, y1 - ny, y2 - ny, y2 + ny};
-        gc.setFill(Color.BLACK);
-        gc.fillPolygon(xPoints, yPoints, 4);
-    }
-
-    private void drawSlopedHook(GraphicsContext gc, double stemX, double y, double slope, int index, int total) {
-        double length = BEAM_HOOK_LENGTH;
-        double direction = (index == 0) ? 1 : (index == total - 1) ? -1 : 1;
-        double endX = stemX + direction * length;
-        double endY = y + slope * direction * length;
-        gc.setStroke(Color.BLACK);
-        gc.setLineWidth(BEAM_THICKNESS);
-        gc.strokeLine(stemX, y, endX, endY);
-    }
-
-    // ---- Accidentals ----
-
-    private void drawAccidental(GraphicsContext gc, double x, double y, Accidental accidental) {
-        if (accidental == Accidental.NONE) return;
-        String symbol = accidental.unicodeSymbol();
-        gc.setFill(Color.BLACK);
-        gc.setFont(Font.font("Serif", STAFF_LINE_SPACING * ACCIDENTAL_FONT_SIZE_FACTOR));
-        gc.setTextAlign(TextAlignment.CENTER);
-        gc.setTextBaseline(javafx.geometry.VPos.CENTER);
-        gc.fillText(symbol, x, y);
-    }
-
-    private boolean shouldDisplayAccidental(Pitch pitch) {
-        Accidental pitchAcc = pitch.accidental();
-        KeySignature ks = score.keySignature();
-        Accidental keyAcc = ks.accidentalForStep(pitch.step());
-
-        if (pitchAcc == Accidental.NONE) {
-            return false;
-        }
-        if (pitchAcc == Accidental.NATURAL) {
-            return keyAcc != Accidental.NONE;
-        }
-        return keyAcc != pitchAcc;
-    }
-
-    // ---- Note head, stem, flag, rest, ledger ----
-
-    private void drawNoteHead(GraphicsContext gc, double x, double y, Duration duration) {
-        double headX = x - NOTE_HEAD_WIDTH / 2;
-        double headY = y - NOTE_HEAD_HEIGHT / 2;
-
-        if (duration.isFilled()) {
-            gc.setFill(Color.BLACK);
-            gc.fillOval(headX, headY, NOTE_HEAD_WIDTH, NOTE_HEAD_HEIGHT);
-        } else {
-            gc.setStroke(Color.BLACK);
-            gc.setLineWidth(NOTE_HEAD_OUTLINE_WIDTH);
-            gc.strokeOval(headX, headY, NOTE_HEAD_WIDTH, NOTE_HEAD_HEIGHT);
-        }
-    }
-
-    private void drawStem(GraphicsContext gc, double stemX, double stemBottomY, double stemTopY) {
-        gc.setStroke(Color.BLACK);
-        gc.setLineWidth(1);
-        gc.strokeLine(stemX, stemBottomY, stemX, stemTopY);
-    }
-
-    private void drawFlags(GraphicsContext gc, double stemX, double stemTipY, int flagCount, StemDirection direction) {
-        int towardNoteheadSign = -direction.sign();
-        for (int i = 0; i < flagCount; i++) {
-            double flagStartY = stemTipY + i * FLAG_SPACING * towardNoteheadSign;
-            drawFlag(gc, stemX, flagStartY, direction);
-        }
-    }
-
-    private void drawFlag(GraphicsContext gc, double startX, double startY, StemDirection direction) {
-        int towardNoteheadSign = -direction.sign();
-        double controlX = startX + FLAG_WIDTH;
-        double controlY = startY + towardNoteheadSign * FLAG_HEIGHT / 2;
-        double endX = startX + FLAG_WIDTH * 0.6;
-        double endY = startY + towardNoteheadSign * FLAG_HEIGHT;
-
-        gc.setStroke(Color.BLACK);
-        gc.setLineWidth(1);
-        gc.beginPath();
-        gc.moveTo(startX, startY);
-        gc.quadraticCurveTo(controlX, controlY, endX, endY);
-        gc.stroke();
-    }
-
-    private void drawRest(GraphicsContext gc, double x, double y, Duration duration) {
-        gc.setStroke(Color.BLACK);
-        gc.setFill(Color.BLACK);
-        gc.setLineWidth(1.5);
-
-        double w = REST_WIDTH;
-        double h = REST_HEIGHT;
-
-        if (duration == Duration.WHOLE) {
-            gc.fillRect(x - w / 2, y, w, h);
-        } else if (duration == Duration.HALF) {
-            gc.fillRect(x - w / 2, y - h, w, h);
-        } else if (duration == Duration.QUARTER) {
-            double cx = x;
-            double cy = y;
-            gc.beginPath();
-            gc.moveTo(cx - w / 2, cy + h / 2);
-            gc.quadraticCurveTo(cx - w / 2, cy - h / 2, cx, cy - h / 2);
-            gc.quadraticCurveTo(cx + w / 2, cy - h / 2, cx + w / 2, cy);
-            gc.quadraticCurveTo(cx + w / 2, cy + h / 2, cx, cy + h / 2);
-            gc.quadraticCurveTo(cx - w / 2, cy + h / 2, cx - w / 2, cy + h / 2);
-            gc.closePath();
-            gc.fill();
-        } else if (duration == Duration.EIGHTH || duration == Duration.SIXTEENTH) {
-            double slant = EIGHTH_REST_SLANT;
-            double height = STAFF_LINE_SPACING * 0.8;
-            double startX = x - w / 2;
-            double startY = y - height / 2;
-            double endX = x + w / 2;
-            double endY = y + height / 2 + slant;
-            gc.strokeLine(startX, startY, endX, endY);
-            int hooks = (duration == Duration.SIXTEENTH) ? 2 : 1;
-            for (int i = 0; i < hooks; i++) {
-                double hookX = endX - i * 4;
-                double hookY = endY - i * 6;
-                gc.strokeLine(endX, endY, hookX, hookY);
-            }
-        }
-    }
-
-    private void drawLedgerLines(GraphicsContext gc, double x, double firstLineY, int position) {
-        if (position < TOP_LINE_POSITION) {
-            int count = -position / 2;
-            for (int i = 1; i <= count; i++) {
-                int ledgerPosition = -2 * i;
-                double y = firstLineY + ledgerPosition * (STAFF_LINE_SPACING / 2);
-                drawLedgerLine(gc, x, y);
-            }
-        } else if (position > BOTTOM_LINE_POSITION) {
-            int count = (position - BOTTOM_LINE_POSITION) / 2;
-            for (int i = 1; i <= count; i++) {
-                int ledgerPosition = BOTTOM_LINE_POSITION + 2 * i;
-                double y = firstLineY + ledgerPosition * (STAFF_LINE_SPACING / 2);
-                drawLedgerLine(gc, x, y);
-            }
-        }
-    }
-
-    private void drawLedgerLine(GraphicsContext gc, double x, double y) {
-        double halfWidth = NOTE_HEAD_WIDTH / 2 + LEDGER_LINE_EXTENSION;
-        gc.setStroke(Color.BLACK);
-        gc.setLineWidth(1);
-        gc.strokeLine(x - halfWidth, y, x + halfWidth, y);
-    }
-
-    // ---- Spacing and position helpers ----
+    // ----- Positioning helpers -----
 
     private double noteSpacing(Duration duration) {
         double base = NOTE_SPACING_PER_QUARTER * duration.toQuarterNoteFraction();
-        if (duration.isBeamable()) {
-            base += BEAMABLE_EXTRA_SPACING;
-        }
+        if (duration.isBeamable()) base += BEAMABLE_EXTRA_SPACING;
         return base;
     }
 
@@ -659,351 +401,11 @@ public class MusicNotationApp extends Application {
         return pitch.octave() * 7 + pitch.step().ordinal();
     }
 
-    // ---- TIES ----
-
-    private void drawTies(GraphicsContext gc, List<NoteLayout> allLayouts) {
-        if (allLayouts.size() < 2) return;
-
-        for (int i = 0; i < allLayouts.size() - 1; i++) {
-            NoteLayout current = allLayouts.get(i);
-            NoteLayout next = allLayouts.get(i + 1);
-
-            if (current.note().isRest() || next.note().isRest()) continue;
-            if (!current.note().tieStart() || !next.note().tieEnd()) continue;
-            if (!current.note().pitch().equals(next.note().pitch())) continue;
-
-            boolean above = determineTieDirection(current, next);
-            double startX = current.x() + NOTE_HEAD_WIDTH / 2;
-            double endX = next.x() - NOTE_HEAD_WIDTH / 2;
-            double startY = current.y();
-            double endY = next.y();
-
-            drawTie(gc, startX, startY, endX, endY, above);
-        }
-    }
-
-    private boolean determineTieDirection(NoteLayout first, NoteLayout second) {
-        StemDirection dir1 = stemDirection(first.position());
-        StemDirection dir2 = stemDirection(second.position());
-
-        if (dir1 == dir2) {
-            return dir1 == StemDirection.DOWN;
-        }
-
-        if (!first.note().duration().requiresStem() || !second.note().duration().requiresStem()) {
-            return true;
-        }
-
-        return true;
-    }
-
-    private void drawTie(GraphicsContext gc, double startX, double startY, double endX, double endY, boolean above) {
-        double midX = (startX + endX) / 2;
-        double offset = STAFF_LINE_SPACING * 0.75;
-        double controlY = above ? startY - offset : startY + offset;
-
-        gc.setStroke(Color.BLACK);
-        gc.setLineWidth(2.0);
-        gc.setLineCap(javafx.scene.shape.StrokeLineCap.ROUND);
-        gc.beginPath();
-        gc.moveTo(startX, startY);
-        gc.quadraticCurveTo(midX, controlY, endX, endY);
-        gc.stroke();
-    }
-
-    // ---- TUPLETS ----
-
-    private void drawTuplets(GraphicsContext gc, Measure measure, Map<Note, NoteLayout> layoutMap) {
-        if (measure.tuplets().isEmpty()) return;
-
-        for (Tuplet tuplet : measure.tuplets()) {
-            List<Note> notes = tuplet.notes();
-            if (notes.size() < 2) continue;
-
-            List<NoteLayout> noteLayouts = new ArrayList<>();
-            for (Note note : notes) {
-                NoteLayout layout = layoutMap.get(note);
-                if (layout != null) noteLayouts.add(layout);
-            }
-            if (noteLayouts.size() < 2) continue;
-
-            double minX = Double.MAX_VALUE;
-            double maxX = -Double.MAX_VALUE;
-            double highestPoint = Double.MAX_VALUE;
-
-            for (NoteLayout layout : noteLayouts) {
-                double left = layout.x() - NOTE_HEAD_WIDTH / 2;
-                double right = layout.x() + NOTE_HEAD_WIDTH / 2;
-                if (left < minX) minX = left;
-                if (right > maxX) maxX = right;
-
-                double topOfNote = layout.y();
-                Duration dur = layout.note().duration();
-                if (dur.requiresStem()) {
-                    StemDirection dir = stemDirection(layout.position());
-                    if (dir == StemDirection.UP) {
-                        topOfNote = layout.y() - STEM_LENGTH_STANDARD;
-                    }
-                }
-                if (topOfNote < highestPoint) {
-                    highestPoint = topOfNote;
-                }
-            }
-
-            double centerX = (minX + maxX) / 2;
-
-            boolean allBeamable = notes.stream().allMatch(n -> n.duration().isBeamable());
-            boolean inOneBeam = false;
-            if (allBeamable) {
-                List<NoteLayout> beamableLayouts = layoutMap.values().stream()
-                        .filter(l -> !l.note().isRest() && l.note().duration().isBeamable())
-                        .toList();
-                List<List<NoteLayout>> beamGroups = groupBeamsByBeat(beamableLayouts);
-                for (List<NoteLayout> group : beamGroups) {
-                    if (group.stream().allMatch(l -> notes.contains(l.note()))) {
-                        inOneBeam = true;
-                        break;
-                    }
-                }
-            }
-
-            boolean allSameDuration = notes.stream().allMatch(n -> n.duration() == notes.get(0).duration());
-            boolean drawBracket = !inOneBeam || !allSameDuration;
-
-            double yBase;
-            if (inOneBeam && allSameDuration) {
-                yBase = highestPoint - STAFF_LINE_SPACING;
-            } else {
-                yBase = highestPoint - TUPLET_OFFSET;
-            }
-
-            gc.setFill(Color.BLACK);
-            gc.setFont(Font.font("Serif", STAFF_LINE_SPACING * TUPLET_NUMBER_FONT_SIZE_FACTOR));
-            gc.setTextAlign(TextAlignment.CENTER);
-            gc.setTextBaseline(javafx.geometry.VPos.BOTTOM);
-            gc.fillText(String.valueOf(tuplet.numerator()), centerX, yBase);
-
-            if (drawBracket) {
-                double bracketY = yBase - 2;
-                gc.setStroke(Color.BLACK);
-                gc.setLineWidth(1);
-                gc.strokeLine(minX, bracketY, maxX, bracketY);
-                gc.strokeLine(minX, bracketY, minX, bracketY + TUPLET_BRACKET_HEIGHT);
-                gc.strokeLine(maxX, bracketY, maxX, bracketY + TUPLET_BRACKET_HEIGHT);
-            }
-        }
-    }
-
-    // ---- SLURS ----
-
-    private record SlurGeometry(
-            double startX, double startY,
-            double control1X, double control1Y,
-            double control2X, double control2Y,
-            double endX, double endY
-    ) {
-    }
-
-    private void drawSlurs(GraphicsContext gc, Measure measure, Map<Note, NoteLayout> layoutMap) {
-        if (measure.slurs().isEmpty()) return;
-
-        for (Slur slur : measure.slurs()) {
-            NoteLayout firstLayout = layoutMap.get(slur.firstNote());
-            NoteLayout lastLayout = layoutMap.get(slur.lastNote());
-            if (firstLayout == null || lastLayout == null) continue;
-
-            boolean above = determineSlurDirection(firstLayout, lastLayout);
-            SlurGeometry geometry = computeSlurGeometry(firstLayout, lastLayout, above);
-            drawSlurGeometry(gc, geometry);
-        }
-    }
-
-    private SlurGeometry computeSlurGeometry(NoteLayout first, NoteLayout last, boolean above) {
-        double startX = first.x();
-        double startY = first.y();
-        double endX = last.x();
-        double endY = last.y();
-
-        double midX = (startX + endX) / 2;
-        double offset = SLUR_OFFSET;
-
-        double controlX = midX;
-        double controlY;
-        if (above) {
-            double topY = Math.min(startY, endY);
-            controlY = topY - offset;
-        } else {
-            double bottomY = Math.max(startY, endY);
-            controlY = bottomY + offset;
-        }
-
-        return new SlurGeometry(
-                startX, startY,
-                controlX, controlY,
-                controlX, controlY,
-                endX, endY
-        );
-    }
-
-    private void drawSlurGeometry(GraphicsContext gc, SlurGeometry geom) {
-        gc.setStroke(Color.BLACK);
-        gc.setLineWidth(2.0);
-        gc.setLineCap(javafx.scene.shape.StrokeLineCap.ROUND);
-        gc.beginPath();
-        gc.moveTo(geom.startX(), geom.startY());
-        gc.bezierCurveTo(
-                geom.control1X(), geom.control1Y(),
-                geom.control2X(), geom.control2Y(),
-                geom.endX(), geom.endY()
-        );
-        gc.stroke();
-    }
-
-    private boolean determineSlurDirection(NoteLayout first, NoteLayout last) {
-        StemDirection dir1 = stemDirection(first.position());
-        StemDirection dir2 = stemDirection(last.position());
-
-        if (dir1 == dir2) {
-            return dir1 == StemDirection.DOWN;
-        }
-        return true;
-    }
-
-    private void drawArticulations(GraphicsContext gc, Measure measure, Map<Note, NoteLayout> layoutMap) {
-        if (measure.articulations().isEmpty()) return;
-
-        for (Articulation art : measure.articulations()) {
-            NoteLayout layout = layoutMap.get(art.note());
-            if (layout == null) continue;
-
-            double x = layout.x();
-            double y = layout.y();
-
-            ArticulationPlacement effectivePlacement = art.placement();
-            if (effectivePlacement == ArticulationPlacement.AUTO) {
-                StemDirection dir = stemDirection(layout.position());
-                ArticulationPlacement preferred = defaultPlacement(art.type());
-                if (preferred == ArticulationPlacement.ABOVE) {
-                    effectivePlacement = (dir == StemDirection.UP)
-                            ? ArticulationPlacement.BELOW
-                            : ArticulationPlacement.ABOVE;
-                } else {
-                    effectivePlacement = (dir == StemDirection.DOWN)
-                            ? ArticulationPlacement.ABOVE
-                            : ArticulationPlacement.BELOW;
-                }
-            }
-
-            double offset = ARTICULATION_OFFSET;
-            if (art.type() == ArticulationType.FERMATA) {
-                offset *= 1.4;  // more space to avoid overlap
-            }
-
-            double symbolY = effectivePlacement == ArticulationPlacement.ABOVE
-                    ? y - offset
-                    : y + offset;
-
-            String symbol = articulationSymbol(art.type(), effectivePlacement);
-
-            gc.setFill(Color.BLACK);
-            gc.setFont(Font.font("Serif", STAFF_LINE_SPACING * ARTICULATION_FONT_SIZE_FACTOR));
-            gc.setTextAlign(TextAlignment.CENTER);
-            gc.setTextBaseline(javafx.geometry.VPos.CENTER);
-            gc.fillText(symbol, x, symbolY);
-        }
-    }
-
-    private ArticulationPlacement defaultPlacement(ArticulationType type) {
-        return switch (type) {
-            case STACCATO, STACCATISSIMO -> ArticulationPlacement.BELOW;
-            case ACCENT, MARCATO, TENUTO, FERMATA -> ArticulationPlacement.ABOVE;
-        };
-    }
-
-    /**
-     * Returns a placeholder symbol for an articulation type.
-     * For fermata, returns ⌒ (above) or ⌣ (below) for correct orientation.
-     * TODO: Replace placeholder characters with SMuFL glyphs loaded from a music font (Bravura/Petaluma/Leland).
-     */
-    private String articulationSymbol(ArticulationType type, ArticulationPlacement placement) {
-        if (type == ArticulationType.FERMATA) {
-            return placement == ArticulationPlacement.ABOVE ? "⌒" : "⌣";
-        }
-        return switch (type) {
-            case STACCATO -> "•";
-            case STACCATISSIMO -> "‣";
-            case ACCENT -> ">";
-            case MARCATO -> "^";
-            case TENUTO -> "-";
-            default -> "?";
-        };
-    }
-
-    private void drawDynamics(GraphicsContext gc, Measure measure, Map<Note, NoteLayout> layoutMap) {
-        if (measure.dynamics().isEmpty()) return;
-
-        for (Dynamic dyn : measure.dynamics()) {
-            NoteLayout layout = layoutMap.get(dyn.note());
-            if (layout == null) continue;
-
-            double x = layout.x();
-            double y = layout.y();
-
-            // Determină placement final
-            DynamicPlacement effectivePlacement = dyn.placement();
-            if (effectivePlacement == DynamicPlacement.AUTO) {
-                // TODO: Future engraving rules may override this for specific dynamics
-                effectivePlacement = defaultDynamicPlacement(dyn.type());
-            }
-
-            double symbolY = effectivePlacement == DynamicPlacement.ABOVE
-                    ? y - DYNAMIC_OFFSET
-                    : y + DYNAMIC_OFFSET;
-
-            String text = dynamicText(dyn.type());
-
-            gc.setFill(Color.BLACK);
-            gc.setFont(Font.font("Serif", STAFF_LINE_SPACING * DYNAMIC_FONT_SIZE_FACTOR));
-            gc.setTextAlign(TextAlignment.CENTER);
-            gc.setTextBaseline(javafx.geometry.VPos.CENTER);
-            gc.fillText(text, x, symbolY);
-        }
-    }
-
-    /**
-     * Returns the default placement for a dynamic type.
-     * Currently all dynamics are placed below.
-     * Future versions may override this for specific dynamics
-     * (e.g., fff above in some engraving styles).
-     */
-    private DynamicPlacement defaultDynamicPlacement(DynamicType type) {
-        // TODO: Implement engraving rules for specific dynamics
-        return DynamicPlacement.BELOW;
-    }
-
-    /**
-     * Returns the text representation of a dynamic.
-     * TODO: Replace with dynamicGlyph() when using SMuFL fonts.
-     */
-    private String dynamicText(DynamicType type) {
-        return switch (type) {
-            case PPP -> "ppp";
-            case PP -> "pp";
-            case P -> "p";
-            case MP -> "mp";
-            case MF -> "mf";
-            case F -> "f";
-            case FF -> "ff";
-            case FFF -> "fff";
-        };
-    }
-
-    // ---- Sample score ----
+    // ----- Sample score -----
 
     private static Score createSampleScore() {
         Score score = new Score(KeySignature.C_MAJOR);
 
-        // Measure 1: Triplet of eighth notes (3:2) – beamed, number only
         Measure measure1 = new Measure();
         Note n1 = new Note(Pitch.of("C4"), Duration.EIGHTH);
         Note n2 = new Note(Pitch.of("D4"), Duration.EIGHTH);
@@ -1014,7 +416,6 @@ public class MusicNotationApp extends Application {
         measure1.addTuplet(new Tuplet(3, 2, List.of(n1, n2, n3)));
         score.addMeasure(measure1);
 
-        // Measure 2: Slur over 4 quarter notes
         Measure measure2 = new Measure();
         Note q1 = new Note(Pitch.of("C4"), Duration.QUARTER);
         Note q2 = new Note(Pitch.of("D4"), Duration.QUARTER);
@@ -1027,7 +428,6 @@ public class MusicNotationApp extends Application {
         measure2.addSlur(new Slur(List.of(q1, q2, q3, q4)));
         score.addMeasure(measure2);
 
-        // Measure 3: Slur over 2 high notes (stem down)
         Measure measure3 = new Measure();
         Note s1 = new Note(Pitch.of("C5"), Duration.HALF);
         Note s2 = new Note(Pitch.of("D5"), Duration.HALF);
@@ -1036,24 +436,23 @@ public class MusicNotationApp extends Application {
         measure3.addSlur(new Slur(List.of(s1, s2)));
         score.addMeasure(measure3);
 
-        Measure measureWithArticulations = new Measure();
+        Measure measure4 = new Measure();
         Note a1 = new Note(Pitch.of("C4"), Duration.QUARTER);
         Note a2 = new Note(Pitch.of("D4"), Duration.QUARTER);
         Note a3 = new Note(Pitch.of("E4"), Duration.QUARTER);
         Note a4 = new Note(Pitch.of("F4"), Duration.QUARTER);
-        measureWithArticulations.addNote(a1);
-        measureWithArticulations.addNote(a2);
-        measureWithArticulations.addNote(a3);
-        measureWithArticulations.addNote(a4);
-        measureWithArticulations.addArticulation(new Articulation(a1, ArticulationType.STACCATO));
-        measureWithArticulations.addArticulation(new Articulation(a2, ArticulationType.ACCENT));
-        measureWithArticulations.addArticulation(new Articulation(a3, ArticulationType.TENUTO));
-        measureWithArticulations.addArticulation(new Articulation(a4, ArticulationType.FERMATA));
-        score.addMeasure(measureWithArticulations);
+        measure4.addNote(a1);
+        measure4.addNote(a2);
+        measure4.addNote(a3);
+        measure4.addNote(a4);
+        measure4.addArticulation(new Articulation(a1, ArticulationType.STACCATO));
+        measure4.addArticulation(new Articulation(a2, ArticulationType.ACCENT));
+        measure4.addArticulation(new Articulation(a3, ArticulationType.TENUTO));
+        measure4.addArticulation(new Articulation(a4, ArticulationType.FERMATA));
+        score.addMeasure(measure4);
 
-        // Measure 5: Dynamics
         Measure measure5 = new Measure();
-        Note d1 = new Note(Pitch.of("C5"), Duration.QUARTER);
+        Note d1 = new Note(Pitch.of("C4"), Duration.QUARTER);
         Note d2 = new Note(Pitch.of("D4"), Duration.QUARTER);
         Note d3 = new Note(Pitch.of("E4"), Duration.QUARTER);
         Note d4 = new Note(Pitch.of("F4"), Duration.QUARTER);
