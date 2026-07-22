@@ -5,6 +5,29 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 
+/**
+ * Represents a single measure in 4/4 time.
+ * <p>
+ * Ownership and invariants:
+ * <ul>
+ *   <li>Measure owns its notes, tuplets, slurs, articulations and dynamics.</li>
+ *   <li>A note can belong to at most one tuplet.</li>
+ *   <li>A note can have at most one articulation of each type.</li>
+ *   <li>A note can have at most one dynamic (any type).</li>
+ *   <li>All collections are immutable (defensive copies).</li>
+ *   <li>Placement is either explicit (ABOVE/BELOW) or AUTO (renderer decides).</li>
+ * </ul>
+ * <p>
+ * Rendering knowledge (fonts, glyphs, offsets, placement heuristics) is intentionally
+ * kept outside the model and belongs to the renderer (MusicNotationApp).
+ * This ensures the model remains independent of any GUI toolkit or font technology.
+ * </p>
+ * <p>
+ * <b>Limitation:</b> Dynamics are attached to notes, not to time positions.
+ * This is acceptable for MVP, but future versions should anchor dynamics
+ * to musical positions (like MusicXML directions).
+ * </p>
+ */
 public final class Measure {
 
     private static final int CAPACITY_IN_SIXTEENTHS = 16;
@@ -14,6 +37,11 @@ public final class Measure {
     private final List<Tuplet> tuplets = new ArrayList<>();
     private final List<Slur> slurs = new ArrayList<>();
     private final List<Articulation> articulations = new ArrayList<>();
+    private final List<Dynamic> dynamics = new ArrayList<>();
+
+    // ------------------------------------------------------------------------
+    // Add methods
+    // ------------------------------------------------------------------------
 
     public void addNote(Note note) {
         Objects.requireNonNull(note, "note must not be null");
@@ -23,6 +51,9 @@ public final class Measure {
         notes.add(note);
     }
 
+    /**
+     * Helper method to ensure all notes of a container (Tuplet or Slur) are present in the measure.
+     */
     private static void ensureAllNotesPresent(Collection<Note> measureNotes, Collection<Note> objectNotes, String objectName) {
         for (Note note : objectNotes) {
             if (!measureNotes.contains(note)) {
@@ -58,6 +89,7 @@ public final class Measure {
             );
         }
 
+        // Verifică duplicate: aceeași notă + același tip
         for (Articulation existing : articulations) {
             if (existing.note() == articulation.note()
                     && existing.type() == articulation.type()) {
@@ -70,6 +102,35 @@ public final class Measure {
         articulations.add(articulation);
     }
 
+    public void addDynamic(Dynamic dynamic) {
+        Objects.requireNonNull(dynamic, "dynamic must not be null");
+
+        if (!notes.contains(dynamic.note())) {
+            throw new IllegalStateException(
+                    "Dynamic's note is not present in this measure: " + dynamic
+            );
+        }
+
+        // Interzice orice al doilea dynamic pe aceeași notă
+        for (Dynamic existing : dynamics) {
+            if (existing.note() == dynamic.note()) {
+                throw new IllegalStateException(
+                        "A note can have at most one dynamic: " + dynamic
+                );
+            }
+        }
+
+        dynamics.add(dynamic);
+    }
+
+    // ------------------------------------------------------------------------
+    // Duration calculation
+    // ------------------------------------------------------------------------
+
+    /**
+     * Calculates the total duration used in this measure, in sixteenths.
+     * Notes belonging to a tuplet are scaled by the tuplet's duration factor.
+     */
     private double usedSixteenths() {
         double total = 0.0;
         for (Note note : notes) {
@@ -83,8 +144,24 @@ public final class Measure {
         return total;
     }
 
+    // ------------------------------------------------------------------------
+    // Validation
+    // ------------------------------------------------------------------------
+
+    /**
+     * Validates the consistency and capacity of this measure.
+     * <p>
+     * Checks performed:
+     * <ul>
+     *   <li>Tuplet consistency (bidirectional associations)</li>
+     *   <li>Slur consistency (all slur notes are present)</li>
+     *   <li>Articulation consistency (all articulation notes are present)</li>
+     *   <li>Dynamic consistency (all dynamic notes are present)</li>
+     *   <li>Duration capacity (does not exceed 4/4 capacity)</li>
+     * </ul>
+     */
     public void validate() {
-        // Tuplet consistency
+        // --- Tuplet consistency ---
         for (Tuplet tuplet : tuplets) {
             for (Note note : tuplet.notes()) {
                 if (note.tuplet() != tuplet) {
@@ -99,7 +176,7 @@ public final class Measure {
             }
         }
 
-        // Slur consistency
+        // --- Slur consistency ---
         for (Slur slur : slurs) {
             for (Note note : slur.notes()) {
                 if (!notes.contains(note)) {
@@ -108,7 +185,7 @@ public final class Measure {
             }
         }
 
-        // Articulation consistency
+        // --- Articulation consistency ---
         for (Articulation art : articulations) {
             if (!notes.contains(art.note())) {
                 throw new IllegalStateException(
@@ -117,7 +194,16 @@ public final class Measure {
             }
         }
 
-        // Duration capacity
+        // --- Dynamic consistency ---
+        for (Dynamic dyn : dynamics) {
+            if (!notes.contains(dyn.note())) {
+                throw new IllegalStateException(
+                        "Dynamic note not present in measure: " + dyn
+                );
+            }
+        }
+
+        // --- Duration capacity ---
         double used = usedSixteenths();
         if (used < -EPSILON) {
             throw new IllegalStateException("Measure has negative duration: " + used + " sixteenths");
@@ -127,9 +213,16 @@ public final class Measure {
         }
     }
 
+    /**
+     * Checks whether the measure is exactly full (duration equals capacity).
+     */
     public boolean isFull() {
         return usedSixteenths() >= CAPACITY_IN_SIXTEENTHS - EPSILON;
     }
+
+    // ------------------------------------------------------------------------
+    // Getters (defensive copies)
+    // ------------------------------------------------------------------------
 
     public List<Note> notes() {
         return List.copyOf(notes);
@@ -147,8 +240,21 @@ public final class Measure {
         return List.copyOf(articulations);
     }
 
+    public List<Dynamic> dynamics() {
+        return List.copyOf(dynamics);
+    }
+
+    // ------------------------------------------------------------------------
+    // Object overrides
+    // ------------------------------------------------------------------------
+
     @Override
     public String toString() {
-        return "Measure{notes=" + notes + ", tuplets=" + tuplets + ", slurs=" + slurs + ", articulations=" + articulations + "}";
+        return "Measure{notes=" + notes +
+                ", tuplets=" + tuplets +
+                ", slurs=" + slurs +
+                ", articulations=" + articulations +
+                ", dynamics=" + dynamics +
+                "}";
     }
 }

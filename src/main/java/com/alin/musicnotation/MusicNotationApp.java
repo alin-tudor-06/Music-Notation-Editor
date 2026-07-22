@@ -75,6 +75,9 @@ public class MusicNotationApp extends Application {
     private static final double ARTICULATION_FONT_SIZE_FACTOR = 1.0;
     private static final double ARTICULATION_OFFSET = STAFF_LINE_SPACING * 0.8;
 
+    private static final double DYNAMIC_FONT_SIZE_FACTOR = 0.8;
+    private static final double DYNAMIC_OFFSET = STAFF_LINE_SPACING * 0.9;
+
     private final Score score = createSampleScore();
 
     @Override
@@ -309,6 +312,7 @@ public class MusicNotationApp extends Application {
         drawTuplets(gc, measure, layoutMap);
         drawSlurs(gc, measure, layoutMap);
         drawArticulations(gc, measure, layoutMap);
+        drawDynamics(gc, measure, layoutMap);
     }
 
     // ---- Beam grouping ----
@@ -935,6 +939,65 @@ public class MusicNotationApp extends Application {
         };
     }
 
+    private void drawDynamics(GraphicsContext gc, Measure measure, Map<Note, NoteLayout> layoutMap) {
+        if (measure.dynamics().isEmpty()) return;
+
+        for (Dynamic dyn : measure.dynamics()) {
+            NoteLayout layout = layoutMap.get(dyn.note());
+            if (layout == null) continue;
+
+            double x = layout.x();
+            double y = layout.y();
+
+            // Determină placement final
+            DynamicPlacement effectivePlacement = dyn.placement();
+            if (effectivePlacement == DynamicPlacement.AUTO) {
+                // TODO: Future engraving rules may override this for specific dynamics
+                effectivePlacement = defaultDynamicPlacement(dyn.type());
+            }
+
+            double symbolY = effectivePlacement == DynamicPlacement.ABOVE
+                    ? y - DYNAMIC_OFFSET
+                    : y + DYNAMIC_OFFSET;
+
+            String text = dynamicText(dyn.type());
+
+            gc.setFill(Color.BLACK);
+            gc.setFont(Font.font("Serif", STAFF_LINE_SPACING * DYNAMIC_FONT_SIZE_FACTOR));
+            gc.setTextAlign(TextAlignment.CENTER);
+            gc.setTextBaseline(javafx.geometry.VPos.CENTER);
+            gc.fillText(text, x, symbolY);
+        }
+    }
+
+    /**
+     * Returns the default placement for a dynamic type.
+     * Currently all dynamics are placed below.
+     * Future versions may override this for specific dynamics
+     * (e.g., fff above in some engraving styles).
+     */
+    private DynamicPlacement defaultDynamicPlacement(DynamicType type) {
+        // TODO: Implement engraving rules for specific dynamics
+        return DynamicPlacement.BELOW;
+    }
+
+    /**
+     * Returns the text representation of a dynamic.
+     * TODO: Replace with dynamicGlyph() when using SMuFL fonts.
+     */
+    private String dynamicText(DynamicType type) {
+        return switch (type) {
+            case PPP -> "ppp";
+            case PP -> "pp";
+            case P -> "p";
+            case MP -> "mp";
+            case MF -> "mf";
+            case F -> "f";
+            case FF -> "ff";
+            case FFF -> "fff";
+        };
+    }
+
     // ---- Sample score ----
 
     private static Score createSampleScore() {
@@ -987,6 +1050,22 @@ public class MusicNotationApp extends Application {
         measureWithArticulations.addArticulation(new Articulation(a3, ArticulationType.TENUTO));
         measureWithArticulations.addArticulation(new Articulation(a4, ArticulationType.FERMATA));
         score.addMeasure(measureWithArticulations);
+
+        // Measure 5: Dynamics
+        Measure measure5 = new Measure();
+        Note d1 = new Note(Pitch.of("C5"), Duration.QUARTER);
+        Note d2 = new Note(Pitch.of("D4"), Duration.QUARTER);
+        Note d3 = new Note(Pitch.of("E4"), Duration.QUARTER);
+        Note d4 = new Note(Pitch.of("F4"), Duration.QUARTER);
+        measure5.addNote(d1);
+        measure5.addNote(d2);
+        measure5.addNote(d3);
+        measure5.addNote(d4);
+        measure5.addDynamic(new Dynamic(d1, DynamicType.P));
+        measure5.addDynamic(new Dynamic(d2, DynamicType.MF));
+        measure5.addDynamic(new Dynamic(d3, DynamicType.F));
+        measure5.addDynamic(new Dynamic(d4, DynamicType.FFF));
+        score.addMeasure(measure5);
 
         score.validate();
         return score;
