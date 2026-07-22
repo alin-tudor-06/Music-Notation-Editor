@@ -10,11 +10,10 @@ public final class Measure {
     private static final int CAPACITY_IN_SIXTEENTHS = 16;
     private static final double EPSILON = 0.0001;
 
-    // Current implementation uses List because measures are small.
-    // If performance becomes an issue, consider using a Set for O(1) lookups.
     private final List<Note> notes = new ArrayList<>();
     private final List<Tuplet> tuplets = new ArrayList<>();
     private final List<Slur> slurs = new ArrayList<>();
+    private final List<Articulation> articulations = new ArrayList<>();
 
     public void addNote(Note note) {
         Objects.requireNonNull(note, "note must not be null");
@@ -50,6 +49,27 @@ public final class Measure {
         slurs.add(slur);
     }
 
+    public void addArticulation(Articulation articulation) {
+        Objects.requireNonNull(articulation, "articulation must not be null");
+
+        if (!notes.contains(articulation.note())) {
+            throw new IllegalStateException(
+                    "Articulation's note is not present in this measure: " + articulation
+            );
+        }
+
+        for (Articulation existing : articulations) {
+            if (existing.note() == articulation.note()
+                    && existing.type() == articulation.type()) {
+                throw new IllegalStateException(
+                        "Duplicate articulation on note: " + articulation
+                );
+            }
+        }
+
+        articulations.add(articulation);
+    }
+
     private double usedSixteenths() {
         double total = 0.0;
         for (Note note : notes) {
@@ -64,7 +84,7 @@ public final class Measure {
     }
 
     public void validate() {
-        // Tuplet consistency (bidirectional)
+        // Tuplet consistency
         for (Tuplet tuplet : tuplets) {
             for (Note note : tuplet.notes()) {
                 if (note.tuplet() != tuplet) {
@@ -79,7 +99,25 @@ public final class Measure {
             }
         }
 
-        // Duration check
+        // Slur consistency
+        for (Slur slur : slurs) {
+            for (Note note : slur.notes()) {
+                if (!notes.contains(note)) {
+                    throw new IllegalStateException("Slur note " + note + " is not present in measure");
+                }
+            }
+        }
+
+        // Articulation consistency
+        for (Articulation art : articulations) {
+            if (!notes.contains(art.note())) {
+                throw new IllegalStateException(
+                        "Articulation note not present in measure: " + art
+                );
+            }
+        }
+
+        // Duration capacity
         double used = usedSixteenths();
         if (used < -EPSILON) {
             throw new IllegalStateException("Measure has negative duration: " + used + " sixteenths");
@@ -105,8 +143,12 @@ public final class Measure {
         return List.copyOf(slurs);
     }
 
+    public List<Articulation> articulations() {
+        return List.copyOf(articulations);
+    }
+
     @Override
     public String toString() {
-        return "Measure{notes=" + notes + ", tuplets=" + tuplets + ", slurs=" + slurs + "}";
+        return "Measure{notes=" + notes + ", tuplets=" + tuplets + ", slurs=" + slurs + ", articulations=" + articulations + "}";
     }
 }

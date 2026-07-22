@@ -72,6 +72,9 @@ public class MusicNotationApp extends Application {
 
     private static final double SLUR_OFFSET = STAFF_LINE_SPACING * 1.2;
 
+    private static final double ARTICULATION_FONT_SIZE_FACTOR = 1.0;
+    private static final double ARTICULATION_OFFSET = STAFF_LINE_SPACING * 0.8;
+
     private final Score score = createSampleScore();
 
     @Override
@@ -305,6 +308,7 @@ public class MusicNotationApp extends Application {
 
         drawTuplets(gc, measure, layoutMap);
         drawSlurs(gc, measure, layoutMap);
+        drawArticulations(gc, measure, layoutMap);
     }
 
     // ---- Beam grouping ----
@@ -861,6 +865,76 @@ public class MusicNotationApp extends Application {
         return true;
     }
 
+    private void drawArticulations(GraphicsContext gc, Measure measure, Map<Note, NoteLayout> layoutMap) {
+        if (measure.articulations().isEmpty()) return;
+
+        for (Articulation art : measure.articulations()) {
+            NoteLayout layout = layoutMap.get(art.note());
+            if (layout == null) continue;
+
+            double x = layout.x();
+            double y = layout.y();
+
+            ArticulationPlacement effectivePlacement = art.placement();
+            if (effectivePlacement == ArticulationPlacement.AUTO) {
+                StemDirection dir = stemDirection(layout.position());
+                ArticulationPlacement preferred = defaultPlacement(art.type());
+                if (preferred == ArticulationPlacement.ABOVE) {
+                    effectivePlacement = (dir == StemDirection.UP)
+                            ? ArticulationPlacement.BELOW
+                            : ArticulationPlacement.ABOVE;
+                } else {
+                    effectivePlacement = (dir == StemDirection.DOWN)
+                            ? ArticulationPlacement.ABOVE
+                            : ArticulationPlacement.BELOW;
+                }
+            }
+
+            double offset = ARTICULATION_OFFSET;
+            if (art.type() == ArticulationType.FERMATA) {
+                offset *= 1.4;  // more space to avoid overlap
+            }
+
+            double symbolY = effectivePlacement == ArticulationPlacement.ABOVE
+                    ? y - offset
+                    : y + offset;
+
+            String symbol = articulationSymbol(art.type(), effectivePlacement);
+
+            gc.setFill(Color.BLACK);
+            gc.setFont(Font.font("Serif", STAFF_LINE_SPACING * ARTICULATION_FONT_SIZE_FACTOR));
+            gc.setTextAlign(TextAlignment.CENTER);
+            gc.setTextBaseline(javafx.geometry.VPos.CENTER);
+            gc.fillText(symbol, x, symbolY);
+        }
+    }
+
+    private ArticulationPlacement defaultPlacement(ArticulationType type) {
+        return switch (type) {
+            case STACCATO, STACCATISSIMO -> ArticulationPlacement.BELOW;
+            case ACCENT, MARCATO, TENUTO, FERMATA -> ArticulationPlacement.ABOVE;
+        };
+    }
+
+    /**
+     * Returns a placeholder symbol for an articulation type.
+     * For fermata, returns ⌒ (above) or ⌣ (below) for correct orientation.
+     * TODO: Replace placeholder characters with SMuFL glyphs loaded from a music font (Bravura/Petaluma/Leland).
+     */
+    private String articulationSymbol(ArticulationType type, ArticulationPlacement placement) {
+        if (type == ArticulationType.FERMATA) {
+            return placement == ArticulationPlacement.ABOVE ? "⌒" : "⌣";
+        }
+        return switch (type) {
+            case STACCATO -> "•";
+            case STACCATISSIMO -> "‣";
+            case ACCENT -> ">";
+            case MARCATO -> "^";
+            case TENUTO -> "-";
+            default -> "?";
+        };
+    }
+
     // ---- Sample score ----
 
     private static Score createSampleScore() {
@@ -875,6 +949,7 @@ public class MusicNotationApp extends Application {
         measure1.addNote(n2);
         measure1.addNote(n3);
         measure1.addTuplet(new Tuplet(3, 2, List.of(n1, n2, n3)));
+        score.addMeasure(measure1);
 
         // Measure 2: Slur over 4 quarter notes
         Measure measure2 = new Measure();
@@ -887,6 +962,7 @@ public class MusicNotationApp extends Application {
         measure2.addNote(q3);
         measure2.addNote(q4);
         measure2.addSlur(new Slur(List.of(q1, q2, q3, q4)));
+        score.addMeasure(measure2);
 
         // Measure 3: Slur over 2 high notes (stem down)
         Measure measure3 = new Measure();
@@ -895,21 +971,22 @@ public class MusicNotationApp extends Application {
         measure3.addNote(s1);
         measure3.addNote(s2);
         measure3.addSlur(new Slur(List.of(s1, s2)));
-
-        // Measure 4: Mixed durations with tuplet (bracket)
-        Measure measure4 = new Measure();
-        Note m1 = new Note(Pitch.of("C5"), Duration.EIGHTH);
-        Note m2 = new Note(Pitch.of("D5"), Duration.SIXTEENTH);
-        Note m3 = new Note(Pitch.of("E5"), Duration.EIGHTH);
-        measure4.addNote(m1);
-        measure4.addNote(m2);
-        measure4.addNote(m3);
-        measure4.addTuplet(new Tuplet(3, 2, List.of(m1, m2, m3)));
-
-        score.addMeasure(measure1);
-        score.addMeasure(measure2);
         score.addMeasure(measure3);
-        score.addMeasure(measure4);
+
+        Measure measureWithArticulations = new Measure();
+        Note a1 = new Note(Pitch.of("C4"), Duration.QUARTER);
+        Note a2 = new Note(Pitch.of("D4"), Duration.QUARTER);
+        Note a3 = new Note(Pitch.of("E4"), Duration.QUARTER);
+        Note a4 = new Note(Pitch.of("F4"), Duration.QUARTER);
+        measureWithArticulations.addNote(a1);
+        measureWithArticulations.addNote(a2);
+        measureWithArticulations.addNote(a3);
+        measureWithArticulations.addNote(a4);
+        measureWithArticulations.addArticulation(new Articulation(a1, ArticulationType.STACCATO));
+        measureWithArticulations.addArticulation(new Articulation(a2, ArticulationType.ACCENT));
+        measureWithArticulations.addArticulation(new Articulation(a3, ArticulationType.TENUTO));
+        measureWithArticulations.addArticulation(new Articulation(a4, ArticulationType.FERMATA));
+        score.addMeasure(measureWithArticulations);
 
         score.validate();
         return score;
