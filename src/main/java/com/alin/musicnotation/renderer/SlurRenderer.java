@@ -5,7 +5,6 @@ import com.alin.musicnotation.Note;
 import com.alin.musicnotation.model.NoteLayout;
 import com.alin.musicnotation.Slur;
 import com.alin.musicnotation.model.StemDirection;
-import com.alin.musicnotation.MusicNotationApp;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 
@@ -14,7 +13,8 @@ import java.util.*;
 public class SlurRenderer {
 
     public void draw(GraphicsContext gc, Measure measure, Map<Note, NoteLayout> layoutMap,
-                     double middleLineY, double slurOffset, double staffLineSpacing,
+                     double middleLineY, int middleLinePosition,
+                     double slurOffset, double staffLineSpacing,
                      double noteHeadWidth) {
 
         if (measure.slurs().isEmpty()) return;
@@ -37,17 +37,17 @@ public class SlurRenderer {
             NoteLayout first = noteLayouts.get(0);
             NoteLayout last = noteLayouts.get(noteLayouts.size() - 1);
 
-            boolean above = determineSlurDirection(noteLayouts, middleLineY);
+            boolean above = determineSlurDirection(noteLayouts, middleLinePosition);
             SlurGeometry geom = computeSlurGeometry(first, last, above, slurOffset);
             drawSlurGeometry(gc, geom);
         }
     }
 
-    private boolean determineSlurDirection(List<NoteLayout> noteLayouts, double middleLineY) {
+    private boolean determineSlurDirection(List<NoteLayout> noteLayouts, int middleLinePosition) {
         boolean allUp = true;
         boolean allDown = true;
         for (NoteLayout layout : noteLayouts) {
-            StemDirection dir = MusicNotationApp.stemDirection(layout.position());
+            StemDirection dir = RenderingHelpers.stemDirection(layout.position(), middleLinePosition);
             if (dir == StemDirection.DOWN) allUp = false;
             if (dir == StemDirection.UP) allDown = false;
         }

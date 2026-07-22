@@ -13,7 +13,8 @@ import java.util.*;
 public class ArticulationRenderer {
 
     public void draw(GraphicsContext gc, Measure measure, Map<Note, NoteLayout> layoutMap,
-                     double middleLineY, double articulationFontSizeFactor,
+                     double middleLineY, int middleLinePosition,
+                     double articulationFontSizeFactor,
                      double articulationOffset, double staffLineSpacing,
                      double noteHeadWidth) {
 
@@ -28,7 +29,7 @@ public class ArticulationRenderer {
 
             ArticulationPlacement effectivePlacement = art.placement();
             if (effectivePlacement == ArticulationPlacement.AUTO) {
-                StemDirection dir = MusicNotationApp.stemDirection(layout.position());
+                StemDirection dir = RenderingHelpers.stemDirection(layout.position(), middleLinePosition);
                 ArticulationPlacement preferred = defaultPlacement(art.type());
                 if (preferred == ArticulationPlacement.ABOVE) {
                     effectivePlacement = (dir == StemDirection.UP)

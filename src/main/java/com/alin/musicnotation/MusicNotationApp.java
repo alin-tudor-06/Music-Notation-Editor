@@ -22,6 +22,7 @@ import java.util.*;
 
 public class MusicNotationApp extends Application {
 
+    // ----- Constants -----
     private static final double WINDOW_WIDTH = 800;
     private static final double WINDOW_HEIGHT = 600;
 
@@ -75,6 +76,7 @@ public class MusicNotationApp extends Application {
     private static final double DYNAMIC_FONT_SIZE_FACTOR = 0.8;
     private static final double DYNAMIC_OFFSET = STAFF_LINE_SPACING * 0.9;
 
+    // ----- Renderer instances -----
     private final NoteRenderer noteRenderer = new NoteRenderer();
     private final BeamRenderer beamRenderer = new BeamRenderer();
     private final TupletRenderer tupletRenderer = new TupletRenderer();
@@ -204,6 +206,7 @@ public class MusicNotationApp extends Application {
         return keyAcc != pitchAcc;
     }
 
+    // ----- Layout and orchestration -----
     private List<NoteLayout> drawNotes(GraphicsContext gc, double firstLineY, double staffHeight, double startX) {
         List<NoteLayout> allLayouts = new ArrayList<>();
         double x = startX;
@@ -263,25 +266,25 @@ public class MusicNotationApp extends Application {
         }
         double middleLineY = firstLineY + MIDDLE_LINE_POSITION * (STAFF_LINE_SPACING / 2);
 
-        noteRenderer.draw(gc, measure, layoutMap, firstLineY, middleLineY,
+        noteRenderer.draw(gc, measure, layoutMap, firstLineY, middleLineY, MIDDLE_LINE_POSITION,
                 NOTE_HEAD_WIDTH, NOTE_HEAD_HEIGHT, STEM_LENGTH_STANDARD,
                 LEDGER_LINE_EXTENSION, NOTE_HEAD_OUTLINE_WIDTH,
                 FLAG_WIDTH, FLAG_HEIGHT, FLAG_SPACING,
                 REST_WIDTH, REST_HEIGHT, EIGHTH_REST_SLANT,
                 TOP_LINE_POSITION, BOTTOM_LINE_POSITION, STAFF_LINE_SPACING);
 
-        beamRenderer.draw(gc, measure, layoutMap, middleLineY,
+        beamRenderer.draw(gc, measure, layoutMap, middleLineY, MIDDLE_LINE_POSITION,
                 BEAM_THICKNESS, BEAM_SPACING, BEAM_HOOK_LENGTH,
                 MAX_BEAM_SLOPE, STEM_LENGTH_STANDARD, NOTE_HEAD_WIDTH);
 
-        tupletRenderer.draw(gc, measure, layoutMap,
+        tupletRenderer.draw(gc, measure, layoutMap, MIDDLE_LINE_POSITION,
                 TUPLET_OFFSET, TUPLET_BRACKET_HEIGHT, TUPLET_NUMBER_FONT_SIZE_FACTOR,
                 NOTE_HEAD_WIDTH, STEM_LENGTH_STANDARD, STAFF_LINE_SPACING);
 
-        slurRenderer.draw(gc, measure, layoutMap, middleLineY,
+        slurRenderer.draw(gc, measure, layoutMap, middleLineY, MIDDLE_LINE_POSITION,
                 SLUR_OFFSET, STAFF_LINE_SPACING, NOTE_HEAD_WIDTH);
 
-        articulationRenderer.draw(gc, measure, layoutMap, middleLineY,
+        articulationRenderer.draw(gc, measure, layoutMap, middleLineY, MIDDLE_LINE_POSITION,
                 ARTICULATION_FONT_SIZE_FACTOR, ARTICULATION_OFFSET,
                 STAFF_LINE_SPACING, NOTE_HEAD_WIDTH);
 
@@ -289,6 +292,7 @@ public class MusicNotationApp extends Application {
                 DYNAMIC_FONT_SIZE_FACTOR, DYNAMIC_OFFSET, STAFF_LINE_SPACING);
     }
 
+    // ----- Ties -----
     private void drawTies(GraphicsContext gc, List<NoteLayout> allLayouts) {
         if (allLayouts.size() < 2) return;
         for (int i = 0; i < allLayouts.size() - 1; i++) {
@@ -307,8 +311,8 @@ public class MusicNotationApp extends Application {
     }
 
     private boolean determineTieDirection(NoteLayout first, NoteLayout second) {
-        StemDirection dir1 = stemDirection(first.position());
-        StemDirection dir2 = stemDirection(second.position());
+        StemDirection dir1 = RenderingHelpers.stemDirection(first.position(), MIDDLE_LINE_POSITION);
+        StemDirection dir2 = RenderingHelpers.stemDirection(second.position(), MIDDLE_LINE_POSITION);
         if (dir1 == dir2) return dir1 == StemDirection.DOWN;
         if (!first.note().duration().requiresStem() || !second.note().duration().requiresStem()) return true;
         return true;
@@ -327,66 +331,7 @@ public class MusicNotationApp extends Application {
         gc.stroke();
     }
 
-    // ----- Public static helpers (temporarily here) -----
-
-    public static StemDirection stemDirection(int position) {
-        return position > MIDDLE_LINE_POSITION ? StemDirection.UP : StemDirection.DOWN;
-    }
-
-    public static StemDirection stemDirection(List<NoteLayout> group) {
-        double avg = group.stream().mapToInt(NoteLayout::position).average().orElse(MIDDLE_LINE_POSITION);
-        return avg > MIDDLE_LINE_POSITION ? StemDirection.UP : StemDirection.DOWN;
-    }
-
-    public static double stemAttachX(NoteLayout layout, StemDirection direction, double noteHeadWidth) {
-        return direction == StemDirection.UP
-                ? layout.x() + noteHeadWidth / 2
-                : layout.x() - noteHeadWidth / 2;
-    }
-
-    public static double computeStemTipY(NoteLayout layout, StemDirection direction,
-                                         double stemLengthStandard, double middleLineY) {
-        double y = layout.y();
-        double standardTipY = y + direction.sign() * stemLengthStandard;
-        if (direction == StemDirection.UP) {
-            return Math.min(standardTipY, middleLineY);
-        } else {
-            return Math.max(standardTipY, middleLineY);
-        }
-    }
-
-    public static List<List<NoteLayout>> groupBeamsByBeat(List<NoteLayout> layouts) {
-        List<List<NoteLayout>> groups = new ArrayList<>();
-        List<NoteLayout> currentGroup = null;
-        int currentBeat = -1;
-        for (NoteLayout layout : layouts) {
-            if (!layout.note().duration().isBeamable()) {
-                if (currentGroup != null && !currentGroup.isEmpty()) {
-                    groups.add(currentGroup);
-                    currentGroup = null;
-                }
-                continue;
-            }
-            int beat = layout.startSixteenths() / 4;
-            if (currentGroup == null) {
-                currentGroup = new ArrayList<>();
-                currentGroup.add(layout);
-                currentBeat = beat;
-            } else if (beat == currentBeat) {
-                currentGroup.add(layout);
-            } else {
-                groups.add(currentGroup);
-                currentGroup = new ArrayList<>();
-                currentGroup.add(layout);
-                currentBeat = beat;
-            }
-        }
-        if (currentGroup != null && !currentGroup.isEmpty()) groups.add(currentGroup);
-        return groups;
-    }
-
     // ----- Positioning helpers -----
-
     private double noteSpacing(Duration duration) {
         double base = NOTE_SPACING_PER_QUARTER * duration.toQuarterNoteFraction();
         if (duration.isBeamable()) base += BEAMABLE_EXTRA_SPACING;
@@ -402,7 +347,6 @@ public class MusicNotationApp extends Application {
     }
 
     // ----- Sample score -----
-
     private static Score createSampleScore() {
         Score score = new Score(KeySignature.C_MAJOR);
 

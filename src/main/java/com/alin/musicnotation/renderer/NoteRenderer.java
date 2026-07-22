@@ -5,7 +5,6 @@ import com.alin.musicnotation.Measure;
 import com.alin.musicnotation.Note;
 import com.alin.musicnotation.model.NoteLayout;
 import com.alin.musicnotation.model.StemDirection;
-import com.alin.musicnotation.MusicNotationApp;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 
@@ -14,7 +13,7 @@ import java.util.Map;
 public class NoteRenderer {
 
     public void draw(GraphicsContext gc, Measure measure, Map<Note, NoteLayout> layoutMap,
-                     double firstLineY, double middleLineY,
+                     double firstLineY, double middleLineY, int middleLinePosition,
                      double noteHeadWidth, double noteHeadHeight,
                      double stemLengthStandard, double ledgerLineExtension,
                      double noteHeadOutlineWidth, double flagWidth, double flagHeight,
@@ -41,9 +40,9 @@ public class NoteRenderer {
             if (note.isRest()) continue;
             Duration duration = note.duration();
             if (!duration.isBeamable() && duration.requiresStem()) {
-                StemDirection dir = MusicNotationApp.stemDirection(layout.position());
-                double stemX = MusicNotationApp.stemAttachX(layout, dir, noteHeadWidth);
-                double stemTipY = MusicNotationApp.computeStemTipY(layout, dir,
+                StemDirection dir = RenderingHelpers.stemDirection(layout.position(), middleLinePosition);
+                double stemX = RenderingHelpers.stemAttachX(layout, dir, noteHeadWidth);
+                double stemTipY = RenderingHelpers.computeStemTipY(layout, dir,
                         stemLengthStandard, middleLineY);
                 drawStem(gc, stemX, layout.y(), stemTipY);
                 if (duration.flagCount() > 0) {

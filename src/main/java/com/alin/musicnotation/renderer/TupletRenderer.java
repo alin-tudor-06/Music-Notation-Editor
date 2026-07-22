@@ -6,7 +6,6 @@ import com.alin.musicnotation.Note;
 import com.alin.musicnotation.model.NoteLayout;
 import com.alin.musicnotation.model.StemDirection;
 import com.alin.musicnotation.Tuplet;
-import com.alin.musicnotation.MusicNotationApp;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
@@ -17,6 +16,7 @@ import java.util.*;
 public class TupletRenderer {
 
     public void draw(GraphicsContext gc, Measure measure, Map<Note, NoteLayout> layoutMap,
+                     int middleLinePosition,
                      double tupletOffset, double tupletBracketHeight,
                      double tupletNumberFontSizeFactor, double noteHeadWidth,
                      double stemLengthStandard, double staffLineSpacing) {
@@ -51,7 +51,7 @@ public class TupletRenderer {
                 double topOfNote = layout.y();
                 Duration dur = layout.note().duration();
                 if (dur.requiresStem()) {
-                    StemDirection dir = MusicNotationApp.stemDirection(layout.position());
+                    StemDirection dir = RenderingHelpers.stemDirection(layout.position(), middleLinePosition);
                     if (dir == StemDirection.UP) {
                         topOfNote = layout.y() - stemLengthStandard;
                     }
@@ -74,7 +74,7 @@ public class TupletRenderer {
                         }
                     }
                 }
-                List<List<NoteLayout>> beamGroups = MusicNotationApp.groupBeamsByBeat(beamableLayouts);
+                List<List<NoteLayout>> beamGroups = RenderingHelpers.groupBeamsByBeat(beamableLayouts);
                 for (List<NoteLayout> group : beamGroups) {
                     if (group.stream().allMatch(l -> notes.contains(l.note()))) {
                         inOneBeam = true;

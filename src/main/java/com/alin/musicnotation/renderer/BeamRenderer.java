@@ -1,10 +1,9 @@
 package com.alin.musicnotation.renderer;
 
 import com.alin.musicnotation.Measure;
-import com.alin.musicnotation.Note;
+import com.alin.musicnotation.Note;                // ← import adăugat
 import com.alin.musicnotation.model.NoteLayout;
 import com.alin.musicnotation.model.StemDirection;
-import com.alin.musicnotation.MusicNotationApp;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 
@@ -12,8 +11,11 @@ import java.util.*;
 
 public class BeamRenderer {
 
+    // Semnătura corectă: gc, measure, layoutMap, middleLineY, middleLinePosition,
+    // apoi 6 parametri double: beamThickness, beamSpacing, beamHookLength, maxBeamSlope, stemLengthStandard, noteHeadWidth
     public void draw(GraphicsContext gc, Measure measure, Map<Note, NoteLayout> layoutMap,
-                     double middleLineY, double beamThickness, double beamSpacing,
+                     double middleLineY, int middleLinePosition,
+                     double beamThickness, double beamSpacing,
                      double beamHookLength, double maxBeamSlope,
                      double stemLengthStandard, double noteHeadWidth) {
 
@@ -25,17 +27,19 @@ public class BeamRenderer {
         }
         beamableLayouts.sort(Comparator.comparingDouble(NoteLayout::x));
 
-        List<List<NoteLayout>> groups = MusicNotationApp.groupBeamsByBeat(beamableLayouts);
+        List<List<NoteLayout>> groups = RenderingHelpers.groupBeamsByBeat(beamableLayouts);
         for (List<NoteLayout> group : groups) {
             if (group.size() >= 2) {
-                drawBeamedGroup(gc, group, middleLineY, beamThickness, beamSpacing,
-                        beamHookLength, maxBeamSlope, stemLengthStandard, noteHeadWidth);
+                drawBeamedGroup(gc, group, middleLineY, middleLinePosition,
+                        beamThickness, beamSpacing, beamHookLength,
+                        maxBeamSlope, stemLengthStandard, noteHeadWidth);
             }
         }
     }
 
     private void drawBeamedGroup(GraphicsContext gc, List<NoteLayout> group,
-                                 double middleLineY, double beamThickness, double beamSpacing,
+                                 double middleLineY, int middleLinePosition,
+                                 double beamThickness, double beamSpacing,
                                  double beamHookLength, double maxBeamSlope,
                                  double stemLengthStandard, double noteHeadWidth) {
         int[] flagCounts = group.stream()
@@ -44,13 +48,13 @@ public class BeamRenderer {
         int maxFlags = Arrays.stream(flagCounts).max().orElse(0);
         if (maxFlags == 0) return;
 
-        StemDirection direction = MusicNotationApp.stemDirection(group);
+        StemDirection direction = RenderingHelpers.stemDirection(group, middleLinePosition);
         int sign = direction.sign();
 
         NoteLayout first = group.get(0);
         NoteLayout last = group.get(group.size() - 1);
-        double xStart = MusicNotationApp.stemAttachX(first, direction, noteHeadWidth);
-        double xEnd = MusicNotationApp.stemAttachX(last, direction, noteHeadWidth);
+        double xStart = RenderingHelpers.stemAttachX(first, direction, noteHeadWidth);
+        double xEnd = RenderingHelpers.stemAttachX(last, direction, noteHeadWidth);
         double yStartTip = first.y() + sign * stemLengthStandard;
         double yEndTip = last.y() + sign * stemLengthStandard;
 
@@ -60,7 +64,7 @@ public class BeamRenderer {
         double b = sign < 0 ? Double.MAX_VALUE : -Double.MAX_VALUE;
         for (int i = 0; i < group.size(); i++) {
             NoteLayout layout = group.get(i);
-            double stemX = MusicNotationApp.stemAttachX(layout, direction, noteHeadWidth);
+            double stemX = RenderingHelpers.stemAttachX(layout, direction, noteHeadWidth);
             double candidateB = (layout.y() + sign * stemLengthStandard) - slope * stemX
                     - sign * (flagCounts[i] - 1) * beamSpacing;
             if (sign < 0) {
@@ -72,7 +76,7 @@ public class BeamRenderer {
 
         for (int i = 0; i < group.size(); i++) {
             NoteLayout layout = group.get(i);
-            double stemX = MusicNotationApp.stemAttachX(layout, direction, noteHeadWidth);
+            double stemX = RenderingHelpers.stemAttachX(layout, direction, noteHeadWidth);
             double topY = slope * stemX + b - sign * (flagCounts[i] - 1) * beamSpacing;
             gc.setStroke(Color.BLACK);
             gc.setLineWidth(1);
@@ -97,8 +101,8 @@ public class BeamRenderer {
             for (int[] run : runs) {
                 int firstIdx = run[0];
                 int lastIdx = run[1];
-                double x1 = MusicNotationApp.stemAttachX(group.get(firstIdx), direction, noteHeadWidth);
-                double x2 = MusicNotationApp.stemAttachX(group.get(lastIdx), direction, noteHeadWidth);
+                double x1 = RenderingHelpers.stemAttachX(group.get(firstIdx), direction, noteHeadWidth);
+                double x2 = RenderingHelpers.stemAttachX(group.get(lastIdx), direction, noteHeadWidth);
                 double y1 = slope * x1 + b - sign * (level - 1) * beamSpacing;
                 double y2 = slope * x2 + b - sign * (level - 1) * beamSpacing;
 
