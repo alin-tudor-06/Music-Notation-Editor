@@ -64,6 +64,11 @@ public class MusicNotationApp extends Application {
     private static final double REST_HEIGHT = STAFF_LINE_SPACING * 0.6;
     private static final double EIGHTH_REST_SLANT = 2.0;
 
+    // Constante pentru tuplete
+    private static final double TUPLET_OFFSET = STAFF_LINE_SPACING * 2.0;
+    private static final double TUPLET_BRACKET_HEIGHT = STAFF_LINE_SPACING * 0.5;
+    private static final double TUPLET_NUMBER_FONT_SIZE_FACTOR = 0.9;
+
     private final Score score = createSampleScore();
 
     @Override
@@ -121,10 +126,7 @@ public class MusicNotationApp extends Application {
         drawTimeSignature(gc, timeSigX, firstLineY, staffHeight);
         double noteStartX = timeSigX + TIME_SIGNATURE_WIDTH + MEASURE_START_PADDING;
 
-        // Desenează notele și obține lista de layout-uri
         List<NoteLayout> allLayouts = drawNotes(gc, firstLineY, staffHeight, noteStartX);
-
-        // Desenează legăturile (ties) după toate celelalte elemente
         drawTies(gc, allLayouts);
     }
 
@@ -213,7 +215,13 @@ public class MusicNotationApp extends Application {
                 lastNoteX = x;
                 lastDuration = note.duration();
 
-                double spacing = noteSpacing(note.duration());
+                double spacing;
+                if (note.getTuplet() != null) {
+                    double factor = note.getTuplet().getDurationFactor();
+                    spacing = calculateNoteSpacing(note.duration(), factor);
+                } else {
+                    spacing = noteSpacing(note.duration());
+                }
                 if (!note.isRest() && shouldDisplayAccidental(note.pitch())) {
                     spacing += ACCIDENTAL_EXTRA_SPACING;
                 }
@@ -221,7 +229,7 @@ public class MusicNotationApp extends Application {
                 currentSixteenths += note.duration().sixteenths();
             }
 
-            drawMeasureNotes(gc, firstLineY, layouts);
+            drawMeasureNotes(gc, firstLineY, measure, layouts);
 
             double durationGap = lastDuration != null ? noteSpacing(lastDuration) / 2 : 0;
             double barX = lastNoteX + NOTE_HEAD_WIDTH / 2 + durationGap + MEASURE_END_PADDING;
@@ -230,6 +238,14 @@ public class MusicNotationApp extends Application {
             x = barX + MEASURE_START_PADDING;
         }
         return allLayouts;
+    }
+
+    private double calculateNoteSpacing(Duration duration, double factor) {
+        double base = NOTE_SPACING_PER_QUARTER * duration.toQuarterNoteFraction() * factor;
+        if (duration.isBeamable()) {
+            base += BEAMABLE_EXTRA_SPACING;
+        }
+        return base;
     }
 
     private double getRestY(double firstLineY, double staffHeight, Duration duration) {
@@ -245,7 +261,7 @@ public class MusicNotationApp extends Application {
         }
     }
 
-    private void drawMeasureNotes(GraphicsContext gc, double firstLineY, List<NoteLayout> layouts) {
+    private void drawMeasureNotes(GraphicsContext gc, double firstLineY, Measure measure, List<NoteLayout> layouts) {
         for (NoteLayout layout : layouts) {
             if (layout.note().isRest()) {
                 drawRest(gc, layout.x(), layout.y(), layout.note().duration());
@@ -267,7 +283,6 @@ public class MusicNotationApp extends Application {
             }
         }
 
-        // Grupăm notele beamable după bătăi și desenăm beam-urile
         List<NoteLayout> beamableLayouts = layouts.stream()
                 .filter(l -> !l.note().isRest() && l.note().duration().isBeamable())
                 .toList();
@@ -278,6 +293,8 @@ public class MusicNotationApp extends Application {
                 drawUnbeamedNote(gc, group.get(0));
             }
         }
+
+        drawTuplets(gc, measure, layouts);
     }
 
     private List<List<NoteLayout>> groupBeamsByBeat(List<NoteLayout> layouts) {
@@ -371,9 +388,9 @@ public class MusicNotationApp extends Application {
         NoteLayout first = group.get(0);
         NoteLayout last = group.get(group.size() - 1);
         double xStart = stemAttachX(first, direction);
-        double xEnd   = stemAttachX(last, direction);
+        double xEnd = stemAttachX(last, direction);
         double yStartTip = first.y() + sign * STEM_LENGTH_STANDARD;
-        double yEndTip   = last.y()  + sign * STEM_LENGTH_STANDARD;
+        double yEndTip = last.y() + sign * STEM_LENGTH_STANDARD;
 
         double slope = (yEndTip - yStartTip) / (xEnd - xStart);
         slope = Math.max(-MAX_BEAM_SLOPE, Math.min(MAX_BEAM_SLOPE, slope));
@@ -415,7 +432,7 @@ public class MusicNotationApp extends Application {
 
             for (int[] run : runs) {
                 int firstIdx = run[0];
-                int lastIdx  = run[1];
+                int lastIdx = run[1];
                 double x1 = stemAttachX(group.get(firstIdx), direction);
                 double x2 = stemAttachX(group.get(lastIdx), direction);
                 double y1 = slope * x1 + b - sign * (level - 1) * BEAM_SPACING;
@@ -448,10 +465,10 @@ public class MusicNotationApp extends Application {
         double len = Math.hypot(dx, dy);
         if (len == 0) return;
         double nx = -dy / len * thickness / 2;
-        double ny =  dx / len * thickness / 2;
+        double ny = dx / len * thickness / 2;
 
-        double[] xPoints = { x1 + nx, x1 - nx, x2 - nx, x2 + nx };
-        double[] yPoints = { y1 + ny, y1 - ny, y2 - ny, y2 + ny };
+        double[] xPoints = {x1 + nx, x1 - nx, x2 - nx, x2 + nx};
+        double[] yPoints = {y1 + ny, y1 - ny, y2 - ny, y2 + ny};
         gc.setFill(Color.BLACK);
         gc.fillPolygon(xPoints, yPoints, 4);
     }
@@ -616,9 +633,6 @@ public class MusicNotationApp extends Application {
 
     // ===================== TIES (LEGĂTURI) =====================
 
-    /**
-     * Desenează legăturile (ties) între perechi de note consecutive cu același pitch.
-     */
     private void drawTies(GraphicsContext gc, List<NoteLayout> allLayouts) {
         if (allLayouts.size() < 2) return;
 
@@ -640,33 +654,21 @@ public class MusicNotationApp extends Application {
         }
     }
 
-    /**
-     * Determină dacă tie-ul trebuie desenat deasupra sau dedesubt.
-     */
     private boolean determineTieDirection(NoteLayout first, NoteLayout second) {
         StemDirection dir1 = stemDirection(first.position());
         StemDirection dir2 = stemDirection(second.position());
 
-        // Dacă ambele note au stem-uri în aceeași direcție, folosim acea direcție
         if (dir1 == dir2) {
-            // Dacă stem-urile sunt sus (UP), tie-ul este dedesubt (above=false)
-            // Dacă stem-urile sunt jos (DOWN), tie-ul este deasupra (above=true)
             return dir1 == StemDirection.DOWN;
         }
 
-        // Dacă direcțiile sunt diferite sau una dintre note nu are stem (whole note),
-        // desenăm tie-ul deasupra (above=true)
         if (!first.note().duration().requiresStem() || !second.note().duration().requiresStem()) {
             return true;
         }
 
-        // Dacă avem direcții diferite, alegem deasupra
         return true;
     }
 
-    /**
-     * Desenează un tie (arc) între două note.
-     */
     private void drawTie(GraphicsContext gc, double startX, double startY, double endX, double endY, boolean above) {
         double midX = (startX + endX) / 2;
         double offset = STAFF_LINE_SPACING * 0.75;
@@ -681,36 +683,142 @@ public class MusicNotationApp extends Application {
         gc.stroke();
     }
 
-    // ===================== SFÂRȘIT TIES =====================
+    // ===================== TUPLETS =====================
+
+    private void drawTuplets(GraphicsContext gc, Measure measure, List<NoteLayout> layouts) {
+        if (measure.getTuplets().isEmpty()) return;
+
+        for (Tuplet tuplet : measure.getTuplets()) {
+            List<Note> notes = tuplet.getNotes();
+            if (notes.isEmpty()) continue;
+
+            List<NoteLayout> noteLayouts = new ArrayList<>();
+            for (Note note : notes) {
+                for (NoteLayout layout : layouts) {
+                    if (layout.note() == note) {
+                        noteLayouts.add(layout);
+                        break;
+                    }
+                }
+            }
+            if (noteLayouts.isEmpty()) continue;
+
+            // Calculează punctele extreme și cel mai sus
+            double minX = Double.MAX_VALUE;
+            double maxX = -Double.MAX_VALUE;
+            double highestPoint = Double.MAX_VALUE;
+
+            for (NoteLayout layout : noteLayouts) {
+                double left = layout.x() - NOTE_HEAD_WIDTH / 2;
+                double right = layout.x() + NOTE_HEAD_WIDTH / 2;
+                if (left < minX) minX = left;
+                if (right > maxX) maxX = right;
+
+                double topOfNote = layout.y();
+                Duration dur = layout.note().duration();
+                if (dur.requiresStem()) {
+                    StemDirection dir = stemDirection(layout.position());
+                    if (dir == StemDirection.UP) {
+                        topOfNote = layout.y() - STEM_LENGTH_STANDARD;
+                    }
+                }
+                if (topOfNote < highestPoint) {
+                    highestPoint = topOfNote;
+                }
+            }
+
+            double centerX = (minX + maxX) / 2;
+
+            // Determină dacă toate notele sunt beamable și într-un singur beam group
+            boolean allBeamable = notes.stream().allMatch(n -> n.duration().isBeamable());
+            boolean inOneBeam = false;
+            if (allBeamable) {
+                List<NoteLayout> beamableLayouts = layouts.stream()
+                        .filter(l -> !l.note().isRest() && l.note().duration().isBeamable())
+                        .toList();
+                List<List<NoteLayout>> beamGroups = groupBeamsByBeat(beamableLayouts);
+                for (List<NoteLayout> group : beamGroups) {
+                    if (group.stream().allMatch(l -> notes.contains(l.note()))) {
+                        inOneBeam = true;
+                        break;
+                    }
+                }
+            }
+
+            // Verifică dacă toate notele au aceeași durată
+            boolean allSameDuration = notes.stream().allMatch(n -> n.duration() == notes.get(0).duration());
+
+            // Decide dacă desenăm bracket
+            boolean drawBracket = !inOneBeam || !allSameDuration;
+
+            // Poziția de bază pentru număr și bracket
+            double yBase;
+            if (inOneBeam && allSameDuration) {
+                yBase = highestPoint - STAFF_LINE_SPACING;
+            } else {
+                yBase = highestPoint - TUPLET_OFFSET;
+            }
+
+            // Desenează numărul
+            gc.setFill(Color.BLACK);
+            gc.setFont(Font.font("Serif", STAFF_LINE_SPACING * TUPLET_NUMBER_FONT_SIZE_FACTOR));
+            gc.setTextAlign(TextAlignment.CENTER);
+            gc.setTextBaseline(javafx.geometry.VPos.BOTTOM);
+            gc.fillText(String.valueOf(tuplet.getNumerator()), centerX, yBase);
+
+            // Desenează bracket-ul dacă este cazul
+            if (drawBracket) {
+                double bracketY = yBase - 2;
+                gc.setStroke(Color.BLACK);
+                gc.setLineWidth(1);
+                gc.strokeLine(minX, bracketY, maxX, bracketY);
+                gc.strokeLine(minX, bracketY, minX, bracketY + TUPLET_BRACKET_HEIGHT);
+                gc.strokeLine(maxX, bracketY, maxX, bracketY + TUPLET_BRACKET_HEIGHT);
+            }
+        }
+    }
+
+    // ===================== SFÂRȘIT TUPLETS =====================
 
     private static Score createSampleScore() {
         Score score = new Score(KeySignature.C_MAJOR);
 
-        // Măsura 1: C4 quarter (tieStart) -> C4 quarter (tieEnd)
+        // Măsura 1: Triplet de optimi (3:2) – beamed, doar cifra
         Measure measure1 = new Measure();
-        measure1.addNote(new Note(Pitch.of("C4"), Duration.QUARTER, true, false));
-        measure1.addNote(new Note(Pitch.of("C4"), Duration.QUARTER, false, true));
+        Note n1 = new Note(Pitch.of("C4"), Duration.EIGHTH);
+        Note n2 = new Note(Pitch.of("D4"), Duration.EIGHTH);
+        Note n3 = new Note(Pitch.of("E4"), Duration.EIGHTH);
+        measure1.addNote(n1);
+        measure1.addNote(n2);
+        measure1.addNote(n3);
+        measure1.addTuplet(new Tuplet(3, 2, List.of(n1, n2, n3)));
 
-        // Măsura 2: F4 half (tieStart)
+        // Măsura 2: Triplet de sferturi (3:2) – fără beam, bracket
         Measure measure2 = new Measure();
-        measure2.addNote(new Note(Pitch.of("C5"), Duration.HALF, true, false));
+        Note q1 = new Note(Pitch.of("F4"), Duration.QUARTER);
+        Note q2 = new Note(Pitch.of("G4"), Duration.QUARTER);
+        Note q3 = new Note(Pitch.of("A4"), Duration.QUARTER);
+        measure2.addNote(q1);
+        measure2.addNote(q2);
+        measure2.addNote(q3);
+        measure2.addTuplet(new Tuplet(3, 2, List.of(q1, q2, q3)));
 
-        // Măsura 3: F4 half (tieEnd)
+        // Măsura 3: Triplet cu durate mixte – bracket
         Measure measure3 = new Measure();
-        measure3.addNote(new Note(Pitch.of("C5"), Duration.HALF, false, true));
-
-        // Măsura 4: G4 eighth (tieStart) -> G4 eighth (tieEnd), A4 eighth, B4 eighth
-        Measure measure4 = new Measure();
-        measure4.addNote(new Note(Pitch.of("G4"), Duration.EIGHTH, true, false));
-        measure4.addNote(new Note(Pitch.of("G4"), Duration.EIGHTH, false, true));
-        measure4.addNote(new Note(Pitch.of("A4"), Duration.EIGHTH));
-        measure4.addNote(new Note(Pitch.of("B4"), Duration.EIGHTH));
+        Note m1 = new Note(Pitch.of("C5"), Duration.EIGHTH);
+        Note m2 = new Note(Pitch.of("D5"), Duration.SIXTEENTH);
+        Note m3 = new Note(Pitch.of("E5"), Duration.EIGHTH);
+        measure3.addNote(m1);
+        measure3.addNote(m2);
+        measure3.addNote(m3);
+        measure3.addTuplet(new Tuplet(3, 2, List.of(m1, m2, m3)));
 
         score.addMeasure(measure1);
         score.addMeasure(measure2);
         score.addMeasure(measure3);
-        score.addMeasure(measure4);
 
+        // Validare finală
+        score.validate();
         return score;
     }
 

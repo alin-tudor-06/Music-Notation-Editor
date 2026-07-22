@@ -6,13 +6,12 @@ public class Note {
     private final boolean isRest;
     private final boolean tieStart;
     private final boolean tieEnd;
+    private Tuplet tuplet;  // câmpul nou pentru tuplet
 
-    // Constructor pentru note cu înălțime (fără tie)
     public Note(Pitch pitch, Duration duration) {
         this(pitch, duration, false, false);
     }
 
-    // Constructor pentru note cu înălțime și tie
     public Note(Pitch pitch, Duration duration, boolean tieStart, boolean tieEnd) {
         this.pitch = pitch;
         this.duration = duration;
@@ -21,7 +20,6 @@ public class Note {
         this.tieEnd = tieEnd;
     }
 
-    // Constructor pentru pauze (fără tie)
     public Note(Duration duration) {
         this.pitch = null;
         this.duration = duration;
@@ -30,7 +28,6 @@ public class Note {
         this.tieEnd = false;
     }
 
-    // Constructor pentru pauze (nu are sens tie, dar păstrăm consistența)
     public Note(Duration duration, boolean tieStart, boolean tieEnd) {
         this.pitch = null;
         this.duration = duration;
@@ -59,12 +56,22 @@ public class Note {
         return tieEnd;
     }
 
+    public Tuplet getTuplet() {
+        return tuplet;
+    }
+
+    public void setTuplet(Tuplet tuplet) {
+        this.tuplet = tuplet;
+    }
+
     @Override
     public String toString() {
         if (isRest) {
             return "Rest(" + duration + ")";
         }
         return "Note(" + pitch + ", " + duration +
-                ", tieStart=" + tieStart + ", tieEnd=" + tieEnd + ")";
+                ", tieStart=" + tieStart + ", tieEnd=" + tieEnd +
+                (tuplet != null ? ", tuplet=" + tuplet.getNumerator() + ":" + tuplet.getDenominator() : "") +
+                ")";
     }
 }
