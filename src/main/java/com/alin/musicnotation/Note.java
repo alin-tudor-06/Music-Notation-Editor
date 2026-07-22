@@ -1,12 +1,14 @@
 package com.alin.musicnotation;
 
-public class Note {
+import java.util.Objects;
+
+public final class Note {
     private final Pitch pitch;
     private final Duration duration;
     private final boolean isRest;
     private final boolean tieStart;
     private final boolean tieEnd;
-    private Tuplet tuplet;  // câmpul nou pentru tuplet
+    private Tuplet tuplet;
 
     public Note(Pitch pitch, Duration duration) {
         this(pitch, duration, false, false);
@@ -21,14 +23,6 @@ public class Note {
     }
 
     public Note(Duration duration) {
-        this.pitch = null;
-        this.duration = duration;
-        this.isRest = true;
-        this.tieStart = false;
-        this.tieEnd = false;
-    }
-
-    public Note(Duration duration, boolean tieStart, boolean tieEnd) {
         this.pitch = null;
         this.duration = duration;
         this.isRest = true;
@@ -56,11 +50,15 @@ public class Note {
         return tieEnd;
     }
 
-    public Tuplet getTuplet() {
+    public Tuplet tuplet() {
         return tuplet;
     }
 
-    public void setTuplet(Tuplet tuplet) {
+    void setTuplet(Tuplet tuplet) {
+        Objects.requireNonNull(tuplet, "tuplet must not be null");
+        if (this.tuplet != null && this.tuplet != tuplet) {
+            throw new IllegalStateException("Note already belongs to another tuplet: " + this.tuplet);
+        }
         this.tuplet = tuplet;
     }
 
@@ -69,9 +67,11 @@ public class Note {
         if (isRest) {
             return "Rest(" + duration + ")";
         }
-        return "Note(" + pitch + ", " + duration +
-                ", tieStart=" + tieStart + ", tieEnd=" + tieEnd +
-                (tuplet != null ? ", tuplet=" + tuplet.getNumerator() + ":" + tuplet.getDenominator() : "") +
-                ")";
+        StringBuilder sb = new StringBuilder("Note(" + pitch + ", " + duration);
+        if (tieStart) sb.append(", tieStart");
+        if (tieEnd) sb.append(", tieEnd");
+        if (tuplet != null) sb.append(", tuplet=").append(tuplet.numerator()).append(":").append(tuplet.denominator());
+        sb.append(")");
+        return sb.toString();
     }
 }

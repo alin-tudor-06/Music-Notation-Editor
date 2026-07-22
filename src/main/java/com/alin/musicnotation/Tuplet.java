@@ -1,64 +1,58 @@
 package com.alin.musicnotation;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
-/**
- * Represents a tuplet (e.g., triplet, quintuplet) as a group of notes
- * that are played in a fraction of their normal duration.
- */
-public class Tuplet {
+public final class Tuplet {
     private final int numerator;
     private final int denominator;
     private final List<Note> notes;
 
-    /**
-     * Creates a tuplet with the given ratio and list of notes.
-     *
-     * @param numerator   the numerator of the ratio (e.g., 3 for triplet)
-     * @param denominator the denominator of the ratio (e.g., 2 for triplet)
-     * @param notes       the notes belonging to this tuplet
-     * @throws IllegalArgumentException if numerator or denominator <= 0, or notes list is empty
-     * @throws IllegalStateException    if any note already belongs to another tuplet
-     */
     public Tuplet(int numerator, int denominator, List<Note> notes) {
         if (numerator <= 0 || denominator <= 0) {
             throw new IllegalArgumentException("Numerator and denominator must be positive");
         }
-        if (notes == null || notes.isEmpty()) {
-            throw new IllegalArgumentException("Tuplet must contain at least one note");
+        if (numerator == denominator) {
+            throw new IllegalArgumentException("Invalid tuplet ratio: numerator and denominator must differ");
+        }
+        Objects.requireNonNull(notes, "notes list must not be null");
+        if (notes.size() < 2) {
+            throw new IllegalArgumentException("Tuplet must contain at least two notes");
+        }
+        Set<Note> uniqueCheck = new HashSet<>();
+        for (Note note : notes) {
+            Objects.requireNonNull(note, "Note cannot be null");
+            if (note.tuplet() != null) {
+                throw new IllegalStateException("Note already belongs to another tuplet: " + note);
+            }
+            if (!uniqueCheck.add(note)) {
+                throw new IllegalArgumentException("Duplicate note in tuplet: " + note);
+            }
         }
         this.numerator = numerator;
         this.denominator = denominator;
         this.notes = List.copyOf(notes);
 
-        // Asociază fiecare notă cu acest tuplet, verificând că nu aparține deja altuia
         for (Note note : this.notes) {
-            Objects.requireNonNull(note, "Note cannot be null");
-            if (note.getTuplet() != null) {
-                throw new IllegalStateException("Note already belongs to another tuplet: " + note);
-            }
             note.setTuplet(this);
         }
     }
 
-    public int getNumerator() {
+    public int numerator() {
         return numerator;
     }
 
-    public int getDenominator() {
+    public int denominator() {
         return denominator;
     }
 
-    public List<Note> getNotes() {
+    public List<Note> notes() {
         return notes;
     }
 
-    /**
-     * Factorul de scalare al duratei: durata reală = durata aparentă * factor.
-     * De exemplu, pentru triplet 3:2, factorul este 2/3 ≈ 0.666.
-     */
-    public double getDurationFactor() {
+    public double durationFactor() {
         return (double) denominator / numerator;
     }
 

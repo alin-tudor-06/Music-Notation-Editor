@@ -22,9 +22,9 @@ public enum Accidental {
 
     public String unicodeSymbol() {
         return switch (this) {
-            case SHARP -> "\u266F";   // ♯
-            case FLAT  -> "\u266D";   // ♭
-            case NATURAL -> "\u266E"; // ♮
+            case SHARP -> "\u266F";
+            case FLAT  -> "\u266D";
+            case NATURAL -> "\u266E";
             default -> "";
         };
     }
