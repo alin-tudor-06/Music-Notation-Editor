@@ -115,20 +115,17 @@ public class MusicNotationApp extends Application {
         }
 
         drawBarLine(gc, lineStartX, firstLineY, staffHeight);
-
-        // Clef
         drawClef(gc, lineStartX, firstLineY, staffHeight);
-
-        // Key signature – calculăm poziția finală
         double keySigEndX = drawKeySignature(gc, lineStartX, firstLineY, staffHeight);
-
-        // Time signature – poziționat după key signature
         double timeSigX = keySigEndX + 10;
         drawTimeSignature(gc, timeSigX, firstLineY, staffHeight);
-
-        // Note – poziționat după time signature
         double noteStartX = timeSigX + TIME_SIGNATURE_WIDTH + MEASURE_START_PADDING;
-        drawNotes(gc, firstLineY, staffHeight, noteStartX);
+
+        // Desenează notele și obține lista de layout-uri
+        List<NoteLayout> allLayouts = drawNotes(gc, firstLineY, staffHeight, noteStartX);
+
+        // Desenează legăturile (ties) după toate celelalte elemente
+        drawTies(gc, allLayouts);
     }
 
     private void drawBarLine(GraphicsContext gc, double x, double firstLineY, double staffHeight) {
@@ -191,7 +188,8 @@ public class MusicNotationApp extends Application {
         }
     }
 
-    private void drawNotes(GraphicsContext gc, double firstLineY, double staffHeight, double startX) {
+    private List<NoteLayout> drawNotes(GraphicsContext gc, double firstLineY, double staffHeight, double startX) {
+        List<NoteLayout> allLayouts = new ArrayList<>();
         double x = startX;
 
         for (Measure measure : score.measures()) {
@@ -209,7 +207,9 @@ public class MusicNotationApp extends Application {
                     position = staffPosition(note.pitch());
                     y = firstLineY + position * (STAFF_LINE_SPACING / 2);
                 }
-                layouts.add(new NoteLayout(x, y, note, position, currentSixteenths));
+                NoteLayout layout = new NoteLayout(x, y, note, position, currentSixteenths);
+                layouts.add(layout);
+                allLayouts.add(layout);
                 lastNoteX = x;
                 lastDuration = note.duration();
 
@@ -220,6 +220,7 @@ public class MusicNotationApp extends Application {
                 x += spacing;
                 currentSixteenths += note.duration().sixteenths();
             }
+
             drawMeasureNotes(gc, firstLineY, layouts);
 
             double durationGap = lastDuration != null ? noteSpacing(lastDuration) / 2 : 0;
@@ -228,6 +229,7 @@ public class MusicNotationApp extends Application {
 
             x = barX + MEASURE_START_PADDING;
         }
+        return allLayouts;
     }
 
     private double getRestY(double firstLineY, double staffHeight, Duration duration) {
@@ -265,7 +267,11 @@ public class MusicNotationApp extends Application {
             }
         }
 
-        for (List<NoteLayout> group : groupBeamsByBeat(layouts)) {
+        // Grupăm notele beamable după bătăi și desenăm beam-urile
+        List<NoteLayout> beamableLayouts = layouts.stream()
+                .filter(l -> !l.note().isRest() && l.note().duration().isBeamable())
+                .toList();
+        for (List<NoteLayout> group : groupBeamsByBeat(beamableLayouts)) {
             if (group.size() >= 2) {
                 drawBeamedGroup(gc, group);
             } else if (group.size() == 1) {
@@ -608,25 +614,102 @@ public class MusicNotationApp extends Application {
         return pitch.octave() * 7 + pitch.step().ordinal();
     }
 
+    // ===================== TIES (LEGĂTURI) =====================
+
+    /**
+     * Desenează legăturile (ties) între perechi de note consecutive cu același pitch.
+     */
+    private void drawTies(GraphicsContext gc, List<NoteLayout> allLayouts) {
+        if (allLayouts.size() < 2) return;
+
+        for (int i = 0; i < allLayouts.size() - 1; i++) {
+            NoteLayout current = allLayouts.get(i);
+            NoteLayout next = allLayouts.get(i + 1);
+
+            if (current.note().isRest() || next.note().isRest()) continue;
+            if (!current.note().tieStart() || !next.note().tieEnd()) continue;
+            if (!current.note().pitch().equals(next.note().pitch())) continue;
+
+            boolean above = determineTieDirection(current, next);
+            double startX = current.x() + NOTE_HEAD_WIDTH / 2;
+            double endX = next.x() - NOTE_HEAD_WIDTH / 2;
+            double startY = current.y();
+            double endY = next.y();
+
+            drawTie(gc, startX, startY, endX, endY, above);
+        }
+    }
+
+    /**
+     * Determină dacă tie-ul trebuie desenat deasupra sau dedesubt.
+     */
+    private boolean determineTieDirection(NoteLayout first, NoteLayout second) {
+        StemDirection dir1 = stemDirection(first.position());
+        StemDirection dir2 = stemDirection(second.position());
+
+        // Dacă ambele note au stem-uri în aceeași direcție, folosim acea direcție
+        if (dir1 == dir2) {
+            // Dacă stem-urile sunt sus (UP), tie-ul este dedesubt (above=false)
+            // Dacă stem-urile sunt jos (DOWN), tie-ul este deasupra (above=true)
+            return dir1 == StemDirection.DOWN;
+        }
+
+        // Dacă direcțiile sunt diferite sau una dintre note nu are stem (whole note),
+        // desenăm tie-ul deasupra (above=true)
+        if (!first.note().duration().requiresStem() || !second.note().duration().requiresStem()) {
+            return true;
+        }
+
+        // Dacă avem direcții diferite, alegem deasupra
+        return true;
+    }
+
+    /**
+     * Desenează un tie (arc) între două note.
+     */
+    private void drawTie(GraphicsContext gc, double startX, double startY, double endX, double endY, boolean above) {
+        double midX = (startX + endX) / 2;
+        double offset = STAFF_LINE_SPACING * 0.75;
+        double controlY = above ? startY - offset : startY + offset;
+
+        gc.setStroke(Color.BLACK);
+        gc.setLineWidth(2.0);
+        gc.setLineCap(javafx.scene.shape.StrokeLineCap.ROUND);
+        gc.beginPath();
+        gc.moveTo(startX, startY);
+        gc.quadraticCurveTo(midX, controlY, endX, endY);
+        gc.stroke();
+    }
+
+    // ===================== SFÂRȘIT TIES =====================
+
     private static Score createSampleScore() {
-        Score score = new Score(KeySignature.F_SHARP_MAJOR); // 6 diezi
+        Score score = new Score(KeySignature.C_MAJOR);
 
+        // Măsura 1: C4 quarter (tieStart) -> C4 quarter (tieEnd)
         Measure measure1 = new Measure();
-        measure1.addNote(new Note(Pitch.of("C4"), Duration.WHOLE));
+        measure1.addNote(new Note(Pitch.of("C4"), Duration.QUARTER, true, false));
+        measure1.addNote(new Note(Pitch.of("C4"), Duration.QUARTER, false, true));
 
+        // Măsura 2: F4 half (tieStart)
         Measure measure2 = new Measure();
-        measure2.addNote(new Note(Pitch.of("F#4"), Duration.HALF));
-        measure2.addNote(new Note(Pitch.of("Fn4"), Duration.HALF));
+        measure2.addNote(new Note(Pitch.of("C5"), Duration.HALF, true, false));
 
+        // Măsura 3: F4 half (tieEnd)
         Measure measure3 = new Measure();
-        measure3.addNote(new Note(Pitch.of("C5"), Duration.QUARTER));
-        measure3.addNote(new Note(Pitch.of("G4"), Duration.QUARTER));
-        measure3.addNote(new Note(Pitch.of("F#4"), Duration.EIGHTH));
-        measure3.addNote(new Note(Pitch.of("G#4"), Duration.EIGHTH));
+        measure3.addNote(new Note(Pitch.of("C5"), Duration.HALF, false, true));
+
+        // Măsura 4: G4 eighth (tieStart) -> G4 eighth (tieEnd), A4 eighth, B4 eighth
+        Measure measure4 = new Measure();
+        measure4.addNote(new Note(Pitch.of("G4"), Duration.EIGHTH, true, false));
+        measure4.addNote(new Note(Pitch.of("G4"), Duration.EIGHTH, false, true));
+        measure4.addNote(new Note(Pitch.of("A4"), Duration.EIGHTH));
+        measure4.addNote(new Note(Pitch.of("B4"), Duration.EIGHTH));
 
         score.addMeasure(measure1);
         score.addMeasure(measure2);
         score.addMeasure(measure3);
+        score.addMeasure(measure4);
 
         return score;
     }
