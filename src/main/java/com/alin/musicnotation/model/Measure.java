@@ -1,6 +1,7 @@
 package com.alin.musicnotation.model;
 
 import com.alin.musicnotation.model.articulation.Articulation;
+import com.alin.musicnotation.model.clef.ClefType;
 import com.alin.musicnotation.model.dynamic.Dynamic;
 import com.alin.musicnotation.model.hairpin.Hairpin;
 import com.alin.musicnotation.model.tempo.Tempo;
@@ -25,6 +26,7 @@ public final class Measure {
     private boolean startRepeat = false;
     private boolean endRepeat = false;
     private final List<TextExpression> textExpressions = new ArrayList<>();
+    private ClefType clef = null;
 
     // ----- Notes -----
 
@@ -159,7 +161,6 @@ public final class Measure {
 
     public void addTextExpression(TextExpression expression) {
         Objects.requireNonNull(expression, "expression must not be null");
-        // Check for duplicate (same text and placement)
         for (TextExpression existing : textExpressions) {
             if (existing.text().equals(expression.text()) &&
                     existing.placement() == expression.placement()) {
@@ -171,6 +172,16 @@ public final class Measure {
 
     public List<TextExpression> textExpressions() {
         return List.copyOf(textExpressions);
+    }
+
+    // ----- Clef -----
+
+    public void addClef(ClefType clef) {
+        this.clef = Objects.requireNonNull(clef, "clef must not be null");
+    }
+
+    public ClefType clef() {
+        return clef;
     }
 
     // ----- Duration -----
@@ -290,6 +301,7 @@ public final class Measure {
                 ", startRepeat=" + startRepeat +
                 ", endRepeat=" + endRepeat +
                 ", textExpressions=" + textExpressions +
+                ", clef=" + clef +
                 "}";
     }
 }

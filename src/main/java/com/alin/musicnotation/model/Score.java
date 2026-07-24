@@ -1,5 +1,6 @@
 package com.alin.musicnotation.model;
 
+import com.alin.musicnotation.model.clef.ClefType;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -7,14 +8,20 @@ import java.util.Objects;
 public final class Score {
 
     private final KeySignature keySignature;
+    private final ClefType initialClef;
     private final List<Measure> measures = new ArrayList<>();
 
     public Score(KeySignature keySignature) {
+        this(keySignature, ClefType.TREBLE);
+    }
+
+    public Score(KeySignature keySignature, ClefType initialClef) {
         this.keySignature = Objects.requireNonNull(keySignature, "keySignature must not be null");
+        this.initialClef = Objects.requireNonNull(initialClef, "initialClef must not be null");
     }
 
     public Score() {
-        this(KeySignature.C_MAJOR);
+        this(KeySignature.C_MAJOR, ClefType.TREBLE);
     }
 
     public void addMeasure(Measure measure) {
@@ -36,8 +43,15 @@ public final class Score {
         return keySignature;
     }
 
+    public ClefType initialClef() {
+        return initialClef;
+    }
+
     @Override
     public String toString() {
-        return "Score{keySignature=" + keySignature + ", measures=" + measures + "}";
+        return "Score{keySignature=" + keySignature +
+                ", initialClef=" + initialClef +
+                ", measures=" + measures +
+                "}";
     }
 }
