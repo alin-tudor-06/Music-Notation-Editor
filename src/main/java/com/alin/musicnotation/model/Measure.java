@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Objects;
 import com.alin.musicnotation.model.articulation.*;
 import com.alin.musicnotation.model.dynamic.*;
+import com.alin.musicnotation.model.hairpin.*;
 
 public final class Measure {
 
@@ -17,6 +18,7 @@ public final class Measure {
     private final List<Slur> slurs = new ArrayList<>();
     private final List<Articulation> articulations = new ArrayList<>();
     private final List<Dynamic> dynamics = new ArrayList<>();
+    private final List<Hairpin> hairpins = new ArrayList<>();
 
     public void addNote(Note note) {
         Objects.requireNonNull(note, "note must not be null");
@@ -78,6 +80,37 @@ public final class Measure {
         dynamics.add(dynamic);
     }
 
+    public void addHairpin(Hairpin hairpin) {
+        Objects.requireNonNull(hairpin, "hairpin must not be null");
+        Note start = hairpin.startNote();
+        Note end = hairpin.endNote();
+
+        if (!notes.contains(start) || !notes.contains(end)) {
+            throw new IllegalStateException("Hairpin contains a note not present in this measure: " + hairpin);
+        }
+
+        if (start == end) {
+            throw new IllegalStateException("Hairpin must start and end on different notes");
+        }
+
+        int startIndex = notes.indexOf(start);
+        int endIndex = notes.indexOf(end);
+        if (startIndex >= endIndex) {
+            throw new IllegalStateException("Hairpin start note must appear before end note in the measure");
+        }
+
+        for (Hairpin existing : hairpins) {
+            if (existing.startNote() == start &&
+                    existing.endNote() == end &&
+                    existing.type() == hairpin.type() &&
+                    existing.placement() == hairpin.placement()) {
+                throw new IllegalStateException("Duplicate hairpin: " + hairpin);
+            }
+        }
+
+        hairpins.add(hairpin);
+    }
+
     private double usedSixteenths() {
         double total = 0.0;
         for (Note note : notes) {
@@ -130,6 +163,13 @@ public final class Measure {
             }
         }
 
+        // Hairpin consistency
+        for (Hairpin hp : hairpins) {
+            if (!notes.contains(hp.startNote()) || !notes.contains(hp.endNote())) {
+                throw new IllegalStateException("Hairpin note not present in measure: " + hp);
+            }
+        }
+
         // Duration capacity
         double used = usedSixteenths();
         if (used < -EPSILON) {
@@ -147,10 +187,16 @@ public final class Measure {
     public List<Slur> slurs() { return List.copyOf(slurs); }
     public List<Articulation> articulations() { return List.copyOf(articulations); }
     public List<Dynamic> dynamics() { return List.copyOf(dynamics); }
+    public List<Hairpin> hairpins() {return List.copyOf(hairpins);}
 
     @Override
     public String toString() {
-        return "Measure{notes=" + notes + ", tuplets=" + tuplets + ", slurs=" + slurs +
-                ", articulations=" + articulations + ", dynamics=" + dynamics + "}";
+        return "Measure{notes=" + notes +
+                ", tuplets=" + tuplets +
+                ", slurs=" + slurs +
+                ", articulations=" + articulations +
+                ", dynamics=" + dynamics +
+                ", hairpins=" + hairpins +
+                "}";
     }
 }

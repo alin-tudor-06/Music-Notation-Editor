@@ -3,8 +3,8 @@ package com.alin.musicnotation;
 import com.alin.musicnotation.model.*;
 import com.alin.musicnotation.model.articulation.*;
 import com.alin.musicnotation.model.dynamic.*;
-import com.alin.musicnotation.model.layout.NoteLayout;
-import com.alin.musicnotation.model.layout.StemDirection;
+import com.alin.musicnotation.model.hairpin.*;
+import com.alin.musicnotation.model.layout.*;
 import com.alin.musicnotation.renderer.*;
 import javafx.application.Application;
 import javafx.scene.Scene;
@@ -85,6 +85,7 @@ public class MusicNotationApp extends Application {
     private final SlurRenderer slurRenderer = new SlurRenderer();
     private final ArticulationRenderer articulationRenderer = new ArticulationRenderer();
     private final DynamicRenderer dynamicRenderer = new DynamicRenderer();
+    private final HairpinRenderer hairpinRenderer = new HairpinRenderer();
 
     private final Score score = createSampleScore();
 
@@ -267,6 +268,7 @@ public class MusicNotationApp extends Application {
             layoutMap.put(layout.note(), layout);
         }
         double middleLineY = firstLineY + MIDDLE_LINE_POSITION * (STAFF_LINE_SPACING / 2);
+        double staffHeight = (STAFF_LINE_COUNT - 1) * STAFF_LINE_SPACING;
 
         noteRenderer.draw(gc, measure, layoutMap, firstLineY, middleLineY, MIDDLE_LINE_POSITION,
                 NOTE_HEAD_WIDTH, NOTE_HEAD_HEIGHT, STEM_LENGTH_STANDARD,
@@ -292,6 +294,9 @@ public class MusicNotationApp extends Application {
 
         dynamicRenderer.draw(gc, measure, layoutMap, middleLineY,
                 DYNAMIC_FONT_SIZE_FACTOR, DYNAMIC_OFFSET, STAFF_LINE_SPACING);
+
+        hairpinRenderer.draw(gc, measure, layoutMap, firstLineY, staffHeight,
+                STAFF_LINE_SPACING, NOTE_HEAD_WIDTH);
     }
 
     // Ties
@@ -352,35 +357,6 @@ public class MusicNotationApp extends Application {
     private static Score createSampleScore() {
         Score score = new Score(KeySignature.C_MAJOR);
 
-        Measure measure1 = new Measure();
-        Note n1 = new Note(Pitch.of("C4"), Duration.EIGHTH);
-        Note n2 = new Note(Pitch.of("D4"), Duration.EIGHTH);
-        Note n3 = new Note(Pitch.of("E4"), Duration.EIGHTH);
-        measure1.addNote(n1);
-        measure1.addNote(n2);
-        measure1.addNote(n3);
-        measure1.addTuplet(new Tuplet(3, 2, List.of(n1, n2, n3)));
-        score.addMeasure(measure1);
-
-        Measure measure2 = new Measure();
-        Note q1 = new Note(Pitch.of("C4"), Duration.QUARTER);
-        Note q2 = new Note(Pitch.of("D4"), Duration.QUARTER);
-        Note q3 = new Note(Pitch.of("E4"), Duration.QUARTER);
-        Note q4 = new Note(Pitch.of("F4"), Duration.QUARTER);
-        measure2.addNote(q1);
-        measure2.addNote(q2);
-        measure2.addNote(q3);
-        measure2.addNote(q4);
-        measure2.addSlur(new Slur(List.of(q1, q2, q3, q4)));
-        score.addMeasure(measure2);
-
-        Measure measure3 = new Measure();
-        Note s1 = new Note(Pitch.of("C5"), Duration.HALF);
-        Note s2 = new Note(Pitch.of("D5"), Duration.HALF);
-        measure3.addNote(s1);
-        measure3.addNote(s2);
-        measure3.addSlur(new Slur(List.of(s1, s2)));
-        score.addMeasure(measure3);
 
         Measure measure4 = new Measure();
         Note a1 = new Note(Pitch.of("C4"), Duration.QUARTER);
@@ -411,6 +387,32 @@ public class MusicNotationApp extends Application {
         measure5.addDynamic(new Dynamic(d3, DynamicType.F));
         measure5.addDynamic(new Dynamic(d4, DynamicType.FFF));
         score.addMeasure(measure5);
+
+        // Measure 6: Crescendo from C4 to F4
+        Measure measure6 = new Measure();
+        Note c1 = new Note(Pitch.of("C4"), Duration.QUARTER);
+        Note c2 = new Note(Pitch.of("D4"), Duration.QUARTER);
+        Note c3 = new Note(Pitch.of("E4"), Duration.QUARTER);
+        Note c4 = new Note(Pitch.of("F4"), Duration.QUARTER);
+        measure6.addNote(c1);
+        measure6.addNote(c2);
+        measure6.addNote(c3);
+        measure6.addNote(c4);
+        measure6.addHairpin(new Hairpin(c1, c4, HairpinType.CRESCENDO));
+        score.addMeasure(measure6);
+
+// Measure 7: Decrescendo from G4 to C4
+        Measure measure7 = new Measure();
+        Note b1 = new Note(Pitch.of("G4"), Duration.QUARTER);
+        Note b2 = new Note(Pitch.of("A4"), Duration.QUARTER);
+        Note b3 = new Note(Pitch.of("B4"), Duration.QUARTER);
+        Note b4 = new Note(Pitch.of("C5"), Duration.QUARTER);
+        measure7.addNote(b1);
+        measure7.addNote(b2);
+        measure7.addNote(b3);
+        measure7.addNote(b4);
+        measure7.addHairpin(new Hairpin(b1, b4, HairpinType.DECRESCENDO, HairpinPlacement.ABOVE));
+        score.addMeasure(measure7);
 
         score.validate();
         return score;
