@@ -7,6 +7,7 @@ import java.util.Objects;
 import com.alin.musicnotation.model.articulation.*;
 import com.alin.musicnotation.model.dynamic.*;
 import com.alin.musicnotation.model.hairpin.*;
+import com.alin.musicnotation.model.tempo.Tempo;
 
 public final class Measure {
 
@@ -19,6 +20,7 @@ public final class Measure {
     private final List<Articulation> articulations = new ArrayList<>();
     private final List<Dynamic> dynamics = new ArrayList<>();
     private final List<Hairpin> hairpins = new ArrayList<>();
+    private Tempo tempo = null;
 
     public void addNote(Note note) {
         Objects.requireNonNull(note, "note must not be null");
@@ -111,6 +113,14 @@ public final class Measure {
         hairpins.add(hairpin);
     }
 
+    public void addTempo(Tempo tempo) {
+        Objects.requireNonNull(tempo, "tempo must not be null");
+        if (this.tempo != null) {
+            throw new IllegalStateException("Measure already has a tempo marking: " + this.tempo);
+        }
+        this.tempo = tempo;
+    }
+
     private double usedSixteenths() {
         double total = 0.0;
         for (Note note : notes) {
@@ -188,6 +198,7 @@ public final class Measure {
     public List<Articulation> articulations() { return List.copyOf(articulations); }
     public List<Dynamic> dynamics() { return List.copyOf(dynamics); }
     public List<Hairpin> hairpins() {return List.copyOf(hairpins);}
+    public Tempo tempo() {return tempo;}
 
     @Override
     public String toString() {
@@ -197,6 +208,7 @@ public final class Measure {
                 ", articulations=" + articulations +
                 ", dynamics=" + dynamics +
                 ", hairpins=" + hairpins +
+                ", tempo=" + tempo +
                 "}";
     }
 }

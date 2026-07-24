@@ -5,6 +5,7 @@ import com.alin.musicnotation.model.articulation.*;
 import com.alin.musicnotation.model.dynamic.*;
 import com.alin.musicnotation.model.hairpin.*;
 import com.alin.musicnotation.model.layout.*;
+import com.alin.musicnotation.model.tempo.*;
 import com.alin.musicnotation.renderer.*;
 import javafx.application.Application;
 import javafx.scene.Scene;
@@ -86,6 +87,7 @@ public class MusicNotationApp extends Application {
     private final ArticulationRenderer articulationRenderer = new ArticulationRenderer();
     private final DynamicRenderer dynamicRenderer = new DynamicRenderer();
     private final HairpinRenderer hairpinRenderer = new HairpinRenderer();
+    private final TempoRenderer tempoRenderer = new TempoRenderer();
 
     private final Score score = createSampleScore();
 
@@ -144,7 +146,7 @@ public class MusicNotationApp extends Application {
         drawTimeSignature(gc, timeSigX, firstLineY, staffHeight);
         double noteStartX = timeSigX + TIME_SIGNATURE_WIDTH + MEASURE_START_PADDING;
 
-        List<NoteLayout> allLayouts = drawNotes(gc, firstLineY, staffHeight, noteStartX);
+        List<NoteLayout> allLayouts = drawNotes(gc, firstLineY, staffHeight, noteStartX,lineStartX);
         drawTies(gc, allLayouts);
     }
 
@@ -210,12 +212,13 @@ public class MusicNotationApp extends Application {
     }
 
     // Layout and orchestration
-    private List<NoteLayout> drawNotes(GraphicsContext gc, double firstLineY, double staffHeight, double startX) {
+    private List<NoteLayout> drawNotes(GraphicsContext gc, double firstLineY, double staffHeight, double startX,double lineStartX) {
         List<NoteLayout> allLayouts = new ArrayList<>();
         double x = startX;
 
         for (Measure measure : score.measures()) {
             List<NoteLayout> layouts = new ArrayList<>();
+            double measureStartX = x;
             double lastNoteX = x;
             Duration lastDuration = null;
             int currentSixteenths = 0;
@@ -243,7 +246,7 @@ public class MusicNotationApp extends Application {
                 currentSixteenths += note.duration().sixteenths();
             }
 
-            drawMeasureNotes(gc, firstLineY, measure, layouts);
+            drawMeasureNotes(gc, firstLineY, measure, layouts,lineStartX,measureStartX);
 
             double durationGap = lastDuration != null ? noteSpacing(lastDuration) / 2 : 0;
             double barX = lastNoteX + NOTE_HEAD_WIDTH / 2 + durationGap + MEASURE_END_PADDING;
@@ -262,7 +265,7 @@ public class MusicNotationApp extends Application {
         return line3 + STAFF_LINE_SPACING * 0.1;
     }
 
-    private void drawMeasureNotes(GraphicsContext gc, double firstLineY, Measure measure, List<NoteLayout> layouts) {
+    private void drawMeasureNotes(GraphicsContext gc, double firstLineY, Measure measure, List<NoteLayout> layouts,double lineStartX,double measureStartX) {
         Map<Note, NoteLayout> layoutMap = new HashMap<>();
         for (NoteLayout layout : layouts) {
             layoutMap.put(layout.note(), layout);
@@ -297,6 +300,9 @@ public class MusicNotationApp extends Application {
 
         hairpinRenderer.draw(gc, measure, layoutMap, firstLineY, staffHeight,
                 STAFF_LINE_SPACING, NOTE_HEAD_WIDTH);
+
+        double tempoX = measureStartX;
+        tempoRenderer.draw(gc, measure, tempoX, firstLineY, STAFF_LINE_SPACING);
     }
 
     // Ties
@@ -359,6 +365,7 @@ public class MusicNotationApp extends Application {
 
 
         Measure measure4 = new Measure();
+        measure4.addTempo(new Tempo("Alegro"));
         Note a1 = new Note(Pitch.of("C4"), Duration.QUARTER);
         Note a2 = new Note(Pitch.of("D4"), Duration.QUARTER);
         Note a3 = new Note(Pitch.of("E4"), Duration.QUARTER);
@@ -374,6 +381,7 @@ public class MusicNotationApp extends Application {
         score.addMeasure(measure4);
 
         Measure measure5 = new Measure();
+        measure5.addTempo(new Tempo("Andante", 80));
         Note d1 = new Note(Pitch.of("C4"), Duration.QUARTER);
         Note d2 = new Note(Pitch.of("D4"), Duration.QUARTER);
         Note d3 = new Note(Pitch.of("E4"), Duration.QUARTER);
@@ -390,6 +398,7 @@ public class MusicNotationApp extends Application {
 
         // Measure 6: Crescendo from C4 to F4
         Measure measure6 = new Measure();
+        measure6.addTempo(Tempo.ofBpm(120));
         Note c1 = new Note(Pitch.of("C4"), Duration.QUARTER);
         Note c2 = new Note(Pitch.of("D4"), Duration.QUARTER);
         Note c3 = new Note(Pitch.of("E4"), Duration.QUARTER);
