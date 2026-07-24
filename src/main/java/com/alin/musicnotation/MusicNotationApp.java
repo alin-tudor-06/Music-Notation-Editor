@@ -6,6 +6,9 @@ import com.alin.musicnotation.model.dynamic.*;
 import com.alin.musicnotation.model.hairpin.*;
 import com.alin.musicnotation.model.layout.*;
 import com.alin.musicnotation.model.tempo.*;
+import com.alin.musicnotation.model.repeat.BarlineType;
+import com.alin.musicnotation.model.text.TextExpression;
+import com.alin.musicnotation.model.text.TextPlacement;
 import com.alin.musicnotation.renderer.*;
 import javafx.application.Application;
 import javafx.scene.Scene;
@@ -79,6 +82,8 @@ public class MusicNotationApp extends Application {
     private static final double DYNAMIC_FONT_SIZE_FACTOR = 0.8;
     private static final double DYNAMIC_OFFSET = STAFF_LINE_SPACING * 0.9;
 
+    private static final double REPEAT_GAP = 6;
+
     // Renderer instances
     private final NoteRenderer noteRenderer = new NoteRenderer();
     private final BeamRenderer beamRenderer = new BeamRenderer();
@@ -88,6 +93,8 @@ public class MusicNotationApp extends Application {
     private final DynamicRenderer dynamicRenderer = new DynamicRenderer();
     private final HairpinRenderer hairpinRenderer = new HairpinRenderer();
     private final TempoRenderer tempoRenderer = new TempoRenderer();
+    private final RepeatRenderer repeatRenderer = new RepeatRenderer();
+    private final TextExpressionRenderer textExpressionRenderer = new TextExpressionRenderer();
 
     private final Score score = createSampleScore();
 
@@ -139,19 +146,14 @@ public class MusicNotationApp extends Application {
             gc.strokeLine(lineStartX, y, lineEndX, y);
         }
 
-        drawBarLine(gc, lineStartX, firstLineY, staffHeight);
         drawClef(gc, lineStartX, firstLineY, staffHeight);
         double keySigEndX = drawKeySignature(gc, lineStartX, firstLineY, staffHeight);
         double timeSigX = keySigEndX + 10;
         drawTimeSignature(gc, timeSigX, firstLineY, staffHeight);
         double noteStartX = timeSigX + TIME_SIGNATURE_WIDTH + MEASURE_START_PADDING;
 
-        List<NoteLayout> allLayouts = drawNotes(gc, firstLineY, staffHeight, noteStartX,lineStartX);
+        List<NoteLayout> allLayouts = drawNotes(gc, firstLineY, staffHeight, noteStartX, lineStartX);
         drawTies(gc, allLayouts);
-    }
-
-    private void drawBarLine(GraphicsContext gc, double x, double firstLineY, double staffHeight) {
-        gc.strokeLine(x, firstLineY, x, firstLineY + staffHeight);
     }
 
     private void drawClef(GraphicsContext gc, double lineStartX, double firstLineY, double staffHeight) {
@@ -211,12 +213,23 @@ public class MusicNotationApp extends Application {
         return keyAcc != pitchAcc;
     }
 
-    // Layout and orchestration
-    private List<NoteLayout> drawNotes(GraphicsContext gc, double firstLineY, double staffHeight, double startX,double lineStartX) {
+    private List<NoteLayout> drawNotes(GraphicsContext gc, double firstLineY, double staffHeight, double startX, double lineStartX) {
         List<NoteLayout> allLayouts = new ArrayList<>();
         double x = startX;
+        double previousBarX = lineStartX;
+        boolean isFirstMeasure = true;
 
         for (Measure measure : score.measures()) {
+            if (measure.hasStartRepeat()) {
+                double leftBarX;
+                if (isFirstMeasure) {
+                    leftBarX = x - REPEAT_GAP;
+                } else {
+                    leftBarX = previousBarX;
+                }
+                repeatRenderer.drawBarline(gc, leftBarX, firstLineY, staffHeight, STAFF_LINE_SPACING, BarlineType.START_REPEAT);
+            }
+
             List<NoteLayout> layouts = new ArrayList<>();
             double measureStartX = x;
             double lastNoteX = x;
@@ -246,12 +259,18 @@ public class MusicNotationApp extends Application {
                 currentSixteenths += note.duration().sixteenths();
             }
 
-            drawMeasureNotes(gc, firstLineY, measure, layouts,lineStartX,measureStartX);
+            drawMeasureNotes(gc, firstLineY, measure, layouts, lineStartX, measureStartX);
 
             double durationGap = lastDuration != null ? noteSpacing(lastDuration) / 2 : 0;
             double barX = lastNoteX + NOTE_HEAD_WIDTH / 2 + durationGap + MEASURE_END_PADDING;
-            drawBarLine(gc, barX, firstLineY, staffHeight);
+            if (measure.hasEndRepeat()) {
+                repeatRenderer.drawBarline(gc, barX, firstLineY, staffHeight, STAFF_LINE_SPACING, BarlineType.END_REPEAT);
+            } else {
+                repeatRenderer.drawBarline(gc, barX, firstLineY, staffHeight, STAFF_LINE_SPACING, BarlineType.SINGLE);
+            }
 
+            previousBarX = barX;
+            isFirstMeasure = false;
             x = barX + MEASURE_START_PADDING;
         }
         return allLayouts;
@@ -265,7 +284,8 @@ public class MusicNotationApp extends Application {
         return line3 + STAFF_LINE_SPACING * 0.1;
     }
 
-    private void drawMeasureNotes(GraphicsContext gc, double firstLineY, Measure measure, List<NoteLayout> layouts,double lineStartX,double measureStartX) {
+    private void drawMeasureNotes(GraphicsContext gc, double firstLineY, Measure measure, List<NoteLayout> layouts,
+                                  double lineStartX, double measureStartX) {
         Map<Note, NoteLayout> layoutMap = new HashMap<>();
         for (NoteLayout layout : layouts) {
             layoutMap.put(layout.note(), layout);
@@ -273,36 +293,65 @@ public class MusicNotationApp extends Application {
         double middleLineY = firstLineY + MIDDLE_LINE_POSITION * (STAFF_LINE_SPACING / 2);
         double staffHeight = (STAFF_LINE_COUNT - 1) * STAFF_LINE_SPACING;
 
+        // --- beamed notes ---
+        Set<Note> beamedNotes = new HashSet<>();
+        List<NoteLayout> beamableLayouts = new ArrayList<>();
+        for (NoteLayout layout : layouts) {
+            if (!layout.note().isRest() && layout.note().duration().isBeamable()) {
+                beamableLayouts.add(layout);
+            }
+        }
+        beamableLayouts.sort(Comparator.comparingDouble(NoteLayout::x));
+        List<List<NoteLayout>> beamGroups = RenderingHelpers.groupBeamsByBeat(beamableLayouts);
+        for (List<NoteLayout> group : beamGroups) {
+            if (group.size() >= 2) {
+                for (NoteLayout layout : group) {
+                    beamedNotes.add(layout.note());
+                }
+            }
+        }
+
+        // 1. Tempo – la începutul măsurii (measureStartX)
+        tempoRenderer.draw(gc, measure, measureStartX, firstLineY, STAFF_LINE_SPACING);
+
+        // 2. Text expressions – la începutul măsurii (measureStartX)
+        textExpressionRenderer.draw(gc, measure, measureStartX, firstLineY, staffHeight, STAFF_LINE_SPACING);
+
+        // 3. Notes
         noteRenderer.draw(gc, measure, layoutMap, firstLineY, middleLineY, MIDDLE_LINE_POSITION,
                 NOTE_HEAD_WIDTH, NOTE_HEAD_HEIGHT, STEM_LENGTH_STANDARD,
                 LEDGER_LINE_EXTENSION, NOTE_HEAD_OUTLINE_WIDTH,
                 FLAG_WIDTH, FLAG_HEIGHT, FLAG_SPACING,
                 REST_WIDTH, REST_HEIGHT, EIGHTH_REST_SLANT,
-                TOP_LINE_POSITION, BOTTOM_LINE_POSITION, STAFF_LINE_SPACING);
+                TOP_LINE_POSITION, BOTTOM_LINE_POSITION, STAFF_LINE_SPACING,
+                beamedNotes);
 
+        // 4. Beams
         beamRenderer.draw(gc, measure, layoutMap, middleLineY, MIDDLE_LINE_POSITION,
                 BEAM_THICKNESS, BEAM_SPACING, BEAM_HOOK_LENGTH,
                 MAX_BEAM_SLOPE, STEM_LENGTH_STANDARD, NOTE_HEAD_WIDTH);
 
+        // 5. Tuplets
         tupletRenderer.draw(gc, measure, layoutMap, MIDDLE_LINE_POSITION,
                 TUPLET_OFFSET, TUPLET_BRACKET_HEIGHT, TUPLET_NUMBER_FONT_SIZE_FACTOR,
                 NOTE_HEAD_WIDTH, STEM_LENGTH_STANDARD, STAFF_LINE_SPACING);
 
+        // 6. Slurs
         slurRenderer.draw(gc, measure, layoutMap, middleLineY, MIDDLE_LINE_POSITION,
                 SLUR_OFFSET, STAFF_LINE_SPACING, NOTE_HEAD_WIDTH);
 
+        // 7. Articulations
         articulationRenderer.draw(gc, measure, layoutMap, middleLineY, MIDDLE_LINE_POSITION,
                 ARTICULATION_FONT_SIZE_FACTOR, ARTICULATION_OFFSET,
                 STAFF_LINE_SPACING, NOTE_HEAD_WIDTH);
 
+        // 8. Dynamics
         dynamicRenderer.draw(gc, measure, layoutMap, middleLineY,
                 DYNAMIC_FONT_SIZE_FACTOR, DYNAMIC_OFFSET, STAFF_LINE_SPACING);
 
+        // 9. Hairpins
         hairpinRenderer.draw(gc, measure, layoutMap, firstLineY, staffHeight,
                 STAFF_LINE_SPACING, NOTE_HEAD_WIDTH);
-
-        double tempoX = measureStartX;
-        tempoRenderer.draw(gc, measure, tempoX, firstLineY, STAFF_LINE_SPACING);
     }
 
     // Ties
@@ -344,7 +393,6 @@ public class MusicNotationApp extends Application {
         gc.stroke();
     }
 
-    // Positioning helpers
     private double noteSpacing(Duration duration) {
         double base = NOTE_SPACING_PER_QUARTER * duration.toQuarterNoteFraction();
         if (duration.isBeamable()) base += BEAMABLE_EXTRA_SPACING;
@@ -359,69 +407,43 @@ public class MusicNotationApp extends Application {
         return pitch.octave() * 7 + pitch.step().ordinal();
     }
 
-    // Sample score
     private static Score createSampleScore() {
         Score score = new Score(KeySignature.C_MAJOR);
 
 
-        Measure measure4 = new Measure();
-        measure4.addTempo(new Tempo("Alegro"));
-        Note a1 = new Note(Pitch.of("C4"), Duration.QUARTER);
-        Note a2 = new Note(Pitch.of("D4"), Duration.QUARTER);
-        Note a3 = new Note(Pitch.of("E4"), Duration.QUARTER);
-        Note a4 = new Note(Pitch.of("F4"), Duration.QUARTER);
-        measure4.addNote(a1);
-        measure4.addNote(a2);
-        measure4.addNote(a3);
-        measure4.addNote(a4);
-        measure4.addArticulation(new Articulation(a1, ArticulationType.STACCATO));
-        measure4.addArticulation(new Articulation(a2, ArticulationType.ACCENT));
-        measure4.addArticulation(new Articulation(a3, ArticulationType.TENUTO));
-        measure4.addArticulation(new Articulation(a4, ArticulationType.FERMATA));
-        score.addMeasure(measure4);
 
-        Measure measure5 = new Measure();
-        measure5.addTempo(new Tempo("Andante", 80));
-        Note d1 = new Note(Pitch.of("C4"), Duration.QUARTER);
-        Note d2 = new Note(Pitch.of("D4"), Duration.QUARTER);
-        Note d3 = new Note(Pitch.of("E4"), Duration.QUARTER);
-        Note d4 = new Note(Pitch.of("F4"), Duration.QUARTER);
-        measure5.addNote(d1);
-        measure5.addNote(d2);
-        measure5.addNote(d3);
-        measure5.addNote(d4);
-        measure5.addDynamic(new Dynamic(d1, DynamicType.P));
-        measure5.addDynamic(new Dynamic(d2, DynamicType.MF));
-        measure5.addDynamic(new Dynamic(d3, DynamicType.F));
-        measure5.addDynamic(new Dynamic(d4, DynamicType.FFF));
-        score.addMeasure(measure5);
 
-        // Measure 6: Crescendo from C4 to F4
-        Measure measure6 = new Measure();
-        measure6.addTempo(Tempo.ofBpm(120));
-        Note c1 = new Note(Pitch.of("C4"), Duration.QUARTER);
-        Note c2 = new Note(Pitch.of("D4"), Duration.QUARTER);
-        Note c3 = new Note(Pitch.of("E4"), Duration.QUARTER);
-        Note c4 = new Note(Pitch.of("F4"), Duration.QUARTER);
-        measure6.addNote(c1);
-        measure6.addNote(c2);
-        measure6.addNote(c3);
-        measure6.addNote(c4);
-        measure6.addHairpin(new Hairpin(c1, c4, HairpinType.CRESCENDO));
-        score.addMeasure(measure6);
+        // Measure 9: Text expressions – dolce, espressivo, cantabile
+        Measure measure9 = new Measure();
+        measure9.addStartRepeat();
+        measure9.addTempo(new Tempo("Moderato", 96));
+        measure9.addTextExpression(new TextExpression("dolce", TextPlacement.ABOVE));
+        measure9.addTextExpression(new TextExpression("espressivo", TextPlacement.ABOVE));
+        measure9.addTextExpression(new TextExpression("cantabile", TextPlacement.BELOW));
+        Note e1 = new Note(Pitch.of("C4"), Duration.QUARTER);
+        Note e2 = new Note(Pitch.of("D4"), Duration.QUARTER);
+        Note e3 = new Note(Pitch.of("E4"), Duration.QUARTER);
+        Note e4 = new Note(Pitch.of("F4"), Duration.QUARTER);
+        measure9.addNote(e1);
+        measure9.addNote(e2);
+        measure9.addNote(e3);
+        measure9.addNote(e4);
+        measure9.addEndRepeat();
+        score.addMeasure(measure9);
 
-// Measure 7: Decrescendo from G4 to C4
-        Measure measure7 = new Measure();
-        Note b1 = new Note(Pitch.of("G4"), Duration.QUARTER);
-        Note b2 = new Note(Pitch.of("A4"), Duration.QUARTER);
-        Note b3 = new Note(Pitch.of("B4"), Duration.QUARTER);
-        Note b4 = new Note(Pitch.of("C5"), Duration.QUARTER);
-        measure7.addNote(b1);
-        measure7.addNote(b2);
-        measure7.addNote(b3);
-        measure7.addNote(b4);
-        measure7.addHairpin(new Hairpin(b1, b4, HairpinType.DECRESCENDO, HairpinPlacement.ABOVE));
-        score.addMeasure(measure7);
+        // Measure 10: rit. and a tempo
+        Measure measure10 = new Measure();
+        measure10.addTextExpression(new TextExpression("rit.", TextPlacement.ABOVE));
+        measure10.addTextExpression(new TextExpression("a tempo", TextPlacement.BELOW));
+        Note f1 = new Note(Pitch.of("G4"), Duration.QUARTER);
+        Note f2 = new Note(Pitch.of("A4"), Duration.QUARTER);
+        Note f3 = new Note(Pitch.of("B4"), Duration.QUARTER);
+        Note f4 = new Note(Pitch.of("C5"), Duration.QUARTER);
+        measure10.addNote(f1);
+        measure10.addNote(f2);
+        measure10.addNote(f3);
+        measure10.addNote(f4);
+        score.addMeasure(measure10);
 
         score.validate();
         return score;

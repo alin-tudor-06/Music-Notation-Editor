@@ -1,15 +1,15 @@
 package com.alin.musicnotation.renderer;
 
-import com.alin.musicnotation.model.Note;
-import com.alin.musicnotation.model.Measure;
 import com.alin.musicnotation.model.Duration;
+import com.alin.musicnotation.model.Measure;
+import com.alin.musicnotation.model.Note;
 import com.alin.musicnotation.model.layout.NoteLayout;
 import com.alin.musicnotation.model.layout.StemDirection;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 
 import java.util.Map;
-
+import java.util.Set;
 
 public class NoteRenderer {
 
@@ -20,7 +20,8 @@ public class NoteRenderer {
                      double noteHeadOutlineWidth, double flagWidth, double flagHeight,
                      double flagSpacing, double restWidth, double restHeight,
                      double eighthRestSlant, int topLinePosition, int bottomLinePosition,
-                     double staffLineSpacing) {
+                     double staffLineSpacing,
+                     Set<Note> beamedNotes) {  // ← parametru nou
 
         for (NoteLayout layout : layoutMap.values()) {
             Note note = layout.note();
@@ -40,13 +41,14 @@ public class NoteRenderer {
             Note note = layout.note();
             if (note.isRest()) continue;
             Duration duration = note.duration();
-            if (!duration.isBeamable() && duration.requiresStem()) {
+            if (duration.requiresStem()) {
                 StemDirection dir = RenderingHelpers.stemDirection(layout.position(), middleLinePosition);
                 double stemX = RenderingHelpers.stemAttachX(layout, dir, noteHeadWidth);
                 double stemTipY = RenderingHelpers.computeStemTipY(layout, dir,
                         stemLengthStandard, middleLineY);
                 drawStem(gc, stemX, layout.y(), stemTipY);
-                if (duration.flagCount() > 0) {
+                // Desenăm flag-uri doar dacă nota NU este beamată
+                if (duration.flagCount() > 0 && !beamedNotes.contains(note)) {
                     drawFlags(gc, stemX, stemTipY, duration.flagCount(), dir,
                             flagWidth, flagHeight, flagSpacing);
                 }

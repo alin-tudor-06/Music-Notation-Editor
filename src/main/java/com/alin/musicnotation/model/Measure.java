@@ -1,13 +1,14 @@
 package com.alin.musicnotation.model;
 
+import com.alin.musicnotation.model.articulation.Articulation;
+import com.alin.musicnotation.model.dynamic.Dynamic;
+import com.alin.musicnotation.model.hairpin.Hairpin;
+import com.alin.musicnotation.model.tempo.Tempo;
+import com.alin.musicnotation.model.text.TextExpression;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
-import com.alin.musicnotation.model.articulation.*;
-import com.alin.musicnotation.model.dynamic.*;
-import com.alin.musicnotation.model.hairpin.*;
-import com.alin.musicnotation.model.tempo.Tempo;
 
 public final class Measure {
 
@@ -21,6 +22,11 @@ public final class Measure {
     private final List<Dynamic> dynamics = new ArrayList<>();
     private final List<Hairpin> hairpins = new ArrayList<>();
     private Tempo tempo = null;
+    private boolean startRepeat = false;
+    private boolean endRepeat = false;
+    private final List<TextExpression> textExpressions = new ArrayList<>();
+
+    // ----- Notes -----
 
     public void addNote(Note note) {
         Objects.requireNonNull(note, "note must not be null");
@@ -29,6 +35,8 @@ public final class Measure {
         }
         notes.add(note);
     }
+
+    // ----- Tuplets, Slurs, Articulations, Dynamics, Hairpins -----
 
     private static void ensureAllNotesPresent(Collection<Note> measureNotes, Collection<Note> objectNotes, String objectName) {
         for (Note note : objectNotes) {
@@ -90,17 +98,14 @@ public final class Measure {
         if (!notes.contains(start) || !notes.contains(end)) {
             throw new IllegalStateException("Hairpin contains a note not present in this measure: " + hairpin);
         }
-
         if (start == end) {
             throw new IllegalStateException("Hairpin must start and end on different notes");
         }
-
         int startIndex = notes.indexOf(start);
         int endIndex = notes.indexOf(end);
         if (startIndex >= endIndex) {
             throw new IllegalStateException("Hairpin start note must appear before end note in the measure");
         }
-
         for (Hairpin existing : hairpins) {
             if (existing.startNote() == start &&
                     existing.endNote() == end &&
@@ -109,9 +114,10 @@ public final class Measure {
                 throw new IllegalStateException("Duplicate hairpin: " + hairpin);
             }
         }
-
         hairpins.add(hairpin);
     }
+
+    // ----- Tempo -----
 
     public void addTempo(Tempo tempo) {
         Objects.requireNonNull(tempo, "tempo must not be null");
@@ -120,6 +126,54 @@ public final class Measure {
         }
         this.tempo = tempo;
     }
+
+    public Tempo tempo() {
+        return tempo;
+    }
+
+    // ----- Repeat Signs -----
+
+    public void addStartRepeat() {
+        if (startRepeat) {
+            throw new IllegalStateException("Measure already has a start repeat");
+        }
+        startRepeat = true;
+    }
+
+    public void addEndRepeat() {
+        if (endRepeat) {
+            throw new IllegalStateException("Measure already has an end repeat");
+        }
+        endRepeat = true;
+    }
+
+    public boolean hasStartRepeat() {
+        return startRepeat;
+    }
+
+    public boolean hasEndRepeat() {
+        return endRepeat;
+    }
+
+    // ----- Text Expressions -----
+
+    public void addTextExpression(TextExpression expression) {
+        Objects.requireNonNull(expression, "expression must not be null");
+        // Check for duplicate (same text and placement)
+        for (TextExpression existing : textExpressions) {
+            if (existing.text().equals(expression.text()) &&
+                    existing.placement() == expression.placement()) {
+                throw new IllegalStateException("Duplicate text expression: " + expression);
+            }
+        }
+        textExpressions.add(expression);
+    }
+
+    public List<TextExpression> textExpressions() {
+        return List.copyOf(textExpressions);
+    }
+
+    // ----- Duration -----
 
     private double usedSixteenths() {
         double total = 0.0;
@@ -133,6 +187,8 @@ public final class Measure {
         }
         return total;
     }
+
+    // ----- Validation -----
 
     public void validate() {
         // Tuplet consistency
@@ -190,15 +246,37 @@ public final class Measure {
         }
     }
 
-    public boolean isFull() { return usedSixteenths() >= CAPACITY_IN_SIXTEENTHS - EPSILON; }
+    public boolean isFull() {
+        return usedSixteenths() >= CAPACITY_IN_SIXTEENTHS - EPSILON;
+    }
 
-    public List<Note> notes() { return List.copyOf(notes); }
-    public List<Tuplet> tuplets() { return List.copyOf(tuplets); }
-    public List<Slur> slurs() { return List.copyOf(slurs); }
-    public List<Articulation> articulations() { return List.copyOf(articulations); }
-    public List<Dynamic> dynamics() { return List.copyOf(dynamics); }
-    public List<Hairpin> hairpins() {return List.copyOf(hairpins);}
-    public Tempo tempo() {return tempo;}
+    // ----- Getters -----
+
+    public List<Note> notes() {
+        return List.copyOf(notes);
+    }
+
+    public List<Tuplet> tuplets() {
+        return List.copyOf(tuplets);
+    }
+
+    public List<Slur> slurs() {
+        return List.copyOf(slurs);
+    }
+
+    public List<Articulation> articulations() {
+        return List.copyOf(articulations);
+    }
+
+    public List<Dynamic> dynamics() {
+        return List.copyOf(dynamics);
+    }
+
+    public List<Hairpin> hairpins() {
+        return List.copyOf(hairpins);
+    }
+
+    // ----- toString -----
 
     @Override
     public String toString() {
@@ -209,6 +287,9 @@ public final class Measure {
                 ", dynamics=" + dynamics +
                 ", hairpins=" + hairpins +
                 ", tempo=" + tempo +
+                ", startRepeat=" + startRepeat +
+                ", endRepeat=" + endRepeat +
+                ", textExpressions=" + textExpressions +
                 "}";
     }
 }
