@@ -99,6 +99,7 @@ public class MusicNotationApp extends Application {
     private final TextExpressionRenderer textExpressionRenderer = new TextExpressionRenderer();
     private final ClefRenderer clefRenderer = new ClefRenderer();
     private final KeySignatureRenderer keySignatureRenderer = new KeySignatureRenderer();
+    private final TimeSignatureRenderer timeSignatureRenderer = new TimeSignatureRenderer();
 
     private final Score score = createSampleScore();
 
@@ -166,24 +167,15 @@ public class MusicNotationApp extends Application {
         currentX += keyWidth;
 
         double timeSigX = currentX + 10;
-        drawTimeSignature(gc, timeSigX, firstLineY, staffHeight);
-        double noteStartX = timeSigX + TIME_SIGNATURE_WIDTH + MEASURE_START_PADDING;
+        double timeSigWidth = timeSignatureRenderer.drawInitial(gc, timeSigX, firstLineY,
+                staffHeight, STAFF_LINE_SPACING, score.initialTimeSignature());
+        currentX = timeSigX + timeSigWidth;
+
+        double noteStartX = currentX + MEASURE_START_PADDING;
 
         List<NoteLayout> allLayouts = drawNotes(gc, firstLineY, staffHeight, noteStartX,
                 lineStartX, initialClef);
         drawTies(gc, allLayouts);
-    }
-
-    private void drawTimeSignature(GraphicsContext gc, double x, double firstLineY, double staffHeight) {
-        double topY = firstLineY + staffHeight * 0.25;
-        double bottomY = firstLineY + staffHeight * 0.75;
-
-        gc.setFill(Color.BLACK);
-        gc.setFont(Font.font("Serif", FontWeight.BOLD, STAFF_LINE_SPACING * TIME_SIGNATURE_FONT_SIZE_FACTOR));
-        gc.setTextAlign(TextAlignment.CENTER);
-        gc.setTextBaseline(javafx.geometry.VPos.CENTER);
-        gc.fillText("4", x, topY);
-        gc.fillText("4", x, bottomY);
     }
 
     private List<NoteLayout> drawNotes(GraphicsContext gc, double firstLineY, double staffHeight,
@@ -221,6 +213,14 @@ public class MusicNotationApp extends Application {
                         currentKey, newKey, currentClef, STAFF_LINE_SPACING);
                 x += keyWidth + 10;
                 currentKey = newKey;
+            }
+
+            TimeSignature newTimeSig = measure.timeSignature();
+            if (newTimeSig != null) {
+                double timeSigX = x + 10;
+                double timeWidth = timeSignatureRenderer.drawChange(gc, timeSigX, firstLineY,
+                        staffHeight, STAFF_LINE_SPACING, newTimeSig);
+                x = timeSigX + timeWidth;
             }
 
             List<NoteLayout> layouts = new ArrayList<>();
@@ -303,9 +303,13 @@ public class MusicNotationApp extends Application {
             }
         }
 
+        // 1. Tempo
         tempoRenderer.draw(gc, measure, measureStartX, firstLineY, STAFF_LINE_SPACING);
+
+        // 2. Text expressions
         textExpressionRenderer.draw(gc, measure, measureStartX, firstLineY, staffHeight, STAFF_LINE_SPACING);
 
+        // 3. Notes (incl. singleton beamable notes, stems & flags)
         noteRenderer.draw(gc, measure, layoutMap, firstLineY, middleLineY, MIDDLE_LINE_POSITION,
                 NOTE_HEAD_WIDTH, NOTE_HEAD_HEIGHT, STEM_LENGTH_STANDARD,
                 LEDGER_LINE_EXTENSION, NOTE_HEAD_OUTLINE_WIDTH,
@@ -314,24 +318,30 @@ public class MusicNotationApp extends Application {
                 TOP_LINE_POSITION, BOTTOM_LINE_POSITION, STAFF_LINE_SPACING,
                 beamedNotes, currentKey);
 
+        // 4. Beams (draws stems & beams for beamed groups)
         beamRenderer.draw(gc, measure, layoutMap, middleLineY, MIDDLE_LINE_POSITION,
                 BEAM_THICKNESS, BEAM_SPACING, BEAM_HOOK_LENGTH,
                 MAX_BEAM_SLOPE, STEM_LENGTH_STANDARD, NOTE_HEAD_WIDTH);
 
+        // 5. Tuplets
         tupletRenderer.draw(gc, measure, layoutMap, MIDDLE_LINE_POSITION,
                 TUPLET_OFFSET, TUPLET_BRACKET_HEIGHT, TUPLET_NUMBER_FONT_SIZE_FACTOR,
                 NOTE_HEAD_WIDTH, STEM_LENGTH_STANDARD, STAFF_LINE_SPACING);
 
+        // 6. Slurs
         slurRenderer.draw(gc, measure, layoutMap, middleLineY, MIDDLE_LINE_POSITION,
                 SLUR_OFFSET, STAFF_LINE_SPACING, NOTE_HEAD_WIDTH);
 
+        // 7. Articulations
         articulationRenderer.draw(gc, measure, layoutMap, middleLineY, MIDDLE_LINE_POSITION,
                 ARTICULATION_FONT_SIZE_FACTOR, ARTICULATION_OFFSET,
                 STAFF_LINE_SPACING, NOTE_HEAD_WIDTH);
 
+        // 8. Dynamics
         dynamicRenderer.draw(gc, measure, layoutMap, middleLineY,
                 DYNAMIC_FONT_SIZE_FACTOR, DYNAMIC_OFFSET, STAFF_LINE_SPACING);
 
+        // 9. Hairpins
         hairpinRenderer.draw(gc, measure, layoutMap, firstLineY, staffHeight,
                 STAFF_LINE_SPACING, NOTE_HEAD_WIDTH);
     }
@@ -389,7 +399,7 @@ public class MusicNotationApp extends Application {
     }
 
     private static Score createSampleScore() {
-        Score score = new Score(KeySignature.C_MAJOR, ClefType.TREBLE);
+        Score score = new Score(KeySignature.C_MAJOR, ClefType.TREBLE, TimeSignature.COMMON_TIME);
 
         Measure measure1 = new Measure();
         measure1.addStartRepeat();
@@ -400,45 +410,32 @@ public class MusicNotationApp extends Application {
         score.addMeasure(measure1);
 
         Measure measure2 = new Measure();
-        measure2.addKeySignature(KeySignature.G_MAJOR);
-        measure2.addNote(new Note(Pitch.of("G4"), Duration.QUARTER));
-        measure2.addNote(new Note(Pitch.of("A4"), Duration.QUARTER));
-        measure2.addNote(new Note(Pitch.of("B4"), Duration.QUARTER));
-        measure2.addNote(new Note(Pitch.of("C5"), Duration.QUARTER));
+        measure2.addTimeSignature(TimeSignature.CUT_TIME);
+        measure2.addNote(new Note(Pitch.of("G4"), Duration.HALF));
+        measure2.addNote(new Note(Pitch.of("A4"), Duration.HALF));
         score.addMeasure(measure2);
 
         Measure measure3 = new Measure();
-        measure3.addKeySignature(KeySignature.C_MAJOR);
+        measure3.addTimeSignature(TimeSignature.THREE_FOUR);
         measure3.addNote(new Note(Pitch.of("C4"), Duration.QUARTER));
         measure3.addNote(new Note(Pitch.of("D4"), Duration.QUARTER));
         measure3.addNote(new Note(Pitch.of("E4"), Duration.QUARTER));
-        measure3.addNote(new Note(Pitch.of("F4"), Duration.QUARTER));
+        measure3.addEndRepeat();
         score.addMeasure(measure3);
 
         Measure measure4 = new Measure();
-        measure4.addNote(new Note(Pitch.of("G4"), Duration.QUARTER));
-        measure4.addNote(new Note(Pitch.of("A4"), Duration.QUARTER));
-        measure4.addNote(new Note(Pitch.of("B4"), Duration.QUARTER));
-        measure4.addNote(new Note(Pitch.of("C5"), Duration.QUARTER));
-        measure4.addEndRepeat();
+        measure4.addTimeSignature(TimeSignature.SIX_EIGHT);
+        for (int i = 0; i < 6; i++) {
+            measure4.addNote(new Note(Pitch.of("C4"), Duration.EIGHTH));
+        }
         score.addMeasure(measure4);
 
         Measure measure5 = new Measure();
-        measure5.addTempo(new Tempo("Allegro"));
-        measure5.addTextExpression(new TextExpression("dolce", TextPlacement.ABOVE));
-        Note a1 = new Note(Pitch.of("C4"), Duration.QUARTER);
-        Note a2 = new Note(Pitch.of("D4"), Duration.QUARTER);
-        Note a3 = new Note(Pitch.of("E4"), Duration.QUARTER);
-        Note a4 = new Note(Pitch.of("F4"), Duration.QUARTER);
-        measure5.addNote(a1);
-        measure5.addNote(a2);
-        measure5.addNote(a3);
-        measure5.addNote(a4);
-        measure5.addArticulation(new Articulation(a1, ArticulationType.STACCATO));
-        measure5.addArticulation(new Articulation(a2, ArticulationType.ACCENT));
-        measure5.addArticulation(new Articulation(a3, ArticulationType.TENUTO));
-        measure5.addArticulation(new Articulation(a4, ArticulationType.FERMATA));
-        measure5.addHairpin(new Hairpin(a1, a4, HairpinType.CRESCENDO));
+        measure5.addTimeSignature(TimeSignature.NINE_EIGHT);
+        for (int i = 0; i < 7; i++) {
+            measure5.addNote(new Note(Pitch.of("C4"), Duration.EIGHTH));
+        }
+        measure5.addEndRepeat();
         score.addMeasure(measure5);
 
         score.validate();

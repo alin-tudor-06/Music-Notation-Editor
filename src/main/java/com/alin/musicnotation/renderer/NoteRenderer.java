@@ -25,6 +25,7 @@ public class NoteRenderer {
                      Set<Note> beamedNotes,
                      KeySignature activeKey) {
 
+        // 1. Draw rests, note heads, ledger lines, and accidentals
         for (NoteLayout layout : layoutMap.values()) {
             Note note = layout.note();
             if (note.isRest()) {
@@ -43,20 +44,32 @@ public class NoteRenderer {
             }
         }
 
+        // 2. Draw stems and flags for ALL notes that require a stem:
+        //    - non-beamable notes (quarters, halves, etc.)
+        //    - beamable notes that are NOT in a beam group (singletons)
         for (NoteLayout layout : layoutMap.values()) {
             Note note = layout.note();
             if (note.isRest()) continue;
             Duration duration = note.duration();
-            if (!duration.isBeamable() && duration.requiresStem()) {
-                StemDirection dir = RenderingHelpers.stemDirection(layout.position(), middleLinePosition);
-                double stemX = RenderingHelpers.stemAttachX(layout, dir, noteHeadWidth);
-                double stemTipY = RenderingHelpers.computeStemTipY(layout, dir,
-                        stemLengthStandard, middleLineY);
-                drawStem(gc, stemX, layout.y(), stemTipY);
-                if (duration.flagCount() > 0 && !beamedNotes.contains(note)) {
-                    drawFlags(gc, stemX, stemTipY, duration.flagCount(), dir,
-                            flagWidth, flagHeight, flagSpacing);
-                }
+            if (!duration.requiresStem()) continue;
+
+            // Determine if this note is beamed
+            boolean isBeamed = beamedNotes.contains(note);
+
+            // Skip stems for beamed notes (BeamRenderer handles them)
+            if (isBeamed) continue;
+
+            // For non-beamable notes OR beamable singletons:
+            StemDirection dir = RenderingHelpers.stemDirection(layout.position(), middleLinePosition);
+            double stemX = RenderingHelpers.stemAttachX(layout, dir, noteHeadWidth);
+            double stemTipY = RenderingHelpers.computeStemTipY(layout, dir,
+                    stemLengthStandard, middleLineY);
+            drawStem(gc, stemX, layout.y(), stemTipY);
+
+            // Draw flags if the note has flagCount > 0 (e.g., singleton eighth or sixteenth)
+            if (duration.flagCount() > 0) {
+                drawFlags(gc, stemX, stemTipY, duration.flagCount(), dir,
+                        flagWidth, flagHeight, flagSpacing);
             }
         }
     }

@@ -13,7 +13,6 @@ import java.util.Objects;
 
 public final class Measure {
 
-    private static final int CAPACITY_IN_SIXTEENTHS = 16;
     private static final double EPSILON = 0.0001;
 
     private final List<Note> notes = new ArrayList<>();
@@ -28,6 +27,9 @@ public final class Measure {
     private final List<TextExpression> textExpressions = new ArrayList<>();
     private ClefType clef = null;
     private KeySignature keySignature = null;
+    private TimeSignature timeSignature = null;
+
+    // ----- Notes -----
 
     public void addNote(Note note) {
         Objects.requireNonNull(note, "note must not be null");
@@ -36,6 +38,8 @@ public final class Measure {
         }
         notes.add(note);
     }
+
+    // ----- Tuplets, Slurs, Articulations, Dynamics, Hairpins -----
 
     private static void ensureAllNotesPresent(Collection<Note> measureNotes, Collection<Note> objectNotes, String objectName) {
         for (Note note : objectNotes) {
@@ -116,6 +120,8 @@ public final class Measure {
         hairpins.add(hairpin);
     }
 
+    // ----- Tempo -----
+
     public void addTempo(Tempo tempo) {
         Objects.requireNonNull(tempo, "tempo must not be null");
         if (this.tempo != null) {
@@ -127,6 +133,8 @@ public final class Measure {
     public Tempo tempo() {
         return tempo;
     }
+
+    // ----- Repeat Signs -----
 
     public void addStartRepeat() {
         if (startRepeat) {
@@ -150,6 +158,8 @@ public final class Measure {
         return endRepeat;
     }
 
+    // ----- Text Expressions -----
+
     public void addTextExpression(TextExpression expression) {
         Objects.requireNonNull(expression, "expression must not be null");
         for (TextExpression existing : textExpressions) {
@@ -165,6 +175,8 @@ public final class Measure {
         return List.copyOf(textExpressions);
     }
 
+    // ----- Clef -----
+
     public void addClef(ClefType clef) {
         this.clef = Objects.requireNonNull(clef, "clef must not be null");
     }
@@ -173,6 +185,8 @@ public final class Measure {
         return clef;
     }
 
+    // ----- Key Signature -----
+
     public void addKeySignature(KeySignature keySignature) {
         this.keySignature = Objects.requireNonNull(keySignature, "keySignature must not be null");
     }
@@ -180,6 +194,18 @@ public final class Measure {
     public KeySignature keySignature() {
         return keySignature;
     }
+
+    // ----- Time Signature -----
+
+    public void addTimeSignature(TimeSignature timeSignature) {
+        this.timeSignature = Objects.requireNonNull(timeSignature, "timeSignature must not be null");
+    }
+
+    public TimeSignature timeSignature() {
+        return timeSignature;
+    }
+
+    // ----- Duration -----
 
     private double usedSixteenths() {
         double total = 0.0;
@@ -194,7 +220,14 @@ public final class Measure {
         return total;
     }
 
-    public void validate() {
+    // ----- Validation -----
+
+    public void validate(TimeSignature currentTimeSig) {
+        if (currentTimeSig == null) {
+            throw new IllegalStateException("Cannot validate measure without a time signature");
+        }
+
+        // Tuplet consistency
         for (Tuplet tuplet : tuplets) {
             for (Note note : tuplet.notes()) {
                 if (note.tuplet() != tuplet) {
@@ -209,6 +242,7 @@ public final class Measure {
             }
         }
 
+        // Slur consistency
         for (Slur slur : slurs) {
             for (Note note : slur.notes()) {
                 if (!notes.contains(note)) {
@@ -217,36 +251,44 @@ public final class Measure {
             }
         }
 
+        // Articulation consistency
         for (Articulation art : articulations) {
             if (!notes.contains(art.note())) {
                 throw new IllegalStateException("Articulation note not present in measure: " + art);
             }
         }
 
+        // Dynamic consistency
         for (Dynamic dyn : dynamics) {
             if (!notes.contains(dyn.note())) {
                 throw new IllegalStateException("Dynamic note not present in measure: " + dyn);
             }
         }
 
+        // Hairpin consistency
         for (Hairpin hp : hairpins) {
             if (!notes.contains(hp.startNote()) || !notes.contains(hp.endNote())) {
                 throw new IllegalStateException("Hairpin note not present in measure: " + hp);
             }
         }
 
+        // Duration capacity
         double used = usedSixteenths();
+        double capacity = currentTimeSig.measureCapacityInSixteenths();
         if (used < -EPSILON) {
             throw new IllegalStateException("Measure has negative duration: " + used + " sixteenths");
         }
-        if (used > CAPACITY_IN_SIXTEENTHS + EPSILON) {
-            throw new IllegalStateException("Measure exceeds capacity: " + used + " sixteenths used, max " + CAPACITY_IN_SIXTEENTHS);
+        if (used > capacity + EPSILON) {
+            throw new IllegalStateException("Measure exceeds capacity: " + used + " sixteenths used, max " + capacity + " for " + currentTimeSig);
         }
     }
 
-    public boolean isFull() {
-        return usedSixteenths() >= CAPACITY_IN_SIXTEENTHS - EPSILON;
+    public boolean isFull(TimeSignature currentTimeSig) {
+        if (currentTimeSig == null) return false;
+        return usedSixteenths() >= currentTimeSig.measureCapacityInSixteenths() - EPSILON;
     }
+
+    // ----- Getters -----
 
     public List<Note> notes() {
         return List.copyOf(notes);
@@ -286,6 +328,7 @@ public final class Measure {
                 ", textExpressions=" + textExpressions +
                 ", clef=" + clef +
                 ", keySignature=" + keySignature +
+                ", timeSignature=" + timeSignature +
                 "}";
     }
 }

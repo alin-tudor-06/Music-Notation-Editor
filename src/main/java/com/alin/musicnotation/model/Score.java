@@ -9,19 +9,25 @@ public final class Score {
 
     private final KeySignature keySignature;
     private final ClefType initialClef;
+    private final TimeSignature initialTimeSignature;
     private final List<Measure> measures = new ArrayList<>();
 
     public Score(KeySignature keySignature) {
-        this(keySignature, ClefType.TREBLE);
+        this(keySignature, ClefType.TREBLE, TimeSignature.COMMON_TIME);
     }
 
     public Score(KeySignature keySignature, ClefType initialClef) {
+        this(keySignature, initialClef, TimeSignature.COMMON_TIME);
+    }
+
+    public Score(KeySignature keySignature, ClefType initialClef, TimeSignature initialTimeSignature) {
         this.keySignature = Objects.requireNonNull(keySignature, "keySignature must not be null");
         this.initialClef = Objects.requireNonNull(initialClef, "initialClef must not be null");
+        this.initialTimeSignature = Objects.requireNonNull(initialTimeSignature, "initialTimeSignature must not be null");
     }
 
     public Score() {
-        this(KeySignature.C_MAJOR, ClefType.TREBLE);
+        this(KeySignature.C_MAJOR, ClefType.TREBLE, TimeSignature.COMMON_TIME);
     }
 
     public void addMeasure(Measure measure) {
@@ -30,8 +36,13 @@ public final class Score {
     }
 
     public void validate() {
+        TimeSignature currentTime = initialTimeSignature;
         for (Measure measure : measures) {
-            measure.validate();
+            TimeSignature measureTime = measure.timeSignature();
+            if (measureTime != null) {
+                currentTime = measureTime;
+            }
+            measure.validate(currentTime);
         }
     }
 
@@ -47,10 +58,15 @@ public final class Score {
         return initialClef;
     }
 
+    public TimeSignature initialTimeSignature() {
+        return initialTimeSignature;
+    }
+
     @Override
     public String toString() {
         return "Score{keySignature=" + keySignature +
                 ", initialClef=" + initialClef +
+                ", initialTimeSignature=" + initialTimeSignature +
                 ", measures=" + measures +
                 "}";
     }
