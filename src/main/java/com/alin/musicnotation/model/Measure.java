@@ -27,8 +27,7 @@ public final class Measure {
     private boolean endRepeat = false;
     private final List<TextExpression> textExpressions = new ArrayList<>();
     private ClefType clef = null;
-
-    // ----- Notes -----
+    private KeySignature keySignature = null;
 
     public void addNote(Note note) {
         Objects.requireNonNull(note, "note must not be null");
@@ -37,8 +36,6 @@ public final class Measure {
         }
         notes.add(note);
     }
-
-    // ----- Tuplets, Slurs, Articulations, Dynamics, Hairpins -----
 
     private static void ensureAllNotesPresent(Collection<Note> measureNotes, Collection<Note> objectNotes, String objectName) {
         for (Note note : objectNotes) {
@@ -119,8 +116,6 @@ public final class Measure {
         hairpins.add(hairpin);
     }
 
-    // ----- Tempo -----
-
     public void addTempo(Tempo tempo) {
         Objects.requireNonNull(tempo, "tempo must not be null");
         if (this.tempo != null) {
@@ -132,8 +127,6 @@ public final class Measure {
     public Tempo tempo() {
         return tempo;
     }
-
-    // ----- Repeat Signs -----
 
     public void addStartRepeat() {
         if (startRepeat) {
@@ -157,8 +150,6 @@ public final class Measure {
         return endRepeat;
     }
 
-    // ----- Text Expressions -----
-
     public void addTextExpression(TextExpression expression) {
         Objects.requireNonNull(expression, "expression must not be null");
         for (TextExpression existing : textExpressions) {
@@ -174,8 +165,6 @@ public final class Measure {
         return List.copyOf(textExpressions);
     }
 
-    // ----- Clef -----
-
     public void addClef(ClefType clef) {
         this.clef = Objects.requireNonNull(clef, "clef must not be null");
     }
@@ -184,7 +173,13 @@ public final class Measure {
         return clef;
     }
 
-    // ----- Duration -----
+    public void addKeySignature(KeySignature keySignature) {
+        this.keySignature = Objects.requireNonNull(keySignature, "keySignature must not be null");
+    }
+
+    public KeySignature keySignature() {
+        return keySignature;
+    }
 
     private double usedSixteenths() {
         double total = 0.0;
@@ -199,10 +194,7 @@ public final class Measure {
         return total;
     }
 
-    // ----- Validation -----
-
     public void validate() {
-        // Tuplet consistency
         for (Tuplet tuplet : tuplets) {
             for (Note note : tuplet.notes()) {
                 if (note.tuplet() != tuplet) {
@@ -217,7 +209,6 @@ public final class Measure {
             }
         }
 
-        // Slur consistency
         for (Slur slur : slurs) {
             for (Note note : slur.notes()) {
                 if (!notes.contains(note)) {
@@ -226,28 +217,24 @@ public final class Measure {
             }
         }
 
-        // Articulation consistency
         for (Articulation art : articulations) {
             if (!notes.contains(art.note())) {
                 throw new IllegalStateException("Articulation note not present in measure: " + art);
             }
         }
 
-        // Dynamic consistency
         for (Dynamic dyn : dynamics) {
             if (!notes.contains(dyn.note())) {
                 throw new IllegalStateException("Dynamic note not present in measure: " + dyn);
             }
         }
 
-        // Hairpin consistency
         for (Hairpin hp : hairpins) {
             if (!notes.contains(hp.startNote()) || !notes.contains(hp.endNote())) {
                 throw new IllegalStateException("Hairpin note not present in measure: " + hp);
             }
         }
 
-        // Duration capacity
         double used = usedSixteenths();
         if (used < -EPSILON) {
             throw new IllegalStateException("Measure has negative duration: " + used + " sixteenths");
@@ -260,8 +247,6 @@ public final class Measure {
     public boolean isFull() {
         return usedSixteenths() >= CAPACITY_IN_SIXTEENTHS - EPSILON;
     }
-
-    // ----- Getters -----
 
     public List<Note> notes() {
         return List.copyOf(notes);
@@ -287,8 +272,6 @@ public final class Measure {
         return List.copyOf(hairpins);
     }
 
-    // ----- toString -----
-
     @Override
     public String toString() {
         return "Measure{notes=" + notes +
@@ -302,6 +285,7 @@ public final class Measure {
                 ", endRepeat=" + endRepeat +
                 ", textExpressions=" + textExpressions +
                 ", clef=" + clef +
+                ", keySignature=" + keySignature +
                 "}";
     }
 }

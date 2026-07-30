@@ -1,12 +1,13 @@
 package com.alin.musicnotation.renderer;
 
-import com.alin.musicnotation.model.Duration;
-import com.alin.musicnotation.model.Measure;
-import com.alin.musicnotation.model.Note;
+import com.alin.musicnotation.model.*;
 import com.alin.musicnotation.model.layout.NoteLayout;
 import com.alin.musicnotation.model.layout.StemDirection;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
+import javafx.scene.text.Font;
+import javafx.scene.text.TextAlignment;
+import javafx.geometry.VPos;
 
 import java.util.Map;
 import java.util.Set;
@@ -21,7 +22,8 @@ public class NoteRenderer {
                      double flagSpacing, double restWidth, double restHeight,
                      double eighthRestSlant, int topLinePosition, int bottomLinePosition,
                      double staffLineSpacing,
-                     Set<Note> beamedNotes) {  // ← parametru nou
+                     Set<Note> beamedNotes,
+                     KeySignature activeKey) {
 
         for (NoteLayout layout : layoutMap.values()) {
             Note note = layout.note();
@@ -34,6 +36,10 @@ public class NoteRenderer {
                         noteHeadWidth, ledgerLineExtension);
                 drawNoteHead(gc, layout.x(), layout.y(), note.duration(),
                         noteHeadWidth, noteHeadHeight, noteHeadOutlineWidth);
+                if (shouldDisplayAccidental(note.pitch(), activeKey)) {
+                    double symbolX = layout.x() - noteHeadWidth / 2 - 6;
+                    drawAccidental(gc, symbolX, layout.y(), note.pitch().accidental(), staffLineSpacing);
+                }
             }
         }
 
@@ -41,13 +47,12 @@ public class NoteRenderer {
             Note note = layout.note();
             if (note.isRest()) continue;
             Duration duration = note.duration();
-            if (duration.requiresStem()) {
+            if (!duration.isBeamable() && duration.requiresStem()) {
                 StemDirection dir = RenderingHelpers.stemDirection(layout.position(), middleLinePosition);
                 double stemX = RenderingHelpers.stemAttachX(layout, dir, noteHeadWidth);
                 double stemTipY = RenderingHelpers.computeStemTipY(layout, dir,
                         stemLengthStandard, middleLineY);
                 drawStem(gc, stemX, layout.y(), stemTipY);
-                // Desenăm flag-uri doar dacă nota NU este beamată
                 if (duration.flagCount() > 0 && !beamedNotes.contains(note)) {
                     drawFlags(gc, stemX, stemTipY, duration.flagCount(), dir,
                             flagWidth, flagHeight, flagSpacing);
@@ -167,5 +172,25 @@ public class NoteRenderer {
         gc.setStroke(Color.BLACK);
         gc.setLineWidth(1);
         gc.strokeLine(x - halfWidth, y, x + halfWidth, y);
+    }
+
+    private void drawAccidental(GraphicsContext gc, double x, double y,
+                                Accidental accidental, double staffLineSpacing) {
+        if (accidental == Accidental.NONE) return;
+        String symbol = accidental.unicodeSymbol();
+        gc.setFill(Color.BLACK);
+        gc.setFont(Font.font("Serif", staffLineSpacing * 1.2));
+        gc.setTextAlign(TextAlignment.CENTER);
+        gc.setTextBaseline(VPos.CENTER);
+        gc.fillText(symbol, x, y);
+    }
+
+    private boolean shouldDisplayAccidental(Pitch pitch, KeySignature activeKey) {
+        Accidental pitchAcc = pitch.accidental();
+        if (pitchAcc == Accidental.NONE) return false;
+        if (pitchAcc == Accidental.NATURAL) {
+            return activeKey != null && activeKey.altersStep(pitch.step());
+        }
+        return activeKey == null || activeKey.accidentalForStep(pitch.step()) != pitchAcc;
     }
 }
