@@ -1,12 +1,9 @@
 package com.alin.musicnotation.renderer;
 
-import com.alin.musicnotation.model.Note;
-import com.alin.musicnotation.model.Measure;
+import com.alin.musicnotation.model.*;
+import com.alin.musicnotation.model.articulation.*;
 import com.alin.musicnotation.model.layout.NoteLayout;
 import com.alin.musicnotation.model.layout.StemDirection;
-import com.alin.musicnotation.model.articulation.Articulation;
-import com.alin.musicnotation.model.articulation.ArticulationPlacement;
-import com.alin.musicnotation.model.articulation.ArticulationType;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
@@ -16,10 +13,13 @@ import java.util.Map;
 
 public class ArticulationRenderer {
 
+    private static final double ARTICULATION_FONT_SIZE_FACTOR = 1.0;
+
     public void draw(GraphicsContext gc, Measure measure, Map<Note, NoteLayout> layoutMap,
                      double middleLineY, int middleLinePosition,
                      double articulationFontSizeFactor,
-                     double articulationOffset, double staffLineSpacing,
+                     double articulationOffset,
+                     double staffLineSpacing,
                      double noteHeadWidth) {
 
         if (measure.articulations().isEmpty()) return;
@@ -65,35 +65,23 @@ public class ArticulationRenderer {
     }
 
     private ArticulationPlacement defaultPlacement(ArticulationType type) {
-        switch (type) {
-            case STACCATO:
-            case STACCATISSIMO:
-                return ArticulationPlacement.BELOW;
-            case ACCENT:
-            case MARCATO:
-            case TENUTO:
-            case FERMATA:
-                return ArticulationPlacement.ABOVE;
-        }
-        return ArticulationPlacement.ABOVE;
+        return switch (type) {
+            case STACCATO, STACCATISSIMO -> ArticulationPlacement.BELOW;
+            case ACCENT, MARCATO, TENUTO, FERMATA -> ArticulationPlacement.ABOVE;
+        };
     }
 
     private String articulationSymbol(ArticulationType type, ArticulationPlacement placement) {
         if (type == ArticulationType.FERMATA) {
             return placement == ArticulationPlacement.ABOVE ? "⌒" : "⌣";
         }
-        switch (type) {
-            case STACCATO:
-                return "•";
-            case STACCATISSIMO:
-                return "‣";
-            case ACCENT:
-                return ">";
-            case MARCATO:
-                return "^";
-            case TENUTO:
-                return "-";
-        }
-        return "?";
+        return switch (type) {
+            case STACCATO -> "•";
+            case STACCATISSIMO -> "‣";
+            case ACCENT -> ">";
+            case MARCATO -> "^";
+            case TENUTO -> "-";
+            default -> "?";
+        };
     }
 }

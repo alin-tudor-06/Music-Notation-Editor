@@ -13,13 +13,6 @@ public class KeySignatureRenderer {
     private static final double KEY_ACCIDENTAL_SPACING = 8;
     private static final double ACCIDENTAL_FONT_SIZE_FACTOR = 1.2;
 
-    private static final Pitch.Step[] SHARP_ORDER = {
-            Pitch.Step.F, Pitch.Step.C, Pitch.Step.G, Pitch.Step.D, Pitch.Step.A, Pitch.Step.E, Pitch.Step.B
-    };
-    private static final Pitch.Step[] FLAT_ORDER = {
-            Pitch.Step.B, Pitch.Step.E, Pitch.Step.A, Pitch.Step.D, Pitch.Step.G, Pitch.Step.C, Pitch.Step.F
-    };
-
     // --- Pitch-uri canonice pentru semnăturile de cheie ---
     // Treble clef sharps (standard positions)
     private static final Pitch[] TREBLE_SHARPS = {

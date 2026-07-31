@@ -48,24 +48,16 @@ public class DynamicRenderer {
     }
 
     private String dynamicText(DynamicType type) {
-        switch (type) {
-            case PPP:
-                return "ppp";
-            case PP:
-                return "pp";
-            case P:
-                return "p";
-            case MP:
-                return "mp";
-            case MF:
-                return "mf";
-            case F:
-                return "f";
-            case FF:
-                return "ff";
-            case FFF:
-                return "fff";
-        }
-        return "";
+        return switch (type) {
+            case PPP -> "ppp";
+            case PP -> "pp";
+            case P -> "p";
+            case MP -> "mp";
+            case MF -> "mf";
+            case F -> "f";
+            case FF -> "ff";
+            case FFF -> "fff";
+        };
+
     }
 }

@@ -12,18 +12,16 @@ import javafx.scene.text.TextAlignment;
 public class TempoRenderer {
 
     private static final double TEMPO_FONT_SIZE_FACTOR = 0.9;
-    private static final double TEMPO_OFFSET_FACTOR = 3.0;
+    private static final double TEMPO_OFFSET_FACTOR = 3.0; // păstrat valoarea originală
 
     public void draw(GraphicsContext gc, Measure measure, double x, double firstLineY, double staffLineSpacing) {
         Tempo tempo = measure.tempo();
         if (tempo == null) return;
 
-        double yBase;
-        if (tempo.placement() == TempoPlacement.BELOW) {
-            yBase = firstLineY + 4 * staffLineSpacing + staffLineSpacing * TEMPO_OFFSET_FACTOR;
-        } else {
-            yBase = firstLineY - staffLineSpacing * TEMPO_OFFSET_FACTOR;
-        }
+        double yBase = switch (tempo.placement()) {
+            case ABOVE -> firstLineY - staffLineSpacing * TEMPO_OFFSET_FACTOR;
+            case BELOW -> firstLineY + 4 * staffLineSpacing + staffLineSpacing * TEMPO_OFFSET_FACTOR;
+        };
 
         gc.setFill(Color.BLACK);
         gc.setTextAlign(TextAlignment.LEFT);
@@ -32,19 +30,23 @@ public class TempoRenderer {
         Font font = Font.font("Serif", FontWeight.NORMAL, staffLineSpacing * TEMPO_FONT_SIZE_FACTOR);
         gc.setFont(font);
 
-        StringBuilder displayText = new StringBuilder();
+        String displayText = buildTempoText(tempo);
+        if (!displayText.isEmpty()) {
+            gc.fillText(displayText, x, yBase);
+        }
+    }
+
+    private String buildTempoText(Tempo tempo) {
+        StringBuilder sb = new StringBuilder();
         if (tempo.hasText()) {
-            displayText.append(tempo.text());
+            sb.append(tempo.text());
         }
         if (tempo.hasBpm()) {
             if (tempo.hasText()) {
-                displayText.append(" ");
+                sb.append(" ");
             }
-            displayText.append("♩ = ").append(tempo.bpm());
+            sb.append("♩ = ").append(tempo.bpm());
         }
-
-        if (!displayText.isEmpty()) {
-            gc.fillText(displayText.toString(), x, yBase);
-        }
+        return sb.toString();
     }
 }

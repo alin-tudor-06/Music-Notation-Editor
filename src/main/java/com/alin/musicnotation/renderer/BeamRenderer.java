@@ -1,7 +1,7 @@
 package com.alin.musicnotation.renderer;
 
-import com.alin.musicnotation.model.Note;
 import com.alin.musicnotation.model.Measure;
+import com.alin.musicnotation.model.Note;
 import com.alin.musicnotation.model.layout.NoteLayout;
 import com.alin.musicnotation.model.layout.StemDirection;
 import javafx.scene.canvas.GraphicsContext;
@@ -11,8 +11,6 @@ import java.util.*;
 
 public class BeamRenderer {
 
-    // Semnătura corectă: gc, measure, layoutMap, middleLineY, middleLinePosition,
-    // apoi 6 parametri double: beamThickness, beamSpacing, beamHookLength, maxBeamSlope, stemLengthStandard, noteHeadWidth
     public void draw(GraphicsContext gc, Measure measure, Map<Note, NoteLayout> layoutMap,
                      double middleLineY, int middleLinePosition,
                      double beamThickness, double beamSpacing,
@@ -51,16 +49,16 @@ public class BeamRenderer {
         StemDirection direction = RenderingHelpers.stemDirection(group, middleLinePosition);
         int sign = direction.sign();
 
+        // Calculează panta
         NoteLayout first = group.get(0);
         NoteLayout last = group.get(group.size() - 1);
         double xStart = RenderingHelpers.stemAttachX(first, direction, noteHeadWidth);
         double xEnd = RenderingHelpers.stemAttachX(last, direction, noteHeadWidth);
         double yStartTip = first.y() + sign * stemLengthStandard;
         double yEndTip = last.y() + sign * stemLengthStandard;
+        double slope = Math.max(-maxBeamSlope, Math.min(maxBeamSlope, (yEndTip - yStartTip) / (xEnd - xStart)));
 
-        double slope = (yEndTip - yStartTip) / (xEnd - xStart);
-        slope = Math.max(-maxBeamSlope, Math.min(maxBeamSlope, slope));
-
+        // Calculează interceptul
         double b = sign < 0 ? Double.MAX_VALUE : -Double.MAX_VALUE;
         for (int i = 0; i < group.size(); i++) {
             NoteLayout layout = group.get(i);
@@ -74,6 +72,7 @@ public class BeamRenderer {
             }
         }
 
+        // Desenează tijele
         for (int i = 0; i < group.size(); i++) {
             NoteLayout layout = group.get(i);
             double stemX = RenderingHelpers.stemAttachX(layout, direction, noteHeadWidth);
@@ -83,21 +82,9 @@ public class BeamRenderer {
             gc.strokeLine(stemX, layout.y(), stemX, topY);
         }
 
+        // Desenează beam-urile pe nivele
         for (int level = 1; level <= maxFlags; level++) {
-            List<int[]> runs = new ArrayList<>();
-            int start = -1;
-            for (int i = 0; i < group.size(); i++) {
-                if (flagCounts[i] >= level) {
-                    if (start == -1) start = i;
-                } else {
-                    if (start != -1) {
-                        runs.add(new int[]{start, i - 1});
-                        start = -1;
-                    }
-                }
-            }
-            if (start != -1) runs.add(new int[]{start, group.size() - 1});
-
+            List<int[]> runs = findRuns(group, flagCounts, level);
             for (int[] run : runs) {
                 int firstIdx = run[0];
                 int lastIdx = run[1];
@@ -125,6 +112,23 @@ public class BeamRenderer {
                 }
             }
         }
+    }
+
+    private List<int[]> findRuns(List<NoteLayout> group, int[] flagCounts, int level) {
+        List<int[]> runs = new ArrayList<>();
+        int start = -1;
+        for (int i = 0; i < group.size(); i++) {
+            if (flagCounts[i] >= level) {
+                if (start == -1) start = i;
+            } else {
+                if (start != -1) {
+                    runs.add(new int[]{start, i - 1});
+                    start = -1;
+                }
+            }
+        }
+        if (start != -1) runs.add(new int[]{start, group.size() - 1});
+        return runs;
     }
 
     private void drawBeam(GraphicsContext gc, double x1, double y1, double x2, double y2,

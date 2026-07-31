@@ -12,6 +12,8 @@ import java.util.*;
 
 public class SlurRenderer {
 
+    private static final double SLUR_LINE_WIDTH = 2.0;
+
     public void draw(GraphicsContext gc, Measure measure, Map<Note, NoteLayout> layoutMap,
                      double middleLineY, int middleLinePosition,
                      double slurOffset, double staffLineSpacing,
@@ -53,11 +55,8 @@ public class SlurRenderer {
         }
         if (allUp && !allDown) {
             return false;
-        } else if (allDown && !allUp) {
-            return true;
-        } else {
-            return true;
         }
+        return true;
     }
 
     private SlurGeometry computeSlurGeometry(NoteLayout first, NoteLayout last,
@@ -80,7 +79,7 @@ public class SlurRenderer {
 
     private void drawSlurGeometry(GraphicsContext gc, SlurGeometry geom) {
         gc.setStroke(Color.BLACK);
-        gc.setLineWidth(2.0);
+        gc.setLineWidth(SLUR_LINE_WIDTH);
         gc.setLineCap(javafx.scene.shape.StrokeLineCap.ROUND);
         gc.beginPath();
         gc.moveTo(geom.startX, geom.startY);

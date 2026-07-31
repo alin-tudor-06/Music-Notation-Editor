@@ -30,11 +30,8 @@ public class TextExpressionRenderer {
         double fontHeight = staffLineSpacing * TEXT_EXPRESSION_FONT_SIZE_FACTOR;
         double stackSpacing = staffLineSpacing * TEXT_EXPRESSION_STACK_SPACING_FACTOR;
 
-        // Extra space if tempo is present
         double tempoExtra = measure.tempo() != null ? staffLineSpacing * 1.5 : 0.0;
-
-        // Extra space if hairpin is present (to avoid overlap)
-        double hairpinExtra = measure.hairpins().isEmpty() ? 0 : staffLineSpacing * 2;
+        boolean hasHairpin = !measure.hairpins().isEmpty();
 
         Font font = Font.font("Serif", FontWeight.NORMAL, FontPosture.ITALIC, fontHeight);
 
@@ -46,24 +43,36 @@ public class TextExpressionRenderer {
         int aboveIndex = 0;
         int belowIndex = 0;
 
-        // Textul de deasupra trebuie să fie mai sus decât hairpin-ul (dacă există)
-        // Textul de dedesubt trebuie să fie mai jos decât hairpin-ul (dacă există)
-        double aboveExtra = tempoExtra + hairpinExtra;
-        double belowExtra = hairpinExtra;
-
         for (TextExpression expr : expressions) {
             double yBase;
             if (expr.placement() == TextPlacement.ABOVE) {
-                double offset = staffLineSpacing * TEXT_EXPRESSION_OFFSET_ABOVE_FACTOR;
-                yBase = staffTopY - offset - aboveExtra - aboveIndex * stackSpacing;
+                yBase = computeAboveY(staffTopY, staffLineSpacing, aboveIndex,
+                        tempoExtra, hasHairpin);
                 aboveIndex++;
             } else {
-                double offset = staffLineSpacing * TEXT_EXPRESSION_OFFSET_BELOW_FACTOR;
-                yBase = staffBottomY + offset + belowExtra + belowIndex * stackSpacing;
+                yBase = computeBelowY(staffBottomY, staffLineSpacing, belowIndex,
+                        hasHairpin);
                 belowIndex++;
             }
 
             gc.fillText(expr.text(), contentStartX, yBase);
         }
+    }
+
+    private double computeAboveY(double staffTopY, double staffLineSpacing, int index,
+                                 double tempoExtra, boolean hasHairpin) {
+        double hairpinExtra = hasHairpin ? staffLineSpacing * 2.0 : 0.0;
+        double aboveExtra = tempoExtra + hairpinExtra;
+        double offset = staffLineSpacing * TEXT_EXPRESSION_OFFSET_ABOVE_FACTOR;
+        double stackSpacing = staffLineSpacing * TEXT_EXPRESSION_STACK_SPACING_FACTOR;
+        return staffTopY - offset - aboveExtra - index * stackSpacing;
+    }
+
+    private double computeBelowY(double staffBottomY, double staffLineSpacing, int index,
+                                 boolean hasHairpin) {
+        double hairpinExtra = hasHairpin ? staffLineSpacing * 2.0 : 0.0;
+        double offset = staffLineSpacing * TEXT_EXPRESSION_OFFSET_BELOW_FACTOR;
+        double stackSpacing = staffLineSpacing * TEXT_EXPRESSION_STACK_SPACING_FACTOR;
+        return staffBottomY + offset + hairpinExtra + index * stackSpacing;
     }
 }
