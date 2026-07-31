@@ -4,7 +4,7 @@ import java.util.List;
 
 /**
  * Result of a measure spacing computation.
- * Contains the horizontal layouts for all notes/rests and the final cursor X.
+ * Contains the horizontal layouts and the final cursor X position.
  */
 public record MeasureSpacingResult(
         List<HorizontalLayout> layouts,

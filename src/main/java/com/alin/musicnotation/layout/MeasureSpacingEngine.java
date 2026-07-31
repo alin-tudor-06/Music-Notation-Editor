@@ -7,26 +7,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Simple engine for computing horizontal positions (X coordinates) of notes
- * and rests based solely on their duration.
- *
- * <p>This is the foundation of the layout engine.
- * Future milestones may introduce:
- * <ul>
- *   <li>optical spacing (based on notehead shape)</li>
- *   <li>accidental spacing</li>
- *   <li>augmentation dot spacing</li>
- *   <li>lyric spacing</li>
- *   <li>measure justification</li>
- * </ul>
- *
- * <p>This engine does NOT:
- * <ul>
- *   <li>know about clefs, key signatures, or time signatures</li>
- *   <li>calculate Y positions</li>
- *   <li>depend on any renderer</li>
- *   <li>duplicate logic from MusicNotationApp</li>
- * </ul>
+ * Computes natural horizontal spacing for notes within a measure.
+ * Spacing is based solely on note duration, with no optical adjustments.
  */
 public final class MeasureSpacingEngine {
 
@@ -40,8 +22,8 @@ public final class MeasureSpacingEngine {
      * Computes horizontal positions for all notes in a measure.
      *
      * @param notes   the notes to lay out
-     * @param startX  the starting X position (left edge of the measure content)
-     * @return a {@code MeasureSpacingResult} containing the layouts and final cursor X
+     * @param startX  the starting X position
+     * @return a MeasureSpacingResult containing layouts and final cursor X
      */
     public MeasureSpacingResult computeSpacing(List<Note> notes, double startX) {
         List<HorizontalLayout> layouts = new ArrayList<>();
@@ -58,10 +40,6 @@ public final class MeasureSpacingEngine {
         return new MeasureSpacingResult(layouts, x);
     }
 
-    /**
-     * Returns the horizontal spacing for a single duration.
-     * Currently duration-based only.
-     */
     private double spacing(Duration duration) {
         return noteSpacingPerQuarter * duration.toQuarterNoteFraction();
     }
