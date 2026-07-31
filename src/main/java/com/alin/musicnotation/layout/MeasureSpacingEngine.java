@@ -6,10 +6,6 @@ import com.alin.musicnotation.model.Note;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Computes natural horizontal spacing for notes within a measure.
- * Spacing is based solely on note duration, with no optical adjustments.
- */
 public final class MeasureSpacingEngine {
 
     private final double noteSpacingPerQuarter;
@@ -18,13 +14,6 @@ public final class MeasureSpacingEngine {
         this.noteSpacingPerQuarter = noteSpacingPerQuarter;
     }
 
-    /**
-     * Computes horizontal positions for all notes in a measure.
-     *
-     * @param notes   the notes to lay out
-     * @param startX  the starting X position
-     * @return a MeasureSpacingResult containing layouts and final cursor X
-     */
     public MeasureSpacingResult computeSpacing(List<Note> notes, double startX) {
         List<HorizontalLayout> layouts = new ArrayList<>();
         double x = startX;

@@ -3,9 +3,6 @@ package com.alin.musicnotation.layout;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Computes the page positions of systems.
- */
 public final class PageLayoutEngine {
 
     private final double pageWidth;

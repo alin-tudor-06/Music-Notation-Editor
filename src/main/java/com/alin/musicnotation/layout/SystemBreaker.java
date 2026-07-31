@@ -3,14 +3,6 @@ package com.alin.musicnotation.layout;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Computes system breaks by packing measures into systems (lines)
- * based on their natural widths and the available width.
- *
- * <p>This utility uses a simple greedy packing algorithm:
- * measures are added to the current system until the next measure
- * would exceed the available width, then a new system is started.
- */
 public final class SystemBreaker {
 
     private SystemBreaker() {
