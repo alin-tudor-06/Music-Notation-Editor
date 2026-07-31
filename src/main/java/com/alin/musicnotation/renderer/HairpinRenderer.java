@@ -13,17 +13,15 @@ import java.util.Map;
 
 public class HairpinRenderer {
 
-    private static final double HAIRPIN_HEIGHT_FACTOR = 1.0;
     private static final double HAIRPIN_OFFSET_FACTOR = 2.0;
 
     public void draw(GraphicsContext gc, Measure measure, Map<Note, NoteLayout> layoutMap,
                      double firstLineY, double staffHeight, double staffLineSpacing,
-                     double noteHeadWidth) {
+                     double noteHeadWidth, double noteHeadHeight) {
 
         if (measure.hairpins().isEmpty()) return;
 
-        double staffBottomY = firstLineY + staffHeight;
-        double staffTopY = firstLineY;
+        double clearance = staffLineSpacing * 0.3;
 
         for (Hairpin hairpin : measure.hairpins()) {
             NoteLayout startLayout = layoutMap.get(hairpin.startNote());
@@ -39,15 +37,34 @@ public class HairpinRenderer {
                 x2 = temp;
             }
 
-            double height = staffLineSpacing * HAIRPIN_HEIGHT_FACTOR;
+            double minY = Double.MAX_VALUE;
+            double maxY = -Double.MAX_VALUE;
+            for (NoteLayout layout : layoutMap.values()) {
+                double x = layout.x();
+                if (x >= x1 && x <= x2) {
+                    double y = layout.y();
+                    if (y < minY) minY = y;
+                    if (y > maxY) maxY = y;
+                }
+            }
+
+            if (minY == Double.MAX_VALUE) {
+                minY = Math.min(startLayout.y(), endLayout.y());
+                maxY = Math.max(startLayout.y(), endLayout.y());
+            }
+
+            double lowestNoteBottom = maxY + noteHeadHeight / 2;
+            double highestNoteTop = minY - noteHeadHeight / 2;
+
+            double height = staffLineSpacing * 1.0;
             double halfHeight = height / 2;
             double offset = staffLineSpacing * HAIRPIN_OFFSET_FACTOR;
 
             double yBase;
-            switch (hairpin.placement()) {
-                case ABOVE -> yBase = staffTopY - offset;
-                case BELOW -> yBase = staffBottomY + offset;
-                default -> throw new IllegalStateException("Unexpected placement: " + hairpin.placement());
+            if (hairpin.placement() == HairpinPlacement.ABOVE) {
+                yBase = highestNoteTop - offset - clearance - halfHeight;
+            } else {
+                yBase = lowestNoteBottom + offset + clearance + halfHeight;
             }
 
             gc.setStroke(Color.BLACK);

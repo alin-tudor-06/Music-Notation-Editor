@@ -20,6 +20,51 @@ public class KeySignatureRenderer {
             Pitch.Step.B, Pitch.Step.E, Pitch.Step.A, Pitch.Step.D, Pitch.Step.G, Pitch.Step.C, Pitch.Step.F
     };
 
+    // --- Pitch-uri canonice pentru semnăturile de cheie ---
+    // Treble clef sharps (standard positions)
+    private static final Pitch[] TREBLE_SHARPS = {
+            Pitch.of("F#5"),
+            Pitch.of("C#5"),
+            Pitch.of("G#5"),
+            Pitch.of("D#5"),
+            Pitch.of("A#4"),
+            Pitch.of("E#5"),
+            Pitch.of("B#4")
+    };
+
+    // Bass clef sharps (standard positions)
+    private static final Pitch[] BASS_SHARPS = {
+            Pitch.of("F#3"),
+            Pitch.of("C#3"),
+            Pitch.of("G#3"),
+            Pitch.of("D#3"),
+            Pitch.of("A#2"),
+            Pitch.of("E#3"),
+            Pitch.of("B#2")
+    };
+
+    // Treble clef flats (standard positions)
+    private static final Pitch[] TREBLE_FLATS = {
+            Pitch.of("Bb4"),
+            Pitch.of("Eb5"),
+            Pitch.of("Ab4"),
+            Pitch.of("Db5"),
+            Pitch.of("Gb4"),
+            Pitch.of("Cb5"),
+            Pitch.of("Fb4")
+    };
+
+    // Bass clef flats (standard positions)
+    private static final Pitch[] BASS_FLATS = {
+            Pitch.of("Bb2"),
+            Pitch.of("Eb3"),
+            Pitch.of("Ab2"),
+            Pitch.of("Db3"),
+            Pitch.of("Gb2"),
+            Pitch.of("Cb3"),
+            Pitch.of("Fb2")
+    };
+
     public double drawInitial(GraphicsContext gc, double x, double firstLineY,
                               KeySignature ks, ClefType clef, double staffLineSpacing) {
         if (ks == null || ks.alteredPitches().isEmpty()) return 0;
@@ -81,7 +126,8 @@ public class KeySignatureRenderer {
         if (ks == null || ks.alteredPitches().isEmpty()) return 0;
 
         double currentX = x;
-        List<Pitch> orderedPitches = getAlteredPitchesInOrder(ks);
+        List<Pitch> orderedPitches = getAlteredPitchesInOrder(ks, clef);
+
         for (Pitch pitch : orderedPitches) {
             int position = staffPosition(pitch, clef);
             double y = firstLineY + position * (staffLineSpacing / 2);
@@ -116,31 +162,26 @@ public class KeySignatureRenderer {
         gc.fillText(symbol, x, y);
     }
 
-    private List<Pitch> getAlteredPitchesInOrder(KeySignature ks) {
+    /**
+     * Returnează pitch-urile alterate în ordinea corectă de desenare,
+     * folosind pitch-urile canonice pentru cheia specificată.
+     */
+    private List<Pitch> getAlteredPitchesInOrder(KeySignature ks, ClefType clef) {
         if (ks == null || ks.alteredPitches().isEmpty()) return Collections.emptyList();
 
         int sharps = ks.sharps();
         List<Pitch> result = new ArrayList<>();
+
         if (sharps > 0) {
+            Pitch[] sharpPitches = clef == ClefType.BASS ? BASS_SHARPS : TREBLE_SHARPS;
             for (int i = 0; i < sharps; i++) {
-                Pitch.Step step = SHARP_ORDER[i];
-                for (Pitch p : ks.alteredPitches()) {
-                    if (p.step() == step) {
-                        result.add(p);
-                        break;
-                    }
-                }
+                result.add(sharpPitches[i]);
             }
         } else if (sharps < 0) {
             int flats = -sharps;
+            Pitch[] flatPitches = clef == ClefType.BASS ? BASS_FLATS : TREBLE_FLATS;
             for (int i = 0; i < flats; i++) {
-                Pitch.Step step = FLAT_ORDER[i];
-                for (Pitch p : ks.alteredPitches()) {
-                    if (p.step() == step) {
-                        result.add(p);
-                        break;
-                    }
-                }
+                result.add(flatPitches[i]);
             }
         }
         return result;
@@ -169,6 +210,10 @@ public class KeySignatureRenderer {
         return totalWidth;
     }
 
+    /**
+     * Calculează poziția unui pitch pe portativ (0 = linia de sus, 4 = linia de jos).
+     * Aceeași metodă este folosită și pentru poziționarea notelor individuale.
+     */
     private int staffPosition(Pitch pitch, ClefType clef) {
         return diatonicIndex(clef.referencePitch()) - diatonicIndex(pitch);
     }

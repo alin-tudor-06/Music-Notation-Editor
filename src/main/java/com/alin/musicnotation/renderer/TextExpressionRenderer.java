@@ -15,8 +15,9 @@ import java.util.List;
 public class TextExpressionRenderer {
 
     private static final double TEXT_EXPRESSION_FONT_SIZE_FACTOR = 0.9;
-    private static final double TEXT_EXPRESSION_OFFSET_FACTOR = 3.5;
     private static final double TEXT_EXPRESSION_STACK_SPACING_FACTOR = 1.2;
+    private static final double TEXT_EXPRESSION_OFFSET_ABOVE_FACTOR = 2.5;
+    private static final double TEXT_EXPRESSION_OFFSET_BELOW_FACTOR = 1.4;
 
     public void draw(GraphicsContext gc, Measure measure, double contentStartX,
                      double firstLineY, double staffHeight, double staffLineSpacing) {
@@ -27,11 +28,13 @@ public class TextExpressionRenderer {
         double staffBottomY = firstLineY + staffHeight;
 
         double fontHeight = staffLineSpacing * TEXT_EXPRESSION_FONT_SIZE_FACTOR;
-        double offset = staffLineSpacing * TEXT_EXPRESSION_OFFSET_FACTOR;
         double stackSpacing = staffLineSpacing * TEXT_EXPRESSION_STACK_SPACING_FACTOR;
 
-        // Dacă există tempo, adăugăm spațiu suplimentar pentru expresiile de deasupra
-        double extraOffset = measure.tempo() != null ? staffLineSpacing * 1.0 : 0.0;
+        // Extra space if tempo is present
+        double tempoExtra = measure.tempo() != null ? staffLineSpacing * 1.5 : 0.0;
+
+        // Extra space if hairpin is present (to avoid overlap)
+        double hairpinExtra = measure.hairpins().isEmpty() ? 0 : staffLineSpacing * 2;
 
         Font font = Font.font("Serif", FontWeight.NORMAL, FontPosture.ITALIC, fontHeight);
 
@@ -43,13 +46,20 @@ public class TextExpressionRenderer {
         int aboveIndex = 0;
         int belowIndex = 0;
 
+        // Textul de deasupra trebuie să fie mai sus decât hairpin-ul (dacă există)
+        // Textul de dedesubt trebuie să fie mai jos decât hairpin-ul (dacă există)
+        double aboveExtra = tempoExtra + hairpinExtra;
+        double belowExtra = hairpinExtra;
+
         for (TextExpression expr : expressions) {
             double yBase;
             if (expr.placement() == TextPlacement.ABOVE) {
-                yBase = staffTopY - offset - extraOffset - aboveIndex * stackSpacing;
+                double offset = staffLineSpacing * TEXT_EXPRESSION_OFFSET_ABOVE_FACTOR;
+                yBase = staffTopY - offset - aboveExtra - aboveIndex * stackSpacing;
                 aboveIndex++;
             } else {
-                yBase = staffBottomY + offset + belowIndex * stackSpacing;
+                double offset = staffLineSpacing * TEXT_EXPRESSION_OFFSET_BELOW_FACTOR;
+                yBase = staffBottomY + offset + belowExtra + belowIndex * stackSpacing;
                 belowIndex++;
             }
 

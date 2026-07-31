@@ -55,7 +55,7 @@ public class MusicNotationApp extends Application {
     public static final double NOTE_HEAD_WIDTH = STAFF_LINE_SPACING * 1.4;
     private static final double NOTE_HEAD_HEIGHT = STAFF_LINE_SPACING;
     public static final double STEM_LENGTH_STANDARD = STAFF_LINE_SPACING * 3.5;
-    private static final double LEDGER_LINE_EXTENSION = 4;
+    private static final double LEDGER_LINE_EXTENSION = 6;
     private static final double NOTE_HEAD_OUTLINE_WIDTH = 2;
     private static final double FLAG_WIDTH = 10;
     private static final double FLAG_HEIGHT = 14;
@@ -343,7 +343,7 @@ public class MusicNotationApp extends Application {
 
         // 9. Hairpins
         hairpinRenderer.draw(gc, measure, layoutMap, firstLineY, staffHeight,
-                STAFF_LINE_SPACING, NOTE_HEAD_WIDTH);
+                STAFF_LINE_SPACING, NOTE_HEAD_WIDTH, NOTE_HEAD_HEIGHT);
     }
 
     private void drawTies(GraphicsContext gc, List<NoteLayout> allLayouts) {
@@ -401,42 +401,44 @@ public class MusicNotationApp extends Application {
     private static Score createSampleScore() {
         Score score = new Score(KeySignature.C_MAJOR, ClefType.TREBLE, TimeSignature.COMMON_TIME);
 
-        Measure measure1 = new Measure();
-        measure1.addStartRepeat();
-        measure1.addNote(new Note(Pitch.of("C4"), Duration.QUARTER));
-        measure1.addNote(new Note(Pitch.of("D4"), Duration.QUARTER));
-        measure1.addNote(new Note(Pitch.of("E4"), Duration.QUARTER));
-        measure1.addNote(new Note(Pitch.of("F4"), Duration.QUARTER));
-        score.addMeasure(measure1);
 
-        Measure measure2 = new Measure();
-        measure2.addTimeSignature(TimeSignature.CUT_TIME);
-        measure2.addNote(new Note(Pitch.of("G4"), Duration.HALF));
-        measure2.addNote(new Note(Pitch.of("A4"), Duration.HALF));
-        score.addMeasure(measure2);
 
-        Measure measure3 = new Measure();
-        measure3.addTimeSignature(TimeSignature.THREE_FOUR);
-        measure3.addNote(new Note(Pitch.of("C4"), Duration.QUARTER));
-        measure3.addNote(new Note(Pitch.of("D4"), Duration.QUARTER));
-        measure3.addNote(new Note(Pitch.of("E4"), Duration.QUARTER));
-        measure3.addEndRepeat();
-        score.addMeasure(measure3);
+        // Măsura 6: Schimbare de cheie (Bass) + Schimbare de armură (G major)
+        Measure measure6 = new Measure();
+        measure6.addClef(ClefType.BASS);
+        measure6.addKeySignature(KeySignature.G_MAJOR);
 
-        Measure measure4 = new Measure();
-        measure4.addTimeSignature(TimeSignature.SIX_EIGHT);
-        for (int i = 0; i < 6; i++) {
-            measure4.addNote(new Note(Pitch.of("C4"), Duration.EIGHTH));
-        }
-        score.addMeasure(measure4);
+        Note c3 = new Note(Pitch.of("C3"), Duration.QUARTER);
+        Note d3 = new Note(Pitch.of("D3"), Duration.QUARTER);
+        Note e3 = new Note(Pitch.of("E3"), Duration.QUARTER);
+        Note f3 = new Note(Pitch.of("F3"), Duration.QUARTER);
+        measure6.addNote(c3);
+        measure6.addNote(d3);
+        measure6.addNote(e3);
+        measure6.addNote(f3);
+        measure6.addEndRepeat();
+        score.addMeasure(measure6);
 
-        Measure measure5 = new Measure();
-        measure5.addTimeSignature(TimeSignature.NINE_EIGHT);
-        for (int i = 0; i < 7; i++) {
-            measure5.addNote(new Note(Pitch.of("C4"), Duration.EIGHTH));
-        }
-        measure5.addEndRepeat();
-        score.addMeasure(measure5);
+        // Măsura 7: Combinație complexă – toate elementele simultan
+        Measure measure7 = new Measure();
+        measure7.addTempo(Tempo.ofBpm(96));
+        measure7.addTextExpression(new TextExpression("con brio", TextPlacement.ABOVE));
+        measure7.addTextExpression(new TextExpression("sempre", TextPlacement.BELOW));
+
+        Note a1 = new Note(Pitch.of("C4"), Duration.QUARTER);
+        Note a2 = new Note(Pitch.of("D4"), Duration.QUARTER);
+        Note a3 = new Note(Pitch.of("E4"), Duration.QUARTER);
+        Note a5 = new Note(Pitch.of("F4"), Duration.QUARTER);
+        measure7.addNote(a1);
+        measure7.addNote(a2);
+        measure7.addNote(a3);
+        measure7.addNote(a5);
+        measure7.addArticulation(new Articulation(a1, ArticulationType.STACCATISSIMO));
+        measure7.addArticulation(new Articulation(a2, ArticulationType.MARCATO));
+        measure7.addDynamic(new Dynamic(a1, DynamicType.MP));
+        measure7.addDynamic(new Dynamic(a5, DynamicType.FF));
+        measure7.addHairpin(new Hairpin(a1, a5, HairpinType.CRESCENDO, HairpinPlacement.ABOVE));
+        score.addMeasure(measure7);
 
         score.validate();
         return score;
