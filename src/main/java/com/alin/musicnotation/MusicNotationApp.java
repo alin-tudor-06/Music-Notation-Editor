@@ -1,13 +1,16 @@
 package com.alin.musicnotation;
 
+import com.alin.musicnotation.layout.HorizontalLayout;
+import com.alin.musicnotation.layout.MeasureSpacingEngine;
+import com.alin.musicnotation.layout.MeasureSpacingResult;
 import com.alin.musicnotation.model.*;
 import com.alin.musicnotation.model.articulation.*;
 import com.alin.musicnotation.model.clef.ClefType;
 import com.alin.musicnotation.model.dynamic.*;
 import com.alin.musicnotation.model.hairpin.*;
 import com.alin.musicnotation.model.layout.*;
-import com.alin.musicnotation.model.tempo.*;
 import com.alin.musicnotation.model.repeat.BarlineType;
+import com.alin.musicnotation.model.tempo.*;
 import com.alin.musicnotation.model.text.TextExpression;
 import com.alin.musicnotation.model.text.TextPlacement;
 import com.alin.musicnotation.renderer.*;
@@ -40,7 +43,6 @@ public class MusicNotationApp extends Application {
     private static final int TOP_LINE_POSITION = 0;
     private static final int BOTTOM_LINE_POSITION = (STAFF_LINE_COUNT - 1) * 2;
     private static final int MIDDLE_LINE_POSITION = BOTTOM_LINE_POSITION / 2;
-    private static final double TIE_LINE_WIDTH = 2.0;
 
     private static final double CLEF_X_OFFSET = 6;
     private static final double KEY_SIGNATURE_X_OFFSET = 44;
@@ -79,9 +81,9 @@ public class MusicNotationApp extends Application {
 
     private static final double SLUR_OFFSET = STAFF_LINE_SPACING * 1.2;
     private static final double ARTICULATION_FONT_SIZE_FACTOR = 1.0;
-    private static final double ARTICULATION_OFFSET = STAFF_LINE_SPACING * 0.8;
+    private static final double ARTICULATION_OFFSET = STAFF_LINE_SPACING * 0.8; // ← adăugat
     private static final double DYNAMIC_FONT_SIZE_FACTOR = 0.8;
-    private static final double DYNAMIC_OFFSET = STAFF_LINE_SPACING * 0.9;
+    private static final double DYNAMIC_OFFSET = STAFF_LINE_SPACING * 1.8; // ← adăugat
 
     private static final double REPEAT_GAP = 14;
     private static final double CLEF_CHANGE_LEFT_PADDING = 6;
@@ -101,6 +103,8 @@ public class MusicNotationApp extends Application {
     private final ClefRenderer clefRenderer = new ClefRenderer();
     private final KeySignatureRenderer keySignatureRenderer = new KeySignatureRenderer();
     private final TimeSignatureRenderer timeSignatureRenderer = new TimeSignatureRenderer();
+
+    private final MeasureSpacingEngine spacingEngine = new MeasureSpacingEngine(NOTE_SPACING_PER_QUARTER);
 
     private final Score score = createSampleScore();
 
@@ -187,8 +191,10 @@ public class MusicNotationApp extends Application {
         boolean isFirstMeasure = true;
         ClefType currentClef = initialClef;
         KeySignature currentKey = score.keySignature();
+        TimeSignature currentTime = score.initialTimeSignature();
 
         for (Measure measure : score.measures()) {
+            // ---- Start repeat ----
             if (measure.hasStartRepeat()) {
                 double leftBarX;
                 if (isFirstMeasure) {
@@ -199,6 +205,7 @@ public class MusicNotationApp extends Application {
                 repeatRenderer.drawBarline(gc, leftBarX, firstLineY, staffHeight, STAFF_LINE_SPACING, BarlineType.START_REPEAT);
             }
 
+            // ---- Clef change ----
             ClefType newClef = measure.clef();
             if (newClef != null) {
                 double clefX = x + CLEF_CHANGE_LEFT_PADDING;
@@ -208,6 +215,7 @@ public class MusicNotationApp extends Application {
                 x += CLEF_CHANGE_SPACING + CLEF_AFTER_SPACING;
             }
 
+            // ---- Key signature change ----
             KeySignature newKey = measure.keySignature();
             if (newKey != null) {
                 double keyWidth = keySignatureRenderer.drawChange(gc, x, firstLineY,
@@ -216,21 +224,22 @@ public class MusicNotationApp extends Application {
                 currentKey = newKey;
             }
 
-            TimeSignature newTimeSig = measure.timeSignature();
-            if (newTimeSig != null) {
+            // ---- Time signature change ----
+            TimeSignature newTime = measure.timeSignature();
+            if (newTime != null) {
                 double timeSigX = x + 10;
                 double timeWidth = timeSignatureRenderer.drawChange(gc, timeSigX, firstLineY,
-                        staffHeight, STAFF_LINE_SPACING, newTimeSig);
+                        staffHeight, STAFF_LINE_SPACING, newTime);
                 x = timeSigX + timeWidth;
             }
 
-            List<NoteLayout> layouts = new ArrayList<>();
-            double measureStartX = x;
-            double lastNoteX = x;
-            Duration lastDuration = null;
-            int currentSixteenths = 0;
+            // ---- Compute horizontal spacing ----
+            MeasureSpacingResult spacingResult = spacingEngine.computeSpacing(measure.notes(), x);
 
-            for (Note note : measure.notes()) {
+            // ---- Build full NoteLayout objects (add Y and position) ----
+            List<NoteLayout> layouts = new ArrayList<>();
+            for (HorizontalLayout h : spacingResult.layouts()) {
+                Note note = h.note();
                 int position = 0;
                 double y;
                 if (note.isRest()) {
@@ -239,22 +248,18 @@ public class MusicNotationApp extends Application {
                     position = staffPosition(note.pitch(), currentClef);
                     y = firstLineY + position * (STAFF_LINE_SPACING / 2);
                 }
-                NoteLayout layout = new NoteLayout(x, y, note, position, currentSixteenths);
+                NoteLayout layout = new NoteLayout(h.x(), y, note, position, h.startSixteenths());
                 layouts.add(layout);
-                allLayouts.add(layout);
-                lastNoteX = x;
-                lastDuration = note.duration();
-
-                double spacing = noteSpacing(note.duration());
-                x += spacing;
-                currentSixteenths += note.duration().sixteenths();
             }
 
-            drawMeasureNotes(gc, firstLineY, measure, layouts, lineStartX, measureStartX,
-                    currentClef, currentKey);
+            allLayouts.addAll(layouts);
 
-            double durationGap = lastDuration != null ? noteSpacing(lastDuration) / 2 : 0;
-            double barX = lastNoteX + NOTE_HEAD_WIDTH / 2 + durationGap + MEASURE_END_PADDING;
+            // ---- Render the measure ----
+            double measureStartX = x;
+            drawMeasureNotes(gc, firstLineY, measure, layouts, lineStartX, measureStartX, currentClef, currentKey);
+
+            // ---- Barline ----
+            double barX = spacingResult.finalCursorX() + MEASURE_END_PADDING;
             if (measure.hasEndRepeat()) {
                 repeatRenderer.drawBarline(gc, barX, firstLineY, staffHeight, STAFF_LINE_SPACING, BarlineType.END_REPEAT);
             } else {
@@ -269,11 +274,11 @@ public class MusicNotationApp extends Application {
     }
 
     private double getRestY(double firstLineY, double staffHeight, Duration duration) {
-        return switch (duration) {
-            case WHOLE -> firstLineY + 3 * STAFF_LINE_SPACING - REST_HEIGHT;
-            case HALF -> firstLineY + 2 * STAFF_LINE_SPACING + REST_HEIGHT;
-            default -> firstLineY + 2 * STAFF_LINE_SPACING + STAFF_LINE_SPACING * 0.1;
-        };
+        double line3 = firstLineY + 2 * STAFF_LINE_SPACING;
+        double line4 = firstLineY + 3 * STAFF_LINE_SPACING;
+        if (duration == Duration.WHOLE) return line4 - REST_HEIGHT;
+        if (duration == Duration.HALF) return line3 + REST_HEIGHT;
+        return line3 + STAFF_LINE_SPACING * 0.1;
     }
 
     private void drawMeasureNotes(GraphicsContext gc, double firstLineY, Measure measure,
@@ -305,12 +310,13 @@ public class MusicNotationApp extends Application {
         }
 
         // 1. Tempo
-        tempoRenderer.draw(gc, measure, measureStartX, firstLineY, STAFF_LINE_SPACING);
+        double tempoX = measureStartX;
+        tempoRenderer.draw(gc, measure, tempoX, firstLineY, STAFF_LINE_SPACING);
 
         // 2. Text expressions
         textExpressionRenderer.draw(gc, measure, measureStartX, firstLineY, staffHeight, STAFF_LINE_SPACING);
 
-        // 3. Notes (incl. singleton beamable notes, stems & flags)
+        // 3. Notes
         noteRenderer.draw(gc, measure, layoutMap, firstLineY, middleLineY, MIDDLE_LINE_POSITION,
                 NOTE_HEAD_WIDTH, NOTE_HEAD_HEIGHT, STEM_LENGTH_STANDARD,
                 LEDGER_LINE_EXTENSION, NOTE_HEAD_OUTLINE_WIDTH,
@@ -319,7 +325,7 @@ public class MusicNotationApp extends Application {
                 TOP_LINE_POSITION, BOTTOM_LINE_POSITION, STAFF_LINE_SPACING,
                 beamedNotes, currentKey);
 
-        // 4. Beams (draws stems & beams for beamed groups)
+        // 4. Beams
         beamRenderer.draw(gc, measure, layoutMap, middleLineY, MIDDLE_LINE_POSITION,
                 BEAM_THICKNESS, BEAM_SPACING, BEAM_HOOK_LENGTH,
                 MAX_BEAM_SLOPE, STEM_LENGTH_STANDARD, NOTE_HEAD_WIDTH);
@@ -333,12 +339,11 @@ public class MusicNotationApp extends Application {
         slurRenderer.draw(gc, measure, layoutMap, middleLineY, MIDDLE_LINE_POSITION,
                 SLUR_OFFSET, STAFF_LINE_SPACING, NOTE_HEAD_WIDTH);
 
-        // 7. Articulations
+        // 7. Articulations – adăugat ARTICULATION_OFFSET
         articulationRenderer.draw(gc, measure, layoutMap, middleLineY, MIDDLE_LINE_POSITION,
-                ARTICULATION_FONT_SIZE_FACTOR, ARTICULATION_OFFSET,
-                STAFF_LINE_SPACING, NOTE_HEAD_WIDTH);
+                ARTICULATION_FONT_SIZE_FACTOR, ARTICULATION_OFFSET, STAFF_LINE_SPACING, NOTE_HEAD_WIDTH);
 
-        // 8. Dynamics
+        // 8. Dynamics – adăugat DYNAMIC_OFFSET
         dynamicRenderer.draw(gc, measure, layoutMap, middleLineY,
                 DYNAMIC_FONT_SIZE_FACTOR, DYNAMIC_OFFSET, STAFF_LINE_SPACING);
 
@@ -378,20 +383,12 @@ public class MusicNotationApp extends Application {
         double offset = STAFF_LINE_SPACING * 0.75;
         double controlY = above ? startY - offset : startY + offset;
         gc.setStroke(Color.BLACK);
-        gc.setLineWidth(TIE_LINE_WIDTH);
+        gc.setLineWidth(2.0);
         gc.setLineCap(javafx.scene.shape.StrokeLineCap.ROUND);
         gc.beginPath();
         gc.moveTo(startX, startY);
         gc.quadraticCurveTo(midX, controlY, endX, endY);
         gc.stroke();
-    }
-
-    private double noteSpacing(Duration duration) {
-        double spacing = NOTE_SPACING_PER_QUARTER * duration.toQuarterNoteFraction();
-        if (duration.isBeamable()) {
-            spacing += BEAMABLE_EXTRA_SPACING;
-        }
-        return spacing;
     }
 
     private int staffPosition(Pitch pitch, ClefType clef) {
@@ -405,9 +402,7 @@ public class MusicNotationApp extends Application {
     private static Score createSampleScore() {
         Score score = new Score(KeySignature.C_MAJOR, ClefType.TREBLE, TimeSignature.COMMON_TIME);
 
-        // ============================================================
         // Măsura 1: Tempo + Text deasupra + Articulație dedesubt + Ties
-        // ============================================================
         Measure measure1 = new Measure();
         measure1.addStartRepeat();
         measure1.addTempo(new Tempo("Allegro"));
@@ -424,9 +419,7 @@ public class MusicNotationApp extends Application {
         measure1.addArticulation(new Articulation(n4, ArticulationType.STACCATO));
         score.addMeasure(measure1);
 
-        // ============================================================
         // Măsura 2: Slur + Hairpin crescendo + Dinamică
-        // ============================================================
         Measure measure2 = new Measure();
         measure2.addTempo(new Tempo("Andante", 80));
         measure2.addTextExpression(new TextExpression("cantabile", TextPlacement.BELOW));
@@ -444,9 +437,7 @@ public class MusicNotationApp extends Application {
         measure2.addHairpin(new Hairpin(c4, f4, HairpinType.CRESCENDO));
         score.addMeasure(measure2);
 
-        // ============================================================
         // Măsura 3: Tuplet + Beams + Articulații + Dinamică + Schimbări
-        // ============================================================
         Measure measure3 = new Measure();
         measure3.addTimeSignature(TimeSignature.SIX_EIGHT);
         measure3.addKeySignature(KeySignature.G_MAJOR);
@@ -466,12 +457,11 @@ public class MusicNotationApp extends Application {
         measure3.addEndRepeat();
         score.addMeasure(measure3);
 
-        // ============================================================
         // Măsura 4: Clef change (Bass) + Text dedesubt + Dinamică
-        // ============================================================
+
         Measure measure4 = new Measure();
         measure4.addClef(ClefType.BASS);
-        measure4.addTimeSignature(TimeSignature.NINE_EIGHT);
+        measure3.addTimeSignature(TimeSignature.NINE_EIGHT);
         measure4.addTextExpression(new TextExpression("simile", TextPlacement.BELOW));
 
         Note c3 = new Note(Pitch.of("C3"), Duration.QUARTER);
@@ -485,9 +475,7 @@ public class MusicNotationApp extends Application {
         measure4.addDynamic(new Dynamic(c3, DynamicType.MF));
         score.addMeasure(measure4);
 
-        // ============================================================
         // Măsura 5: Hairpin decrescendo + Articulații + Ties + Beam
-        // ============================================================
         Measure measure5 = new Measure();
         measure5.addTempo(Tempo.ofBpm(96));
         measure5.addTextExpression(new TextExpression("con brio", TextPlacement.ABOVE));
