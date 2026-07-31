@@ -27,9 +27,11 @@ public final class LayoutRenderer {
         }
 
         RenderingState state = initialState;
+        boolean isFirstSystem = true;
 
         for (SystemPlacement placement : pageLayout.systemPlacements()) {
-            state = systemRenderer.render(gc, placement, renderDataMap, state);
+            state = systemRenderer.render(gc, placement, renderDataMap, state, isFirstSystem);
+            isFirstSystem = false;
         }
     }
 }

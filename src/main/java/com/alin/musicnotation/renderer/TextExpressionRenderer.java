@@ -16,8 +16,10 @@ public class TextExpressionRenderer {
 
     private static final double TEXT_EXPRESSION_FONT_SIZE_FACTOR = 0.9;
     private static final double TEXT_EXPRESSION_STACK_SPACING_FACTOR = 1.2;
-    private static final double TEXT_EXPRESSION_OFFSET_ABOVE_FACTOR = 2.5;
-    private static final double TEXT_EXPRESSION_OFFSET_BELOW_FACTOR = 1.4;
+    // Mărit de la 2.5 la 3.2
+    private static final double TEXT_EXPRESSION_OFFSET_ABOVE_FACTOR = 3.2;
+    // Mărit de la 1.4 la 2.0
+    private static final double TEXT_EXPRESSION_OFFSET_BELOW_FACTOR = 2.0;
 
     public void draw(GraphicsContext gc, Measure measure, double contentStartX,
                      double firstLineY, double staffHeight, double staffLineSpacing) {

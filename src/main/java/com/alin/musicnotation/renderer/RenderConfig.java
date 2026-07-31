@@ -19,11 +19,12 @@ public record RenderConfig(
                 new StaffConfig(s, 0, 8, 4),
                 new NoteConfig(s * 1.4, s, 2, s * 3.5, 10, 14, 6, 6, s * 0.8, s * 0.6, 2.0),
                 new BeamConfig(5, 7, s * 1.4 * 0.6, 0.25),
-                new TupletConfig(s * 2.0, s * 0.5, 0.9),
-                new SlurConfig(s * 1.2),
+                new TupletConfig(s * 2.5, s * 0.5, 0.9),
+                new SlurConfig(s * 1.6),
                 new ArticulationConfig(1.0, s * 0.8),
-                new DynamicConfig(0.8, s * 1.8),
-                new MeasureLayoutConfig(12, 24, 14),
+                new DynamicConfig(0.8, s * 2.2),
+                // startPadding redus de la 40 la 15 pentru a diminua distanța
+                new MeasureLayoutConfig(30, 15, 20),
                 new SpacingConfig(8, 14),
                 new ClefChangeConfig(6, 15, 40)
         );

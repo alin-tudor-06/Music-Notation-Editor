@@ -13,7 +13,8 @@ import java.util.Map;
 
 public class HairpinRenderer {
 
-    private static final double HAIRPIN_OFFSET_FACTOR = 2.0;
+    // Mărit de la 2.0 la 2.8
+    private static final double HAIRPIN_OFFSET_FACTOR = 2.8;
 
     public void draw(GraphicsContext gc, Measure measure, Map<Note, NoteLayout> layoutMap,
                      double firstLineY, double staffHeight, double staffLineSpacing,

@@ -12,6 +12,13 @@ public final class ScoreLayoutEngine {
     private final MeasureSpacingEngine spacingEngine;
     private final PageLayoutEngine pageLayoutEngine;
 
+    // Constante aliniate cu RenderConfig (startPadding = 15)
+    private static final double START_PADDING = 15;
+    private static final double END_PADDING = 30;
+    private static final double CLEF_WIDTH = 44;
+    private static final double KEY_WIDTH = 40;
+    private static final double TIME_WIDTH = 45;
+
     public ScoreLayoutEngine(MeasureSpacingEngine spacingEngine, PageLayoutEngine pageLayoutEngine) {
         this.spacingEngine = spacingEngine;
         this.pageLayoutEngine = pageLayoutEngine;
@@ -27,7 +34,20 @@ public final class ScoreLayoutEngine {
             Measure measure = allMeasures.get(i);
             MeasureSpacingResult spacingResult = spacingEngine.computeSpacing(measure.notes(), 0);
             double naturalWidth = spacingResult.finalCursorX();
-            measureLayouts.add(new MeasureLayout(i, naturalWidth));
+
+            double extraWidth = 0;
+            if (measure.clef() != null) {
+                extraWidth += CLEF_WIDTH;
+            }
+            if (measure.keySignature() != null) {
+                extraWidth += KEY_WIDTH;
+            }
+            if (measure.timeSignature() != null) {
+                extraWidth += TIME_WIDTH;
+            }
+
+            double totalWidth = START_PADDING + extraWidth + naturalWidth + END_PADDING;
+            measureLayouts.add(new MeasureLayout(i, naturalWidth, totalWidth));
             renderDataList.add(new MeasureRenderData(i, measure, spacingResult));
         }
 

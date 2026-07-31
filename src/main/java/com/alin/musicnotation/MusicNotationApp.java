@@ -27,17 +27,19 @@ import java.util.*;
 public class MusicNotationApp extends Application {
 
     private static final double WINDOW_WIDTH = 800;
-    private static final double WINDOW_HEIGHT = 600;
+    private static final double WINDOW_HEIGHT = 1000;
     private static final double STAFF_LINE_SPACING = 16;
     private static final double STAFF_MARGIN = 60;
     private static final double NOTE_SPACING_PER_QUARTER = 60;
+    private static final double SYSTEM_SPACING = STAFF_LINE_SPACING * 14;
+    private static final double TOP_MARGIN = 100; // puțin mai mic decât înainte (120)
 
     private final Score score = createSampleScore();
 
     private final RenderConfig config = RenderConfig.defaultConfig();
     private final MeasureSpacingEngine spacingEngine = new MeasureSpacingEngine(NOTE_SPACING_PER_QUARTER);
     private final PageLayoutEngine pageLayoutEngine = new PageLayoutEngine(
-            WINDOW_WIDTH, STAFF_MARGIN, STAFF_MARGIN, 50, STAFF_LINE_SPACING * 4
+            WINDOW_WIDTH, STAFF_MARGIN, STAFF_MARGIN, TOP_MARGIN, SYSTEM_SPACING
     );
     private final ScoreLayoutEngine layoutEngine = new ScoreLayoutEngine(spacingEngine, pageLayoutEngine);
 
@@ -56,7 +58,21 @@ public class MusicNotationApp extends Application {
     private final KeySignatureRenderer keySignatureRenderer = new KeySignatureRenderer();
     private final TimeSignatureRenderer timeSignatureRenderer = new TimeSignatureRenderer();
 
-    private LayoutRenderer layoutRenderer;
+    private final LayoutRenderer layoutRenderer;
+
+    public MusicNotationApp() {
+        MeasurePainter measurePainter = new MeasurePainter(
+                tempoRenderer, textExpressionRenderer, noteRenderer, beamRenderer,
+                tupletRenderer, slurRenderer, articulationRenderer, dynamicRenderer,
+                hairpinRenderer, repeatRenderer,
+                clefRenderer, keySignatureRenderer, timeSignatureRenderer
+        );
+        MeasureRenderer measureRenderer = new MeasureRenderer(config, measurePainter, keySignatureRenderer, timeSignatureRenderer);
+        SystemRenderer systemRenderer = new SystemRenderer(
+                config, measureRenderer, clefRenderer, keySignatureRenderer, timeSignatureRenderer
+        );
+        layoutRenderer = new LayoutRenderer(systemRenderer);
+    }
 
     @Override
     public void start(Stage primaryStage) {
@@ -85,18 +101,6 @@ public class MusicNotationApp extends Application {
         primaryStage.setTitle("Music Notation");
         primaryStage.setScene(scene);
         primaryStage.show();
-
-        // Build renderer pipeline
-        MeasurePainter measurePainter = new MeasurePainter(
-                tempoRenderer, textExpressionRenderer, noteRenderer, beamRenderer,
-                tupletRenderer, slurRenderer, articulationRenderer, dynamicRenderer,
-                hairpinRenderer, repeatRenderer
-        );
-        MeasureRenderer measureRenderer = new MeasureRenderer(config, measurePainter);
-        SystemRenderer systemRenderer = new SystemRenderer(
-                config, measureRenderer, clefRenderer, keySignatureRenderer, timeSignatureRenderer
-        );
-        layoutRenderer = new LayoutRenderer(systemRenderer);
     }
 
     private void drawStaff(Canvas canvas) {
@@ -106,10 +110,8 @@ public class MusicNotationApp extends Application {
         GraphicsContext gc = canvas.getGraphicsContext2D();
         gc.clearRect(0, 0, width, height);
 
-        // Layout pipeline
         var result = layoutEngine.layout(score, width, STAFF_MARGIN, STAFF_MARGIN);
 
-        // Render
         RenderingState initialState = new RenderingState(
                 score.initialClef(),
                 score.keySignature(),
@@ -214,6 +216,7 @@ public class MusicNotationApp extends Application {
         measure5.addHairpin(new Hairpin(x1, x4, HairpinType.DECRESCENDO, HairpinPlacement.ABOVE));
         score.addMeasure(measure5);
 
+        // Measure 6
         Measure measure6 = new Measure();
         measure6.addClef(ClefType.BASS);
         measure6.addTimeSignature(TimeSignature.NINE_EIGHT);
@@ -230,7 +233,7 @@ public class MusicNotationApp extends Application {
         measure6.addDynamic(new Dynamic(a1, DynamicType.MF));
         score.addMeasure(measure6);
 
-
+        // Measure 7
         Measure measure7 = new Measure();
         measure7.addClef(ClefType.BASS);
         measure7.addTimeSignature(TimeSignature.NINE_EIGHT);
@@ -247,7 +250,7 @@ public class MusicNotationApp extends Application {
         measure7.addDynamic(new Dynamic(h1, DynamicType.MF));
         score.addMeasure(measure7);
 
-
+        // Measure 8
         Measure measure8 = new Measure();
         measure8.addClef(ClefType.BASS);
         measure8.addTimeSignature(TimeSignature.NINE_EIGHT);
@@ -264,7 +267,7 @@ public class MusicNotationApp extends Application {
         measure8.addDynamic(new Dynamic(y1, DynamicType.MF));
         score.addMeasure(measure8);
 
-
+        // Measure 9
         Measure measure9 = new Measure();
         measure9.addClef(ClefType.BASS);
         measure9.addTimeSignature(TimeSignature.NINE_EIGHT);
@@ -281,7 +284,7 @@ public class MusicNotationApp extends Application {
         measure9.addDynamic(new Dynamic(g5, DynamicType.MF));
         score.addMeasure(measure9);
 
-
+        // Measure 10
         Measure measure10 = new Measure();
         measure10.addClef(ClefType.BASS);
         measure10.addTimeSignature(TimeSignature.NINE_EIGHT);

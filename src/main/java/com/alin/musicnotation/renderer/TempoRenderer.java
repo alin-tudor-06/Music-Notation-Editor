@@ -12,7 +12,8 @@ import javafx.scene.text.TextAlignment;
 public class TempoRenderer {
 
     private static final double TEMPO_FONT_SIZE_FACTOR = 0.9;
-    private static final double TEMPO_OFFSET_FACTOR = 3.0; // păstrat valoarea originală
+    // Mărit de la 3.0 la 3.5
+    private static final double TEMPO_OFFSET_FACTOR = 3.5;
 
     public void draw(GraphicsContext gc, Measure measure, double x, double firstLineY, double staffLineSpacing) {
         Tempo tempo = measure.tempo();

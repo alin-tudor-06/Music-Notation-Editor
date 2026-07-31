@@ -25,7 +25,7 @@ public final class SystemBreaker {
         double currentWidth = 0.0;
 
         for (MeasureLayout ml : measureLayouts) {
-            double width = ml.naturalWidth();
+            double width = ml.totalWidth();   // folosește lățimea totală (cu padding și schimbări)
             if (width < 0) {
                 throw new IllegalArgumentException("Measure width cannot be negative: " + width);
             }
