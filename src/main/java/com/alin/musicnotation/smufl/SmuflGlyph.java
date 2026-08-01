@@ -69,7 +69,12 @@ public enum SmuflGlyph {
 
     // ===== Time Signature Symbols =====
     TIME_SIG_COMMON(0xE08A),
-    TIME_SIG_CUT(0xE08B);
+    TIME_SIG_CUT(0xE08B),
+
+    // ===== Dynamics =====
+    DYNAMIC_PIANO(0xE520),
+    DYNAMIC_MEZZO(0xE521),
+    DYNAMIC_FORTE(0xE522);
 
     private final int codePoint;
     private final String unicode;

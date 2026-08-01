@@ -133,153 +133,162 @@ public class MusicNotationApp extends Application {
         Score score = new Score(KeySignature.C_MAJOR, ClefType.TREBLE, TimeSignature.COMMON_TIME);
 
         // ============================================================
-        // Măsura 1 – Staccato și Staccatissimo (AUTO, tijă sus/jos)
+        // Măsura 1 – PPP și PP
         // ============================================================
         Measure m1 = new Measure();
-        Note n1 = new Note(Pitch.of("C4"), Duration.SIXTEENTH);
-        Note n2 = new Note(Pitch.of("E4"), Duration.SIXTEENTH);
-        Note n3 = new Note(Pitch.of("G4"), Duration.SIXTEENTH);
-        Note n4 = new Note(Pitch.of("B4"), Duration.SIXTEENTH);
+        Note n1 = new Note(Pitch.of("C4"), Duration.QUARTER);
+        Note n2 = new Note(Pitch.of("E4"), Duration.QUARTER);
+        Note n3 = new Note(Pitch.of("G4"), Duration.QUARTER);
+        Note n4 = new Note(Pitch.of("B4"), Duration.QUARTER);
         m1.addNote(n1);
         m1.addNote(n2);
         m1.addNote(n3);
         m1.addNote(n4);
-        m1.addArticulation(new Articulation(n1, ArticulationType.STACCATO));
-        m1.addArticulation(new Articulation(n2, ArticulationType.STACCATISSIMO));
-        m1.addArticulation(new Articulation(n3, ArticulationType.STACCATO));
-        m1.addArticulation(new Articulation(n4, ArticulationType.STACCATISSIMO));
+        m1.addDynamic(new Dynamic(n1, DynamicType.PPP));
+        m1.addDynamic(new Dynamic(n2, DynamicType.PP));
+        m1.addDynamic(new Dynamic(n3, DynamicType.PPP));
+        m1.addDynamic(new Dynamic(n4, DynamicType.PP));
+        // Adăugăm text pentru identificare
+        m1.addArticulation(new Articulation(n1,ArticulationType.STACCATISSIMO,ArticulationPlacement.ABOVE));
         score.addMeasure(m1);
 
         // ============================================================
-        // Măsura 2 – Accent și Marcato (AUTO, tijă sus/jos)
+        // Măsura 2 – P și MP
         // ============================================================
         Measure m2 = new Measure();
-        Note n5 = new Note(Pitch.of("C4"), Duration.SIXTEENTH);
-        Note n6 = new Note(Pitch.of("E4"), Duration.SIXTEENTH);
-        Note n7 = new Note(Pitch.of("G4"), Duration.SIXTEENTH);
-        Note n8 = new Note(Pitch.of("B4"), Duration.SIXTEENTH);
+        Note n5 = new Note(Pitch.of("C4"), Duration.QUARTER);
+        Note n6 = new Note(Pitch.of("E4"), Duration.QUARTER);
+        Note n7 = new Note(Pitch.of("G4"), Duration.QUARTER);
+        Note n8 = new Note(Pitch.of("B4"), Duration.QUARTER);
         m2.addNote(n5);
         m2.addNote(n6);
         m2.addNote(n7);
         m2.addNote(n8);
-        m2.addArticulation(new Articulation(n5, ArticulationType.ACCENT));
-        m2.addArticulation(new Articulation(n6, ArticulationType.MARCATO));
-        m2.addArticulation(new Articulation(n7, ArticulationType.ACCENT));
-        m2.addArticulation(new Articulation(n8, ArticulationType.MARCATO));
+        m2.addDynamic(new Dynamic(n5, DynamicType.P));
+        m2.addDynamic(new Dynamic(n6, DynamicType.MP));
+        m2.addDynamic(new Dynamic(n7, DynamicType.P));
+        m2.addDynamic(new Dynamic(n8, DynamicType.MP));
+        m2.addTextExpression(new TextExpression("P", TextPlacement.ABOVE));
+        m2.addTextExpression(new TextExpression("MP", TextPlacement.BELOW));
         score.addMeasure(m2);
 
         // ============================================================
-        // Măsura 3 – Tenuto (AUTO, tijă sus/jos)
+        // Măsura 3 – MF și F
         // ============================================================
         Measure m3 = new Measure();
-        Note n9 = new Note(Pitch.of("C5"), Duration.SIXTEENTH);
-        Note n10 = new Note(Pitch.of("E5"), Duration.SIXTEENTH);
-        Note n11 = new Note(Pitch.of("G5"), Duration.SIXTEENTH);
-        Note n12 = new Note(Pitch.of("B5"), Duration.SIXTEENTH);
+        Note n9 = new Note(Pitch.of("C5"), Duration.QUARTER);
+        Note n10 = new Note(Pitch.of("E5"), Duration.QUARTER);
+        Note n11 = new Note(Pitch.of("G5"), Duration.QUARTER);
+        Note n12 = new Note(Pitch.of("B5"), Duration.QUARTER);
         m3.addNote(n9);
         m3.addNote(n10);
         m3.addNote(n11);
         m3.addNote(n12);
-        m3.addArticulation(new Articulation(n9, ArticulationType.TENUTO));
-        m3.addArticulation(new Articulation(n10, ArticulationType.TENUTO));
-        m3.addArticulation(new Articulation(n11, ArticulationType.TENUTO));
-        m3.addArticulation(new Articulation(n12, ArticulationType.TENUTO));
+        m3.addDynamic(new Dynamic(n9, DynamicType.MF));
+        m3.addDynamic(new Dynamic(n10, DynamicType.F));
+        m3.addDynamic(new Dynamic(n11, DynamicType.MF));
+        m3.addDynamic(new Dynamic(n12, DynamicType.F));
+        m3.addTextExpression(new TextExpression("MF", TextPlacement.ABOVE));
+        m3.addTextExpression(new TextExpression("F", TextPlacement.BELOW));
         score.addMeasure(m3);
 
         // ============================================================
-        // Măsura 4 – Fermata deasupra și dedesubt (explicit)
+        // Măsura 4 – FF și FFF
         // ============================================================
         Measure m4 = new Measure();
-        Note n13 = new Note(Pitch.of("C4"), Duration.SIXTEENTH);
-        Note n14 = new Note(Pitch.of("E4"), Duration.SIXTEENTH);
-        Note n15 = new Note(Pitch.of("G4"), Duration.SIXTEENTH);
-        Note n16 = new Note(Pitch.of("B4"), Duration.SIXTEENTH);
+        Note n13 = new Note(Pitch.of("C4"), Duration.QUARTER);
+        Note n14 = new Note(Pitch.of("E4"), Duration.QUARTER);
+        Note n15 = new Note(Pitch.of("G4"), Duration.QUARTER);
+        Note n16 = new Note(Pitch.of("B4"), Duration.QUARTER);
         m4.addNote(n13);
         m4.addNote(n14);
         m4.addNote(n15);
         m4.addNote(n16);
-        m4.addArticulation(new Articulation(n13, ArticulationType.FERMATA, ArticulationPlacement.ABOVE));
-        m4.addArticulation(new Articulation(n14, ArticulationType.FERMATA, ArticulationPlacement.BELOW));
-        m4.addArticulation(new Articulation(n15, ArticulationType.FERMATA, ArticulationPlacement.ABOVE));
-        m4.addArticulation(new Articulation(n16, ArticulationType.FERMATA, ArticulationPlacement.BELOW));
+        m4.addDynamic(new Dynamic(n13, DynamicType.FF));
+        m4.addDynamic(new Dynamic(n14, DynamicType.FFF));
+        m4.addDynamic(new Dynamic(n15, DynamicType.FF));
+        m4.addDynamic(new Dynamic(n16, DynamicType.FFF));
+        m4.addTextExpression(new TextExpression("FF", TextPlacement.ABOVE));
+        m4.addTextExpression(new TextExpression("FFF", TextPlacement.BELOW));
         score.addMeasure(m4);
 
         // ============================================================
-        // Măsura 5 – Combinații: Staccato + Accent pe aceeași notă (AUTO)
+        // Măsura 5 – Dinamici cu placement explicit ABOVE și BELOW
         // ============================================================
         Measure m5 = new Measure();
-        Note n17 = new Note(Pitch.of("C4"), Duration.SIXTEENTH);
-        Note n18 = new Note(Pitch.of("E4"), Duration.SIXTEENTH);
-        Note n19 = new Note(Pitch.of("G4"), Duration.SIXTEENTH);
-        Note n20 = new Note(Pitch.of("B4"), Duration.SIXTEENTH);
+        Note n17 = new Note(Pitch.of("C4"), Duration.QUARTER);
+        Note n18 = new Note(Pitch.of("E4"), Duration.QUARTER);
+        Note n19 = new Note(Pitch.of("G4"), Duration.QUARTER);
+        Note n20 = new Note(Pitch.of("B4"), Duration.QUARTER);
         m5.addNote(n17);
         m5.addNote(n18);
         m5.addNote(n19);
         m5.addNote(n20);
-        m5.addArticulation(new Articulation(n17, ArticulationType.STACCATO));
-        m5.addArticulation(new Articulation(n17, ArticulationType.ACCENT));
-        m5.addArticulation(new Articulation(n18, ArticulationType.STACCATISSIMO));
-        m5.addArticulation(new Articulation(n18, ArticulationType.MARCATO));
-        m5.addArticulation(new Articulation(n19, ArticulationType.TENUTO));
-        m5.addArticulation(new Articulation(n19, ArticulationType.ACCENT));
-        m5.addArticulation(new Articulation(n20, ArticulationType.STACCATO));
-        m5.addArticulation(new Articulation(n20, ArticulationType.TENUTO));
+        m5.addDynamic(new Dynamic(n17, DynamicType.P, DynamicPlacement.ABOVE));
+        m5.addDynamic(new Dynamic(n18, DynamicType.P, DynamicPlacement.BELOW));
+        m5.addDynamic(new Dynamic(n19, DynamicType.F, DynamicPlacement.ABOVE));
+        m5.addDynamic(new Dynamic(n20, DynamicType.F, DynamicPlacement.BELOW));
+        m5.addTextExpression(new TextExpression("P (ABOVE)", TextPlacement.ABOVE));
+        m5.addTextExpression(new TextExpression("P (BELOW)", TextPlacement.BELOW));
         score.addMeasure(m5);
 
         // ============================================================
-        // Măsura 6 – Articulații pe note cu tijă în sus și în jos (test AUTO)
-        // Toate notele sunt pătrimi, dar poziționate diferit pe portativ
+        // Măsura 6 – Secvență crescătoare: P → MF → F → FF
         // ============================================================
         Measure m6 = new Measure();
-        Note n21 = new Note(Pitch.of("C4"), Duration.SIXTEENTH);   // tijă sus
-        Note n22 = new Note(Pitch.of("F4"), Duration.SIXTEENTH);   // tijă sus (sub mijloc)
-        Note n23 = new Note(Pitch.of("A4"), Duration.SIXTEENTH);   // tijă jos (peste mijloc)
-        Note n24 = new Note(Pitch.of("C5"), Duration.SIXTEENTH);   // tijă jos
+        Note n21 = new Note(Pitch.of("C4"), Duration.QUARTER);
+        Note n22 = new Note(Pitch.of("E4"), Duration.QUARTER);
+        Note n23 = new Note(Pitch.of("G4"), Duration.QUARTER);
+        Note n24 = new Note(Pitch.of("B4"), Duration.QUARTER);
         m6.addNote(n21);
         m6.addNote(n22);
         m6.addNote(n23);
         m6.addNote(n24);
-        m6.addArticulation(new Articulation(n21, ArticulationType.STACCATO));
-        m6.addArticulation(new Articulation(n22, ArticulationType.ACCENT));
-        m6.addArticulation(new Articulation(n23, ArticulationType.STACCATISSIMO));
-        m6.addArticulation(new Articulation(n24, ArticulationType.MARCATO));
+        m6.addDynamic(new Dynamic(n21, DynamicType.P));
+        m6.addDynamic(new Dynamic(n22, DynamicType.MF));
+        m6.addDynamic(new Dynamic(n23, DynamicType.F));
+        m6.addDynamic(new Dynamic(n24, DynamicType.FF));
+        m6.addTextExpression(new TextExpression("Crescendo", TextPlacement.ABOVE));
         score.addMeasure(m6);
 
         // ============================================================
-        // Măsura 7 – Articulații cu placement explicit ABOVE/BELOW (pentru test)
+        // Măsura 7 – Secvență descrescătoare: FF → F → MF → P
         // ============================================================
         Measure m7 = new Measure();
-        Note n25 = new Note(Pitch.of("C4"), Duration.SIXTEENTH);
-        Note n26 = new Note(Pitch.of("E4"), Duration.SIXTEENTH);
-        Note n27 = new Note(Pitch.of("G4"), Duration.SIXTEENTH);
-        Note n28 = new Note(Pitch.of("B4"), Duration.SIXTEENTH);
+        Note n25 = new Note(Pitch.of("C5"), Duration.QUARTER);
+        Note n26 = new Note(Pitch.of("E5"), Duration.QUARTER);
+        Note n27 = new Note(Pitch.of("G5"), Duration.QUARTER);
+        Note n28 = new Note(Pitch.of("B5"), Duration.QUARTER);
         m7.addNote(n25);
         m7.addNote(n26);
         m7.addNote(n27);
         m7.addNote(n28);
-        m7.addArticulation(new Articulation(n25, ArticulationType.STACCATO, ArticulationPlacement.ABOVE));
-        m7.addArticulation(new Articulation(n26, ArticulationType.STACCATO, ArticulationPlacement.BELOW));
-        m7.addArticulation(new Articulation(n27, ArticulationType.ACCENT, ArticulationPlacement.ABOVE));
-        m7.addArticulation(new Articulation(n28, ArticulationType.ACCENT, ArticulationPlacement.BELOW));
+        m7.addDynamic(new Dynamic(n25, DynamicType.FF));
+        m7.addDynamic(new Dynamic(n26, DynamicType.F));
+        m7.addDynamic(new Dynamic(n27, DynamicType.MF));
+        m7.addDynamic(new Dynamic(n28, DynamicType.P));
+        m7.addTextExpression(new TextExpression("Decrescendo", TextPlacement.ABOVE));
         score.addMeasure(m7);
 
         // ============================================================
-        // Măsura 8 – Fermata cu AUTO (tijă sus/jos)
+        // Măsura 8 – Dinamici pe note cu durate diferite
         // ============================================================
         Measure m8 = new Measure();
-        Note n29 = new Note(Pitch.of("C4"), Duration.SIXTEENTH);
-        Note n30 = new Note(Pitch.of("E4"), Duration.SIXTEENTH);
-        Note n31 = new Note(Pitch.of("G4"), Duration.SIXTEENTH);
-        Note n32 = new Note(Pitch.of("B4"), Duration.SIXTEENTH);
+        Note n29 = new Note(Pitch.of("C4"), Duration.WHOLE);
         m8.addNote(n29);
-        m8.addNote(n30);
-        m8.addNote(n31);
-        m8.addNote(n32);
-        m8.addArticulation(new Articulation(n29, ArticulationType.FERMATA));
-        m8.addArticulation(new Articulation(n30, ArticulationType.FERMATA));
-        m8.addArticulation(new Articulation(n31, ArticulationType.FERMATA));
-        m8.addArticulation(new Articulation(n32, ArticulationType.FERMATA));
+        m8.addDynamic(new Dynamic(n29, DynamicType.PPP));
+        m8.addTextExpression(new TextExpression("PPP (whole note)", TextPlacement.ABOVE));
         score.addMeasure(m8);
+
+        Measure m9 = new Measure();
+        Note n30 = new Note(Pitch.of("E4"), Duration.HALF);
+        Note n31 = new Note(Pitch.of("G4"), Duration.HALF);
+        m9.addNote(n30);
+        m9.addNote(n31);
+        m9.addDynamic(new Dynamic(n30, DynamicType.FF));
+        m9.addDynamic(new Dynamic(n31, DynamicType.PP));
+        m9.addTextExpression(new TextExpression("FF / PP", TextPlacement.ABOVE));
+        score.addMeasure(m9);
 
         // Validăm score-ul
         score.validate();

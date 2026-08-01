@@ -22,7 +22,7 @@ public record RenderConfig(
                 new TupletConfig(s * 2.5, s * 0.5, 0.9),
                 new SlurConfig(s * 1.6),
                 new ArticulationConfig(2, s ),
-                new DynamicConfig(0.8, s * 1.4),           // ← offset redus
+                new DynamicConfig(1.5, s * 1.4),           // ← offset redus
                 new MeasureLayoutConfig(30, 25, 20, 6),
                 new SpacingConfig(8, 14),
                 new ClefChangeConfig(6, 15, 40)
