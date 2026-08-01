@@ -1,80 +1,67 @@
 package com.alin.musicnotation.renderer;
 
+import com.alin.musicnotation.layout.LayoutScaler;
 import com.alin.musicnotation.layout.MeasureSpacingResult;
 import com.alin.musicnotation.model.Measure;
 import com.alin.musicnotation.model.Note;
 import com.alin.musicnotation.model.layout.NoteLayout;
 import javafx.scene.canvas.GraphicsContext;
-import javafx.scene.text.Font;
-import javafx.scene.text.FontWeight;
 
-import java.util.*;
+import java.util.Map;
 
 public final class MeasureRenderer {
 
     private final RenderConfig config;
     private final MeasurePainter painter;
-    private final KeySignatureRenderer keySignatureRenderer;
-    private final TimeSignatureRenderer timeSignatureRenderer;
 
-    public MeasureRenderer(RenderConfig config,
-                           MeasurePainter painter,
-                           KeySignatureRenderer keySignatureRenderer,
-                           TimeSignatureRenderer timeSignatureRenderer) {
+    public MeasureRenderer(RenderConfig config, MeasurePainter painter) {
         this.config = config;
         this.painter = painter;
-        this.keySignatureRenderer = keySignatureRenderer;
-        this.timeSignatureRenderer = timeSignatureRenderer;
     }
 
-    public MeasureRenderResult render(GraphicsContext gc,
-                                      MeasureRenderData data,
-                                      double startX,
-                                      double firstLineY,
-                                      RenderingState state) {
+    public RenderingState render(GraphicsContext gc,
+                                 MeasureRenderData data,
+                                 double startX,
+                                 double firstLineY,
+                                 RenderingState state) {
+
         Measure measure = data.measure();
         MeasureSpacingResult spacingResult = data.spacingResult();
+        double scale = data.justificationScale();
 
-        RenderingState newState = RenderingStateMachine.advance(state, measure);
+        // 1. Advance state to get the correct clef/key/time for THIS measure
+        RenderingState measureState = RenderingStateMachine.advance(state, measure);
 
-        double extraWidth = 0;
-        double lineSpacing = config.staff().lineSpacing();
-
-        // Clef change
-        if (measure.clef() != null && measure.clef() != state.currentClef()) {
-            extraWidth += 44 + 6;
-        }
-
-        // Key signature change
-        if (measure.keySignature() != null && !measure.keySignature().equals(state.currentKey())) {
-            extraWidth += keySignatureRenderer.calculateChangeWidth(state.currentKey(), measure.keySignature(), lineSpacing);
-        }
-
-        // Time signature change
-        if (measure.timeSignature() != null && !measure.timeSignature().equals(state.currentTime())) {
-            Font font = Font.font("Serif", FontWeight.BOLD, lineSpacing * 2.2);
-            extraWidth += timeSignatureRenderer.calculateWidth(font, measure.timeSignature()) + 10;
-        }
-
-        double startPadding = config.measure().startPadding();
-        double noteStartX = startX + startPadding + extraWidth;
-
-        Map<Note, NoteLayout> layoutMap = NoteLayoutFactory.buildNoteLayouts(
-                spacingResult, noteStartX, firstLineY,
-                config.staff(), config.note(), newState.currentClef()
+        // 2. Build natural layouts using the measure's state
+        Map<Note, NoteLayout> naturalLayouts = NoteLayoutFactory.buildNoteLayouts(
+                spacingResult,
+                0.0,
+                firstLineY,
+                config.staff(),
+                config.note(),
+                measureState.currentClef()
         );
 
-        List<NoteLayout> layouts = new ArrayList<>(layoutMap.values());
-        layouts.sort(Comparator.comparingDouble(NoteLayout::x));
-        Set<Note> beamedNotes = BeamAnalyzer.computeBeamedNotes(layouts);
+        // 3. Apply justification scale
+        Map<Note, NoteLayout> justifiedLayouts = LayoutScaler.scaleLayouts(
+                naturalLayouts,
+                0.0,
+                scale
+        );
 
-        double middleLineY = firstLineY + config.staff().middleLine() * (config.staff().lineSpacing() / 2);
+        // 4. Delegate painting
+        painter.paint(gc,
+                measure,
+                justifiedLayouts,
+                firstLineY,
+                startX,
+                data.extraWidth(),
+                data.justifiedWidth(),
+                state,
+                measureState,
+                config
+        );
 
-        painter.paint(gc, measure, layoutMap, beamedNotes,
-                firstLineY, middleLineY, startX, startPadding, extraWidth,
-                spacingResult.finalCursorX(), state, newState, config);
-
-        double totalWidth = startPadding + extraWidth + spacingResult.finalCursorX() + config.measure().endPadding();
-        return new MeasureRenderResult(newState, totalWidth);
+        return measureState;
     }
 }

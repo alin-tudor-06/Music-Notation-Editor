@@ -17,6 +17,7 @@ public final class SystemRenderer {
     private final TimeSignatureRenderer timeSignatureRenderer;
 
     private static final double TIME_SIGNATURE_FONT_SIZE_FACTOR = 2.2;
+    private static final double SYSTEM_END_PADDING = 15; // Padding la sfârșitul sistemului
 
     public SystemRenderer(RenderConfig config,
                           MeasureRenderer measureRenderer,
@@ -35,6 +36,7 @@ public final class SystemRenderer {
                                  Map<Integer, MeasureRenderData> renderDataMap,
                                  RenderingState state,
                                  boolean isFirstSystem) {
+
         double systemX = placement.x();
         double systemY = placement.y();
 
@@ -42,17 +44,15 @@ public final class SystemRenderer {
         double lineSpacing = config.staff().lineSpacing();
         double startPadding = config.measure().startPadding();
 
-        // Desenează întotdeauna la începutul sistemului: clef, key signature, time signature
-        double currentX = systemX + 6; // mic spațiu
+        // Desenăm cheia, gama și timpul la începutul fiecărui sistem
+        double currentX = systemX + 6;
         clefRenderer.drawClef(gc, currentX, systemY, staffHeight, lineSpacing, state.currentClef());
-        currentX += 44; // lățime clef aproximativă
+        currentX += 44;
 
-        // Desenează armura curentă
         double keyWidth = keySignatureRenderer.drawInitial(gc, currentX, systemY,
                 state.currentKey(), state.currentClef(), lineSpacing);
         currentX += keyWidth;
 
-        // Desenează timpul curent
         double timeSigX = currentX + 10;
         timeSignatureRenderer.drawInitial(gc, timeSigX, systemY, staffHeight, lineSpacing, state.currentTime());
         Font font = Font.font("Serif", FontWeight.BOLD, lineSpacing * TIME_SIGNATURE_FONT_SIZE_FACTOR);
@@ -69,14 +69,15 @@ public final class SystemRenderer {
                 throw new IllegalStateException("No render data for measure index: " + index);
             }
 
-            MeasureRenderResult result = measureRenderer.render(gc, data, currentX, systemY, currentState);
-            currentState = result.newState();
-            double totalWidth = result.totalWidth(); // include startPadding, extraWidth, naturalWidth, endPadding
-            currentX += totalWidth;
+            currentState = measureRenderer.render(gc, data, currentX, systemY, currentState);
+            double measureWidth = data.justifiedWidth();
+            currentX += measureWidth;
             lastBarX = currentX;
         }
 
-        drawStaffLines(gc, systemX, systemY, lastBarX - systemX);
+        // Adăugăm un mic padding la sfârșitul sistemului înainte de a desena liniile
+        double systemEndX = lastBarX + SYSTEM_END_PADDING;
+        drawStaffLines(gc, systemX, systemY, systemEndX - systemX);
 
         return currentState;
     }

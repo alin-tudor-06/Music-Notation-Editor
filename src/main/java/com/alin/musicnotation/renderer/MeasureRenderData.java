@@ -6,6 +6,9 @@ import com.alin.musicnotation.model.Measure;
 public record MeasureRenderData(
         int measureIndex,
         Measure measure,
-        MeasureSpacingResult spacingResult
+        MeasureSpacingResult spacingResult,
+        double extraWidth,
+        double justifiedWidth,
+        double justificationScale
 ) {
 }
