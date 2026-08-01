@@ -16,10 +16,6 @@ import java.io.InputStream;
  * Renderers must create properly sized fonts using:
  * {@code Font.font(BravuraFont.getFont().getFamily(), desiredSize)}
  * </p>
- * <p>
- * Future improvement: consider adding a dedicated {@code getFamily()} method
- * to avoid unnecessary creation of a 10pt Font object.
- * </p>
  */
 public final class BravuraFont {
 
@@ -51,8 +47,7 @@ public final class BravuraFont {
                 throw new IllegalStateException("Cannot find Bravura font: " + FONT_PATH);
             }
 
-            // Temporary size (10pt) – renderers will create properly sized fonts
-            // using Font.font(family, desiredSize)
+            // Temporary size – renderers will create properly sized fonts
             Font loaded = Font.loadFont(is, 10);
 
             if (loaded == null) {
@@ -61,8 +56,6 @@ public final class BravuraFont {
 
             return loaded;
         } catch (IOException e) {
-            // Only IOException is checked; other exceptions (e.g. RuntimeException)
-            // will propagate naturally.
             throw new IllegalStateException("Failed to load Bravura font from " + FONT_PATH, e);
         }
     }
