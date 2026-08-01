@@ -13,21 +13,18 @@ public final class BeamAnalyzer {
 
     public static Set<Note> computeBeamedNotes(List<NoteLayout> layouts) {
         Set<Note> beamedNotes = new HashSet<>();
-        List<NoteLayout> beamableLayouts = new ArrayList<>();
-        for (NoteLayout layout : layouts) {
-            if (!layout.note().isRest() && layout.note().duration().isBeamable()) {
-                beamableLayouts.add(layout);
-            }
-        }
-        beamableLayouts.sort(Comparator.comparingDouble(NoteLayout::x));
-        List<List<NoteLayout>> beamGroups = RenderingHelpers.groupBeamsByBeat(beamableLayouts);
-        for (List<NoteLayout> group : beamGroups) {
+
+        // Folosește aceeași metodă de grupare ca BeamRenderer
+        List<List<NoteLayout>> groups = RenderingHelpers.groupBeamsByBeat(layouts);
+
+        for (List<NoteLayout> group : groups) {
             if (group.size() >= 2) {
                 for (NoteLayout layout : group) {
                     beamedNotes.add(layout.note());
                 }
             }
         }
+
         return beamedNotes;
     }
 }

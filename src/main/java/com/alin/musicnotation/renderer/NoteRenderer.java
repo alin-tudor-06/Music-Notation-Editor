@@ -70,8 +70,7 @@ public class NoteRenderer {
 
             // Draw flags if the note has flagCount > 0 (e.g., singleton eighth or sixteenth)
             if (duration.flagCount() > 0) {
-                drawFlags(gc, stemX, stemTipY, duration.flagCount(), dir,
-                        flagWidth, flagHeight, flagSpacing);
+                drawFlags(gc, stemX, stemTipY, duration.flagCount(), dir, flagHeight);
             }
         }
     }
@@ -111,28 +110,47 @@ public class NoteRenderer {
         gc.strokeLine(stemX, stemBottomY, stemX, stemTopY);
     }
 
-    private void drawFlag(GraphicsContext gc, double startX, double startY, StemDirection direction,
-                          double flagWidth, double flagHeight) {
-        int towardNoteheadSign = -direction.sign();
-        double controlX = startX + flagWidth;
-        double controlY = startY + towardNoteheadSign * flagHeight / 2;
-        double endX = startX + flagWidth * 0.6;
-        double endY = startY + towardNoteheadSign * flagHeight;
-        gc.setStroke(Color.BLACK);
-        gc.setLineWidth(1);
-        gc.beginPath();
-        gc.moveTo(startX, startY);
-        gc.quadraticCurveTo(controlX, controlY, endX, endY);
-        gc.stroke();
+    private void drawFlag(GraphicsContext gc, double startX, double startY,
+                          StemDirection direction, double flagHeight, int flagCount) {
+        // Selectează glyph-ul corect în funcție de numărul de drapele și direcție
+        SmuflGlyph glyph = switch (flagCount) {
+            case 1 -> direction == StemDirection.UP
+                    ? SmuflGlyph.FLAG_8TH_UP
+                    : SmuflGlyph.FLAG_8TH_DOWN;
+            case 2 -> direction == StemDirection.UP
+                    ? SmuflGlyph.FLAG_16TH_UP
+                    : SmuflGlyph.FLAG_16TH_DOWN;
+            default -> null;
+        };
+
+        if (glyph == null) {
+            return;
+        }
+
+        // Font size derived from flagHeight.
+        // The scaling factor may be adjusted after visual testing.
+        double fontSize = flagHeight * 3;
+        Font bravura = BravuraFont.getFont();
+        Font glyphFont = Font.font(bravura.getFamily(), fontSize);
+
+        gc.setFill(Color.BLACK);
+        gc.setFont(glyphFont);
+        gc.setTextAlign(TextAlignment.CENTER);
+        gc.setTextBaseline(VPos.CENTER);
+
+        // Offset pentru alinierea drapelului față de tijă
+        double xOffset = 5;
+
+        gc.fillText(glyph.unicode(), startX + xOffset, startY);
     }
 
+    /**
+     * Desenează drapelele pentru o notă cu tijă.
+     * Pentru șaisprezecimi (flagCount == 2) desenează un singur glyph dedicat.
+     */
     private void drawFlags(GraphicsContext gc, double stemX, double stemTipY, int flagCount,
-                           StemDirection direction, double flagWidth, double flagHeight, double flagSpacing) {
-        int towardNoteheadSign = -direction.sign();
-        for (int i = 0; i < flagCount; i++) {
-            double flagStartY = stemTipY + i * flagSpacing * towardNoteheadSign;
-            drawFlag(gc, stemX, flagStartY, direction, flagWidth, flagHeight);
-        }
+                           StemDirection direction, double flagHeight) {
+        drawFlag(gc, stemX, stemTipY, direction, flagHeight, flagCount);
     }
 
     private void drawRest(GraphicsContext gc, double x, double y, Duration duration,

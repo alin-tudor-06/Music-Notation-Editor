@@ -32,7 +32,7 @@ public class MusicNotationApp extends Application {
     private static final double WINDOW_HEIGHT = 1000;
     private static final double STAFF_LINE_SPACING = 16;
     private static final double STAFF_MARGIN = 80;
-    private static final double NOTE_SPACING_PER_QUARTER = 90;
+    private static final double NOTE_SPACING_PER_QUARTER = 120;
     private static final double SYSTEM_SPACING = STAFF_LINE_SPACING * 14;
     private static final double TOP_MARGIN = 140;
 
@@ -133,231 +133,80 @@ public class MusicNotationApp extends Application {
         Score score = new Score(KeySignature.C_MAJOR, ClefType.TREBLE, TimeSignature.COMMON_TIME);
 
         // ============================================================
-        // Măsura 1 – start repeat, tempo, text, slur, dinamică p
+        // Măsura 1 – optimi izolate, cu tija în sus și în jos
+        // Note: C4, E4 (sus), G4, B4 (jos)
+        // Fiecare notă este urmată de un rest de optime pentru a le izola.
         // ============================================================
         Measure m1 = new Measure();
-        m1.addStartRepeat();
-        m1.addTempo(new Tempo("Allegro", 120));
-        m1.addTextExpression(new TextExpression("dolce", TextPlacement.ABOVE));
-
-        Note c4 = new Note(Pitch.of("C#4"), Duration.QUARTER);
-        Note d4 = new Note(Pitch.of("Db4"), Duration.QUARTER);
-        Note e4 = new Note(Pitch.of("En4"), Duration.QUARTER);
-        Note f4 = new Note(Pitch.of("F4"), Duration.QUARTER);
-        m1.addNote(c4);
-        m1.addNote(d4);
-        m1.addNote(e4);
-        m1.addNote(f4);
-        m1.addSlur(new Slur(List.of(c4, d4, e4, f4)));
-        m1.addDynamic(new Dynamic(c4, DynamicType.P));
+        m1.addNote(new Note(Pitch.of("C4"), Duration.QUARTER));
+        m1.addNote(new Note(Pitch.of("E4"), Duration.QUARTER));
+        m1.addNote(new Note(Pitch.of("G4"), Duration.QUARTER));
+        m1.addNote(new Note(Pitch.of("B4"), Duration.QUARTER));
         score.addMeasure(m1);
 
         // ============================================================
-        // Măsura 2 – text dedesubt, dinamică mf, hairpin (crescendo), accent
+        // Măsura 2 – șaisprezecimi izolate, toate cu tija în sus (note joase)
+        // Note: C4, D4, E4, F4, G4, A4, B4, C5 (toate sub linia de mijloc)
+        // Fiecare notă este urmată de un rest de șaisprezecime.
         // ============================================================
         Measure m2 = new Measure();
-        m2.addTextExpression(new TextExpression("cantabile", TextPlacement.BELOW));
-
-        Note g4 = new Note(Pitch.of("G4"), Duration.QUARTER);
-        Note a4 = new Note(Pitch.of("A4"), Duration.QUARTER);
-        Note b4 = new Note(Pitch.of("B4"), Duration.QUARTER);
-        Note c5 = new Note(Pitch.of("C5"), Duration.QUARTER);
-        m2.addNote(g4);
-        m2.addNote(a4);
-        m2.addNote(b4);
-        m2.addNote(c5);
-        m2.addDynamic(new Dynamic(g4, DynamicType.MF));
-        m2.addHairpin(new Hairpin(g4, c5, HairpinType.CRESCENDO, HairpinPlacement.BELOW));
-        m2.addArticulation(new Articulation(c5, ArticulationType.ACCENT));
+        m2.addNote(new Note(Pitch.of("C4"), Duration.SIXTEENTH));
+        m2.addNote(new Note(Duration.SIXTEENTH));
+        m2.addNote(new Note(Pitch.of("D4"), Duration.SIXTEENTH));
+        m2.addNote(new Note(Duration.SIXTEENTH));
+        m2.addNote(new Note(Pitch.of("E4"), Duration.SIXTEENTH));
+        m2.addNote(new Note(Duration.SIXTEENTH));
+        m2.addNote(new Note(Pitch.of("F4"), Duration.SIXTEENTH));
+        m2.addNote(new Note(Duration.SIXTEENTH));
+        m2.addNote(new Note(Pitch.of("G4"), Duration.SIXTEENTH));
+        m2.addNote(new Note(Duration.SIXTEENTH));
+        m2.addNote(new Note(Pitch.of("A4"), Duration.SIXTEENTH));
+        m2.addNote(new Note(Duration.SIXTEENTH));
+        m2.addNote(new Note(Pitch.of("B4"), Duration.SIXTEENTH));
+        m2.addNote(new Note(Duration.SIXTEENTH));
+        m2.addNote(new Note(Pitch.of("C5"), Duration.SIXTEENTH));
+        m2.addNote(new Note(Duration.SIXTEENTH));
         score.addMeasure(m2);
 
         // ============================================================
-        // Măsura 3 – time 6/8, key G major, beaming (optimi), slur, f, decrescendo, end repeat
+        // Măsura 3 – șaisprezecimi izolate, toate cu tija în jos (note înalte)
+        // Note: G4, A4, B4, C5, D5, E5, F5, G5
+        // Fiecare notă este urmată de un rest de șaisprezecime.
         // ============================================================
         Measure m3 = new Measure();
-        m3.addTimeSignature(TimeSignature.SIX_EIGHT);
-        m3.addKeySignature(KeySignature.G_MAJOR);
-        m3.addTextExpression(new TextExpression("espressivo", TextPlacement.ABOVE));
-
-        Note e8_1 = new Note(Pitch.of("E4"), Duration.EIGHTH);
-        Note f8_1 = new Note(Pitch.of("Fn4"), Duration.EIGHTH);
-        Note g8_1 = new Note(Pitch.of("G4"), Duration.EIGHTH);
-        Note a8_1 = new Note(Pitch.of("A4"), Duration.EIGHTH);
-        Note b8_1 = new Note(Pitch.of("B4"), Duration.EIGHTH);
-        Note c8_2 = new Note(Pitch.of("C5"), Duration.EIGHTH);
-        m3.addNote(e8_1);
-        m3.addNote(f8_1);
-        m3.addNote(g8_1);
-        m3.addNote(a8_1);
-        m3.addNote(b8_1);
-        m3.addNote(c8_2);
-        m3.addSlur(new Slur(List.of(e8_1, f8_1, g8_1, a8_1)));
-        m3.addDynamic(new Dynamic(e8_1, DynamicType.F));
-        m3.addHairpin(new Hairpin(e8_1, c8_2, HairpinType.DECRESCENDO, HairpinPlacement.ABOVE));
-        m3.addEndRepeat();
+        m3.addNote(new Note(Pitch.of("G4"), Duration.SIXTEENTH));
+        m3.addNote(new Note(Duration.SIXTEENTH));
+        m3.addNote(new Note(Pitch.of("A4"), Duration.SIXTEENTH));
+        m3.addNote(new Note(Duration.SIXTEENTH));
+        m3.addNote(new Note(Pitch.of("B4"), Duration.SIXTEENTH));
+        m3.addNote(new Note(Duration.SIXTEENTH));
+        m3.addNote(new Note(Pitch.of("C5"), Duration.SIXTEENTH));
+        m3.addNote(new Note(Duration.SIXTEENTH));
+        m3.addNote(new Note(Pitch.of("D5"), Duration.SIXTEENTH));
+        m3.addNote(new Note(Duration.SIXTEENTH));
+        m3.addNote(new Note(Pitch.of("E5"), Duration.SIXTEENTH));
+        m3.addNote(new Note(Duration.SIXTEENTH));
+        m3.addNote(new Note(Pitch.of("F5"), Duration.SIXTEENTH));
+        m3.addNote(new Note(Duration.SIXTEENTH));
+        m3.addNote(new Note(Pitch.of("G5"), Duration.SIXTEENTH));
+        m3.addNote(new Note(Duration.SIXTEENTH));
         score.addMeasure(m3);
 
         // ============================================================
-        // Măsura 4 – clef bass, time 9/8, tuplet (triplet), staccato, mp
+        // Măsura 4 – optimi izolate, toate cu tija în jos (note înalte)
+        // Note: C5, D5, E5, F5 (toate deasupra liniei de mijloc)
+        // Fiecare notă este urmată de un rest de optime.
         // ============================================================
         Measure m4 = new Measure();
-        m4.addClef(ClefType.BASS);
-        m4.addTimeSignature(TimeSignature.NINE_EIGHT);
-        m4.addTextExpression(new TextExpression("simile", TextPlacement.BELOW));
-
-        Note c3 = new Note(Pitch.of("C3"), Duration.QUARTER);
-        Note d3 = new Note(Pitch.of("D3"), Duration.QUARTER);
-        Note e3 = new Note(Pitch.of("E3"), Duration.QUARTER);
-        Note f3 = new Note(Pitch.of("F3"), Duration.QUARTER);
-        m4.addNote(c3);
-        m4.addNote(d3);
-        m4.addNote(e3);
-        m4.addNote(f3);
-        m4.addTuplet(new Tuplet(3, 2, List.of(c3, d3, e3)));
-        m4.addArticulation(new Articulation(f3, ArticulationType.STACCATO));
-        m4.addDynamic(new Dynamic(c3, DynamicType.MP));
+        m4.addNote(new Note(Pitch.of("C5"), Duration.EIGHTH));
+        m4.addNote(new Note(Duration.EIGHTH));
+        m4.addNote(new Note(Pitch.of("D5"), Duration.EIGHTH));
+        m4.addNote(new Note(Duration.EIGHTH));
+        m4.addNote(new Note(Pitch.of("E5"), Duration.EIGHTH));
+        m4.addNote(new Note(Duration.EIGHTH));
+        m4.addNote(new Note(Pitch.of("F5"), Duration.EIGHTH));
+        m4.addNote(new Note(Duration.EIGHTH));
         score.addMeasure(m4);
-
-        // ============================================================
-        // Măsura 5 – tempo BPM, două texte, tie, slur, marcato, tenuto, f, pp, hairpin crescendo
-        // ============================================================
-        Measure m5 = new Measure();
-        m5.addTempo(Tempo.ofBpm(96));
-        m5.addTextExpression(new TextExpression("con brio", TextPlacement.ABOVE));
-        m5.addTextExpression(new TextExpression("sempre", TextPlacement.BELOW));
-
-        Note x1 = new Note(Pitch.of("C4"), Duration.QUARTER, true, false);
-        Note x2 = new Note(Pitch.of("C4"), Duration.QUARTER, false, true);
-        Note x3 = new Note(Pitch.of("E4"), Duration.QUARTER);
-        Note x4 = new Note(Pitch.of("G4"), Duration.QUARTER);
-        m5.addNote(x1);
-        m5.addNote(x2);
-        m5.addNote(x3);
-        m5.addNote(x4);
-        m5.addSlur(new Slur(List.of(x2, x3, x4)));
-        m5.addArticulation(new Articulation(x1, ArticulationType.MARCATO));
-        m5.addArticulation(new Articulation(x4, ArticulationType.TENUTO));
-        m5.addDynamic(new Dynamic(x1, DynamicType.F));
-        m5.addDynamic(new Dynamic(x4, DynamicType.PP));
-        m5.addHairpin(new Hairpin(x1, x4, HairpinType.CRESCENDO, HairpinPlacement.BELOW));
-        score.addMeasure(m5);
-
-        // ============================================================
-        // Măsura 6 – clef alto, key C major, time 3/4, sixteenths, tuplet 5:4, staccatissimo, ppp
-        // ============================================================
-        Measure m6 = new Measure();
-        m6.addClef(ClefType.ALTO);
-        m6.addKeySignature(KeySignature.C_MAJOR);
-        m6.addTimeSignature(TimeSignature.THREE_FOUR);
-
-        Note s1 = new Note(Pitch.of("C5"), Duration.SIXTEENTH);
-        Note s2 = new Note(Pitch.of("D5"), Duration.SIXTEENTH);
-        Note s3 = new Note(Pitch.of("E5"), Duration.SIXTEENTH);
-        Note s4 = new Note(Pitch.of("F5"), Duration.SIXTEENTH);
-        m6.addNote(s1);
-        m6.addNote(s2);
-        m6.addNote(s3);
-        m6.addNote(s4);
-        m6.addTuplet(new Tuplet(5, 4, List.of(s1, s2, s3, s4)));
-        m6.addArticulation(new Articulation(s1, ArticulationType.STACCATISSIMO));
-        m6.addDynamic(new Dynamic(s1, DynamicType.PPP));
-        score.addMeasure(m6);
-
-        // ============================================================
-        // Măsura 7 – clef tenor, time 4/4, key F major, whole note with fermata, fff, text "Fine", end repeat
-        // ============================================================
-        Measure m7 = new Measure();
-        m7.addClef(ClefType.TENOR);
-        m7.addTimeSignature(TimeSignature.COMMON_TIME);
-        m7.addKeySignature(KeySignature.F_MAJOR);
-
-        Note whole = new Note(Pitch.of("C4"), Duration.WHOLE);
-        m7.addNote(whole);
-        m7.addArticulation(new Articulation(whole, ArticulationType.FERMATA));
-        m7.addDynamic(new Dynamic(whole, DynamicType.FFF));
-        m7.addTextExpression(new TextExpression("Fine", TextPlacement.ABOVE));
-        m7.addEndRepeat();
-        score.addMeasure(m7);
-
-        // ============================================================
-        // Măsura 8 – WHOLE rest (4/4)
-        // ============================================================
-        Measure m8 = new Measure();
-        Note restWhole = new Note(Duration.WHOLE);
-        m8.addNote(restWhole);
-        score.addMeasure(m8);
-
-        // ============================================================
-        // Măsura 9 – HALF rest + două note pătrimi (pentru a umple 2 bătăi)
-        // ============================================================
-        Measure m9 = new Measure();
-        Note restHalf = new Note(Duration.HALF);
-        Note nHalf1 = new Note(Pitch.of("C4"), Duration.QUARTER);
-        Note nHalf2 = new Note(Pitch.of("D4"), Duration.QUARTER);
-        m9.addNote(restHalf);
-        m9.addNote(nHalf1);
-        m9.addNote(nHalf2);
-        score.addMeasure(m9);
-
-        // ============================================================
-        // Măsura 10 – QUARTER rest, notă, quarter rest, notă
-        // ============================================================
-        Measure m10 = new Measure();
-        Note restQ1 = new Note(Duration.QUARTER);
-        Note nQ1 = new Note(Pitch.of("E4"), Duration.QUARTER);
-        Note restQ2 = new Note(Duration.QUARTER);
-        Note nQ2 = new Note(Pitch.of("F4"), Duration.QUARTER);
-        m10.addNote(restQ1);
-        m10.addNote(nQ1);
-        m10.addNote(restQ2);
-        m10.addNote(nQ2);
-        score.addMeasure(m10);
-
-        // ============================================================
-        // Măsura 11 – EIGHTH rest, notă, eighth rest, notă, și încă două optimi
-        // ============================================================
-        Measure m11 = new Measure();
-        Note restE1 = new Note(Duration.EIGHTH);
-        Note nE1 = new Note(Pitch.of("G4"), Duration.EIGHTH);
-        Note restE2 = new Note(Duration.EIGHTH);
-        Note nE2 = new Note(Pitch.of("A4"), Duration.EIGHTH);
-        Note nE3 = new Note(Pitch.of("B4"), Duration.EIGHTH);
-        Note nE4 = new Note(Pitch.of("C5"), Duration.EIGHTH);
-        m11.addNote(restE1);
-        m11.addNote(nE1);
-        m11.addNote(restE2);
-        m11.addNote(nE2);
-        m11.addNote(nE3);
-        m11.addNote(nE4);
-        score.addMeasure(m11);
-
-        // ============================================================
-        // Măsura 12 – SIXTEENTH rest + notă, + rest + notă, etc. (umplem 4 bătăi)
-        // ============================================================
-        Measure m12 = new Measure();
-        Note restS1 = new Note(Duration.SIXTEENTH);
-        Note nS1 = new Note(Pitch.of("D5"), Duration.SIXTEENTH);
-        Note restS2 = new Note(Duration.SIXTEENTH);
-        Note nS2 = new Note(Pitch.of("E5"), Duration.SIXTEENTH);
-        Note restS3 = new Note(Duration.SIXTEENTH);
-        Note nS3 = new Note(Pitch.of("F5"), Duration.SIXTEENTH);
-        Note restS4 = new Note(Duration.SIXTEENTH);
-        Note nS4 = new Note(Pitch.of("G5"), Duration.SIXTEENTH);
-        // Mai adăugăm încă 8 șaisprezecimi (2 bătăi) pentru a umple măsura 4/4
-        // Total 16 șaisprezecimi = 4 bătăi
-        m12.addNote(restS1);
-        m12.addNote(nS1);
-        m12.addNote(restS2);
-        m12.addNote(nS2);
-        m12.addNote(restS3);
-        m12.addNote(nS3);
-        m12.addNote(restS4);
-        m12.addNote(nS4);
-        // Încă 8 șaisprezecimi (2 bătăi) – le adăugăm ca note
-        for (int i = 0; i < 8; i++) {
-            m12.addNote(new Note(Pitch.of("A5"), Duration.SIXTEENTH));
-        }
-        score.addMeasure(m12);
 
         // Validăm score-ul
         score.validate();

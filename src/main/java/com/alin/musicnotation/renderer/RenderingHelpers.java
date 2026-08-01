@@ -2,7 +2,7 @@ package com.alin.musicnotation.renderer;
 
 import com.alin.musicnotation.model.layout.NoteLayout;
 import com.alin.musicnotation.model.layout.StemDirection;
-
+import java.util.Comparator;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -59,31 +59,49 @@ public final class RenderingHelpers {
         List<List<NoteLayout>> groups = new ArrayList<>();
         List<NoteLayout> currentGroup = null;
         int currentBeat = -1;
-        for (NoteLayout layout : layouts) {
-            if (!layout.note().duration().isBeamable()) {
+
+        // Sortăm după poziția x (deși deja ar trebui să fie sortate)
+        List<NoteLayout> sorted = new ArrayList<>(layouts);
+        sorted.sort(Comparator.comparingDouble(NoteLayout::x));
+
+        for (NoteLayout layout : sorted) {
+            if (layout.note().isRest() || !layout.note().duration().isBeamable()) {
                 if (currentGroup != null && !currentGroup.isEmpty()) {
                     groups.add(currentGroup);
                     currentGroup = null;
                 }
                 continue;
             }
+
             int beat = layout.startSixteenths() / 4;
+            boolean consecutive = false;
+
+            if (currentGroup != null && !currentGroup.isEmpty()) {
+                NoteLayout last = currentGroup.get(currentGroup.size() - 1);
+                int lastEnd = last.startSixteenths() + last.note().duration().sixteenths();
+                consecutive = (lastEnd == layout.startSixteenths());
+            }
+
             if (currentGroup == null) {
                 currentGroup = new ArrayList<>();
                 currentGroup.add(layout);
                 currentBeat = beat;
-            } else if (beat == currentBeat) {
+            } else if (beat == currentBeat && consecutive) {
                 currentGroup.add(layout);
             } else {
-                groups.add(currentGroup);
+                if (currentGroup.size() >= 2) {
+                    groups.add(currentGroup);
+                }
                 currentGroup = new ArrayList<>();
                 currentGroup.add(layout);
                 currentBeat = beat;
             }
         }
-        if (currentGroup != null && !currentGroup.isEmpty()) {
+
+        if (currentGroup != null && currentGroup.size() >= 2) {
             groups.add(currentGroup);
         }
+
         return groups;
     }
 }
