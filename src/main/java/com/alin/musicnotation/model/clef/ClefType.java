@@ -12,7 +12,7 @@ public enum ClefType {
     // Treble clef (G clef)
     // - referenceLineIndex = 2 (centers the symbol on the G4 line)
     // - referencePitch = F5 (top line of the staff)
-    TREBLE(2, Pitch.of("F5")),
+    TREBLE(3, Pitch.of("F5")),
 
     // Bass clef (F clef)
     BASS(1, Pitch.of("A3")),

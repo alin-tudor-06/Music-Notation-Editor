@@ -253,7 +253,7 @@ public class MusicNotationApp extends Application {
         // Testează: schimbări multiple, beaming la șaisprezecimi, tuplet cu 5 note
         // ============================================================
         Measure m6 = new Measure();
-        m6.addClef(ClefType.TREBLE);
+        m6.addClef(ClefType.ALTO);
         m6.addKeySignature(KeySignature.C_MAJOR);
         m6.addTimeSignature(TimeSignature.THREE_FOUR);
 
@@ -275,6 +275,7 @@ public class MusicNotationApp extends Application {
         // Testează: notă întreagă, fermata, ultimul sistem (nu se justifică)
         // ============================================================
         Measure m7 = new Measure();
+        m7.addClef(ClefType.TENOR);
         m7.addTimeSignature(TimeSignature.COMMON_TIME);
         m7.addKeySignature(KeySignature.F_MAJOR);
 
