@@ -16,9 +16,8 @@ public class TextExpressionRenderer {
 
     private static final double TEXT_EXPRESSION_FONT_SIZE_FACTOR = 0.9;
     private static final double TEXT_EXPRESSION_STACK_SPACING_FACTOR = 1.2;
-    // Mărit de la 2.5 la 3.2
     private static final double TEXT_EXPRESSION_OFFSET_ABOVE_FACTOR = 3.2;
-    // Mărit de la 1.4 la 2.0
+    // Revenim la 2.0 pentru a nu depărta prea mult textele de sub portativ
     private static final double TEXT_EXPRESSION_OFFSET_BELOW_FACTOR = 2.0;
 
     public void draw(GraphicsContext gc, Measure measure, double contentStartX,
@@ -34,6 +33,7 @@ public class TextExpressionRenderer {
 
         double tempoExtra = measure.tempo() != null ? staffLineSpacing * 1.5 : 0.0;
         boolean hasHairpin = !measure.hairpins().isEmpty();
+        boolean hasDynamics = !measure.dynamics().isEmpty();
 
         Font font = Font.font("Serif", FontWeight.NORMAL, FontPosture.ITALIC, fontHeight);
 
@@ -53,7 +53,7 @@ public class TextExpressionRenderer {
                 aboveIndex++;
             } else {
                 yBase = computeBelowY(staffBottomY, staffLineSpacing, belowIndex,
-                        hasHairpin);
+                        hasHairpin, hasDynamics);
                 belowIndex++;
             }
 
@@ -71,10 +71,11 @@ public class TextExpressionRenderer {
     }
 
     private double computeBelowY(double staffBottomY, double staffLineSpacing, int index,
-                                 boolean hasHairpin) {
+                                 boolean hasHairpin, boolean hasDynamics) {
         double hairpinExtra = hasHairpin ? staffLineSpacing * 2.0 : 0.0;
+        double dynamicExtra = hasDynamics ? staffLineSpacing * 0.7 : 0.0;
         double offset = staffLineSpacing * TEXT_EXPRESSION_OFFSET_BELOW_FACTOR;
         double stackSpacing = staffLineSpacing * TEXT_EXPRESSION_STACK_SPACING_FACTOR;
-        return staffBottomY + offset + hairpinExtra + index * stackSpacing;
+        return staffBottomY + offset + hairpinExtra + dynamicExtra + index * stackSpacing;
     }
 }

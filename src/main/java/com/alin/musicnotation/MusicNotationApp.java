@@ -30,9 +30,9 @@ public class MusicNotationApp extends Application {
     private static final double WINDOW_HEIGHT = 1000;
     private static final double STAFF_LINE_SPACING = 16;
     private static final double STAFF_MARGIN = 60;
-    private static final double NOTE_SPACING_PER_QUARTER = 60;
+    private static final double NOTE_SPACING_PER_QUARTER = 90;
     private static final double SYSTEM_SPACING = STAFF_LINE_SPACING * 14;
-    private static final double TOP_MARGIN = 100; // puțin mai mic decât înainte (120)
+    private static final double TOP_MARGIN = 130;
 
     private final Score score = createSampleScore();
 
@@ -121,186 +121,147 @@ public class MusicNotationApp extends Application {
     }
 
     private static Score createSampleScore() {
+        // Start with C major, treble clef, 4/4
         Score score = new Score(KeySignature.C_MAJOR, ClefType.TREBLE, TimeSignature.COMMON_TIME);
 
-        // Measure 1
-        Measure measure1 = new Measure();
-        measure1.addStartRepeat();
-        measure1.addTempo(new Tempo("Allegro"));
-        measure1.addTextExpression(new TextExpression("dolce", TextPlacement.ABOVE));
-
-        Note n1 = new Note(Pitch.of("C4"), Duration.QUARTER);
-        Note n2 = new Note(Pitch.of("C4"), Duration.QUARTER, true, false);
-        Note n3 = new Note(Pitch.of("C4"), Duration.QUARTER, false, true);
-        Note n4 = new Note(Pitch.of("F4"), Duration.QUARTER);
-        measure1.addNote(n1);
-        measure1.addNote(n2);
-        measure1.addNote(n3);
-        measure1.addNote(n4);
-        measure1.addArticulation(new Articulation(n4, ArticulationType.STACCATO));
-        score.addMeasure(measure1);
-
-        // Measure 2
-        Measure measure2 = new Measure();
-        measure2.addTempo(new Tempo("Andante", 80));
-        measure2.addTextExpression(new TextExpression("cantabile", TextPlacement.BELOW));
+        // ---------- Measure 1 ----------
+        Measure m1 = new Measure();
+        m1.addStartRepeat();
+        m1.addTempo(new Tempo("Allegro", 120));
+        m1.addTextExpression(new TextExpression("dolce", TextPlacement.ABOVE));
 
         Note c4 = new Note(Pitch.of("C4"), Duration.QUARTER);
         Note d4 = new Note(Pitch.of("D4"), Duration.QUARTER);
         Note e4 = new Note(Pitch.of("E4"), Duration.QUARTER);
         Note f4 = new Note(Pitch.of("F4"), Duration.QUARTER);
-        measure2.addNote(c4);
-        measure2.addNote(d4);
-        measure2.addNote(e4);
-        measure2.addNote(f4);
-        measure2.addSlur(new Slur(List.of(c4, d4, e4, f4)));
-        measure2.addDynamic(new Dynamic(c4, DynamicType.P));
-        measure2.addHairpin(new Hairpin(c4, f4, HairpinType.CRESCENDO));
-        score.addMeasure(measure2);
+        m1.addNote(c4);
+        m1.addNote(d4);
+        m1.addNote(e4);
+        m1.addNote(f4);
+        m1.addSlur(new Slur(List.of(c4, d4, e4, f4)));          // slur over four notes
+        m1.addDynamic(new Dynamic(c4, DynamicType.P));
+        score.addMeasure(m1);
 
-        // Measure 3
-        Measure measure3 = new Measure();
-        measure3.addTimeSignature(TimeSignature.SIX_EIGHT);
-        measure3.addKeySignature(KeySignature.G_MAJOR);
-        measure3.addTextExpression(new TextExpression("espressivo", TextPlacement.ABOVE));
+        // ---------- Measure 2 ----------
+        Measure m2 = new Measure();
+        m2.addTextExpression(new TextExpression("cantabile", TextPlacement.BELOW));
 
-        Note g4 = new Note(Pitch.of("G4"), Duration.EIGHTH);
-        Note a4 = new Note(Pitch.of("A4"), Duration.EIGHTH);
-        Note b4 = new Note(Pitch.of("B4"), Duration.EIGHTH);
-        Note c5 = new Note(Pitch.of("C5"), Duration.EIGHTH);
-        measure3.addNote(g4);
-        measure3.addNote(a4);
-        measure3.addNote(b4);
-        measure3.addNote(c5);
-        measure3.addTuplet(new Tuplet(3, 2, List.of(g4, a4, b4)));
-        measure3.addArticulation(new Articulation(g4, ArticulationType.ACCENT));
-        measure3.addDynamic(new Dynamic(g4, DynamicType.F));
-        measure3.addEndRepeat();
-        score.addMeasure(measure3);
+        Note g4 = new Note(Pitch.of("G4"), Duration.SIXTEENTH);
+        Note a4 = new Note(Pitch.of("A4"), Duration.QUARTER);
+        Note b4 = new Note(Pitch.of("B4"), Duration.QUARTER);
+        Note c5 = new Note(Pitch.of("C5"), Duration.QUARTER);
+        m2.addNote(g4);
+        m2.addNote(a4);
+        m2.addNote(b4);
+        m2.addNote(c5);
+        m2.addDynamic(new Dynamic(g4, DynamicType.MF));
+        m2.addHairpin(new Hairpin(g4, c5, HairpinType.CRESCENDO, HairpinPlacement.BELOW));
+        m2.addArticulation(new Articulation(c5, ArticulationType.ACCENT));
+        score.addMeasure(m2);
 
-        // Measure 4
-        Measure measure4 = new Measure();
-        measure4.addClef(ClefType.BASS);
-        measure4.addTimeSignature(TimeSignature.NINE_EIGHT);
-        measure4.addTextExpression(new TextExpression("simile", TextPlacement.BELOW));
+        // ---------- Measure 3 ----------
+        Measure m3 = new Measure();
+        m3.addTimeSignature(TimeSignature.SIX_EIGHT);
+        m3.addKeySignature(KeySignature.G_MAJOR);   // one sharp
+        m3.addTextExpression(new TextExpression("espressivo", TextPlacement.ABOVE));
+
+        // Eighth notes that will be beamed automatically (group by beat)
+        Note e8_1 = new Note(Pitch.of("E4"), Duration.EIGHTH);
+        Note f8_1 = new Note(Pitch.of("F#4"), Duration.EIGHTH);
+        Note g8_1 = new Note(Pitch.of("G4"), Duration.EIGHTH);
+        Note a8_1 = new Note(Pitch.of("A4"), Duration.EIGHTH);
+        Note b8_1 = new Note(Pitch.of("B4"), Duration.EIGHTH);
+        Note c8_2 = new Note(Pitch.of("C5"), Duration.EIGHTH);
+        m3.addNote(e8_1);
+        m3.addNote(f8_1);
+        m3.addNote(g8_1);
+        m3.addNote(a8_1);
+        m3.addNote(b8_1);
+        m3.addNote(c8_2);
+        // Slur over first four notes
+        m3.addSlur(new Slur(List.of(e8_1, f8_1, g8_1, a8_1)));
+        m3.addDynamic(new Dynamic(e8_1, DynamicType.F));
+        m3.addHairpin(new Hairpin(e8_1, c8_2, HairpinType.DECRESCENDO, HairpinPlacement.ABOVE));
+        m3.addEndRepeat();
+        score.addMeasure(m3);
+
+        // ---------- Measure 4 ----------
+        Measure m4 = new Measure();
+        m4.addClef(ClefType.BASS);
+        m4.addTimeSignature(TimeSignature.NINE_EIGHT);
+        m4.addTextExpression(new TextExpression("simile", TextPlacement.BELOW));
 
         Note c3 = new Note(Pitch.of("C3"), Duration.QUARTER);
         Note d3 = new Note(Pitch.of("D3"), Duration.QUARTER);
         Note e3 = new Note(Pitch.of("E3"), Duration.QUARTER);
         Note f3 = new Note(Pitch.of("F3"), Duration.QUARTER);
-        measure4.addNote(c3);
-        measure4.addNote(d3);
-        measure4.addNote(e3);
-        measure4.addNote(f3);
-        measure4.addDynamic(new Dynamic(c3, DynamicType.MF));
-        score.addMeasure(measure4);
+        m4.addNote(c3);
+        m4.addNote(d3);
+        m4.addNote(e3);
+        m4.addNote(f3);
+        m4.addTuplet(new Tuplet(3, 2, List.of(c3, d3, e3)));   // triplet
+        m4.addArticulation(new Articulation(f3, ArticulationType.STACCATO));
+        m4.addDynamic(new Dynamic(c3, DynamicType.MP));
+        score.addMeasure(m4);
 
-        // Measure 5
-        Measure measure5 = new Measure();
-        measure5.addTempo(Tempo.ofBpm(96));
-        measure5.addTextExpression(new TextExpression("con brio", TextPlacement.ABOVE));
-        measure5.addTextExpression(new TextExpression("sempre", TextPlacement.BELOW));
+        // ---------- Measure 5 ----------
+        Measure m5 = new Measure();
+        m5.addTempo(Tempo.ofBpm(96));
+        m5.addTextExpression(new TextExpression("con brio", TextPlacement.BELOW));
+        m5.addTextExpression(new TextExpression("sempre", TextPlacement.BELOW));
 
-        Note x1 = new Note(Pitch.of("C4"), Duration.QUARTER);
-        Note x2 = new Note(Pitch.of("D4"), Duration.QUARTER, true, false);
+        // Tied notes
+        Note x1 = new Note(Pitch.of("C4"), Duration.SIXTEENTH, true, false);
+        Note x2 = new Note(Pitch.of("C4"), Duration.QUARTER, false, true);
         Note x3 = new Note(Pitch.of("E4"), Duration.QUARTER);
-        Note x4 = new Note(Pitch.of("F4"), Duration.QUARTER, false, true);
-        measure5.addNote(x1);
-        measure5.addNote(x2);
-        measure5.addNote(x3);
-        measure5.addNote(x4);
-        measure5.addArticulation(new Articulation(x1, ArticulationType.STACCATISSIMO));
-        measure5.addArticulation(new Articulation(x2, ArticulationType.MARCATO));
-        measure5.addDynamic(new Dynamic(x1, DynamicType.MP));
-        measure5.addDynamic(new Dynamic(x4, DynamicType.FF));
-        measure5.addHairpin(new Hairpin(x1, x4, HairpinType.DECRESCENDO, HairpinPlacement.ABOVE));
-        score.addMeasure(measure5);
+        Note x4 = new Note(Pitch.of("G4"), Duration.QUARTER);
+        m5.addNote(x1);
+        m5.addNote(x2);
+        m5.addNote(x3);
+        m5.addNote(x4);
+        m5.addSlur(new Slur(List.of(x2, x3, x4)));              // slur after tie
+        m5.addArticulation(new Articulation(x1, ArticulationType.MARCATO));
+        m5.addArticulation(new Articulation(x4, ArticulationType.TENUTO));
+        m5.addDynamic(new Dynamic(x1, DynamicType.F));
+        m5.addDynamic(new Dynamic(x4, DynamicType.PP));
+        m5.addHairpin(new Hairpin(x1, x4, HairpinType.CRESCENDO, HairpinPlacement.BELOW));
+        score.addMeasure(m5);
 
-        // Measure 6
-        Measure measure6 = new Measure();
-        measure6.addClef(ClefType.BASS);
-        measure6.addTimeSignature(TimeSignature.NINE_EIGHT);
-        measure6.addTextExpression(new TextExpression("simile", TextPlacement.BELOW));
+        // ---------- Measure 6 ----------
+        Measure m6 = new Measure();
+        m6.addClef(ClefType.TREBLE);              // back to treble
+        m6.addKeySignature(KeySignature.C_MAJOR); // back to C major
+        m6.addTimeSignature(TimeSignature.THREE_FOUR);
 
-        Note a1 = new Note(Pitch.of("C3"), Duration.QUARTER);
-        Note a2 = new Note(Pitch.of("D3"), Duration.QUARTER);
-        Note a3 = new Note(Pitch.of("E3"), Duration.QUARTER);
-        Note a5 = new Note(Pitch.of("F3"), Duration.QUARTER);
-        measure6.addNote(a1);
-        measure6.addNote(a2);
-        measure6.addNote(a3);
-        measure6.addNote(a5);
-        measure6.addDynamic(new Dynamic(a1, DynamicType.MF));
-        score.addMeasure(measure6);
+        // Sixteenth notes with beams and flags
+        Note s1 = new Note(Pitch.of("C5"), Duration.SIXTEENTH);
+        Note s2 = new Note(Pitch.of("D5"), Duration.SIXTEENTH);
+        Note s3 = new Note(Pitch.of("E5"), Duration.SIXTEENTH);
+        Note s4 = new Note(Pitch.of("F5"), Duration.SIXTEENTH);
+        m6.addNote(s1);
+        m6.addNote(s2);
+        m6.addNote(s3);
+        m6.addNote(s4);
+        m6.addTuplet(new Tuplet(5, 4, List.of(s1, s2, s3, s4))); // quintuplet
+        m6.addArticulation(new Articulation(s1, ArticulationType.STACCATISSIMO));
+        m6.addDynamic(new Dynamic(s1, DynamicType.PPP));
+        score.addMeasure(m6);
 
-        // Measure 7
-        Measure measure7 = new Measure();
-        measure7.addClef(ClefType.BASS);
-        measure7.addTimeSignature(TimeSignature.NINE_EIGHT);
-        measure7.addTextExpression(new TextExpression("simile", TextPlacement.BELOW));
+        // ---------- Measure 7 (final) ----------
+        Measure m7 = new Measure();
+        m7.addTimeSignature(TimeSignature.COMMON_TIME);
+        m7.addKeySignature(KeySignature.F_MAJOR);   // one flat
 
-        Note h1 = new Note(Pitch.of("C3"), Duration.QUARTER);
-        Note h2 = new Note(Pitch.of("D3"), Duration.QUARTER);
-        Note h3 = new Note(Pitch.of("E3"), Duration.QUARTER);
-        Note h4 = new Note(Pitch.of("F3"), Duration.QUARTER);
-        measure7.addNote(h1);
-        measure7.addNote(h2);
-        measure7.addNote(h3);
-        measure7.addNote(h4);
-        measure7.addDynamic(new Dynamic(h1, DynamicType.MF));
-        score.addMeasure(measure7);
+        // Whole note with fermata
+        Note whole = new Note(Pitch.of("C4"), Duration.WHOLE);
+        m7.addNote(whole);
+        m7.addArticulation(new Articulation(whole, ArticulationType.FERMATA));
+        m7.addDynamic(new Dynamic(whole, DynamicType.FFF));
+        m7.addTextExpression(new TextExpression("Fine", TextPlacement.ABOVE));
+        m7.addEndRepeat();
+        score.addMeasure(m7);
 
-        // Measure 8
-        Measure measure8 = new Measure();
-        measure8.addClef(ClefType.BASS);
-        measure8.addTimeSignature(TimeSignature.NINE_EIGHT);
-        measure8.addTextExpression(new TextExpression("simile", TextPlacement.BELOW));
-
-        Note y1 = new Note(Pitch.of("C3"), Duration.QUARTER);
-        Note y2 = new Note(Pitch.of("D3"), Duration.QUARTER);
-        Note y3 = new Note(Pitch.of("E3"), Duration.QUARTER);
-        Note y4 = new Note(Pitch.of("F3"), Duration.QUARTER);
-        measure8.addNote(y1);
-        measure8.addNote(y2);
-        measure8.addNote(y3);
-        measure8.addNote(y4);
-        measure8.addDynamic(new Dynamic(y1, DynamicType.MF));
-        score.addMeasure(measure8);
-
-        // Measure 9
-        Measure measure9 = new Measure();
-        measure9.addClef(ClefType.BASS);
-        measure9.addTimeSignature(TimeSignature.NINE_EIGHT);
-        measure9.addTextExpression(new TextExpression("simile", TextPlacement.BELOW));
-
-        Note g5 = new Note(Pitch.of("C3"), Duration.QUARTER);
-        Note g6 = new Note(Pitch.of("D3"), Duration.QUARTER);
-        Note g7 = new Note(Pitch.of("E3"), Duration.QUARTER);
-        Note g8 = new Note(Pitch.of("F3"), Duration.QUARTER);
-        measure9.addNote(g5);
-        measure9.addNote(g6);
-        measure9.addNote(g7);
-        measure9.addNote(g8);
-        measure9.addDynamic(new Dynamic(g5, DynamicType.MF));
-        score.addMeasure(measure9);
-
-        // Measure 10
-        Measure measure10 = new Measure();
-        measure10.addClef(ClefType.BASS);
-        measure10.addTimeSignature(TimeSignature.NINE_EIGHT);
-        measure10.addTextExpression(new TextExpression("simile", TextPlacement.BELOW));
-
-        Note b5 = new Note(Pitch.of("C3"), Duration.QUARTER);
-        Note b6 = new Note(Pitch.of("D3"), Duration.QUARTER);
-        Note b7 = new Note(Pitch.of("E3"), Duration.QUARTER);
-        Note b8 = new Note(Pitch.of("F3"), Duration.QUARTER);
-        measure10.addNote(b5);
-        measure10.addNote(b6);
-        measure10.addNote(b7);
-        measure10.addNote(b8);
-        measure10.addDynamic(new Dynamic(b5, DynamicType.MF));
-        score.addMeasure(measure10);
-
+        // Validate the entire score
         score.validate();
         return score;
     }

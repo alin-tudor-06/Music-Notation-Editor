@@ -22,9 +22,8 @@ public record RenderConfig(
                 new TupletConfig(s * 2.5, s * 0.5, 0.9),
                 new SlurConfig(s * 1.6),
                 new ArticulationConfig(1.0, s * 0.8),
-                new DynamicConfig(0.8, s * 2.2),
-                // startPadding redus de la 40 la 15 pentru a diminua distanța
-                new MeasureLayoutConfig(30, 15, 20),
+                new DynamicConfig(0.8, s * 1.4),           // ← offset redus
+                new MeasureLayoutConfig(30, 25, 20, 6),
                 new SpacingConfig(8, 14),
                 new ClefChangeConfig(6, 15, 40)
         );
@@ -40,7 +39,7 @@ public record RenderConfig(
     public record SlurConfig(double offset) {}
     public record ArticulationConfig(double fontSizeFactor, double offset) {}
     public record DynamicConfig(double fontSizeFactor, double offset) {}
-    public record MeasureLayoutConfig(double endPadding, double startPadding, double repeatGap) {}
+    public record MeasureLayoutConfig(double endPadding, double startPadding, double repeatGap, double preNotePadding) {}
     public record SpacingConfig(double beamableExtra, double accidentalExtra) {}
     public record ClefChangeConfig(double leftPadding, double afterSpacing, double changeSpacing) {}
 }
