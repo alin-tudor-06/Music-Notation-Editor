@@ -138,42 +138,32 @@ public class NoteRenderer {
     private void drawRest(GraphicsContext gc, double x, double y, Duration duration,
                           double restWidth, double restHeight, double eighthRestSlant,
                           double staffLineSpacing) {
-        gc.setStroke(Color.BLACK);
-        gc.setFill(Color.BLACK);
-        gc.setLineWidth(1.5);
-        double w = restWidth;
-        double h = restHeight;
+        // Map Duration to SmuflGlyph
+        SmuflGlyph glyph = switch (duration) {
+            case WHOLE -> SmuflGlyph.REST_WHOLE;
+            case HALF -> SmuflGlyph.REST_HALF;
+            case QUARTER -> SmuflGlyph.REST_QUARTER;
+            case EIGHTH -> SmuflGlyph.REST_EIGHTH;
+            case SIXTEENTH -> SmuflGlyph.REST_SIXTEENTH;
+            default -> null;
+        };
 
-        if (duration == Duration.WHOLE) {
-            gc.fillRect(x - w / 2, y, w, h);
-        } else if (duration == Duration.HALF) {
-            gc.fillRect(x - w / 2, y - h, w, h);
-        } else if (duration == Duration.QUARTER) {
-            double cx = x;
-            double cy = y;
-            gc.beginPath();
-            gc.moveTo(cx - w / 2, cy + h / 2);
-            gc.quadraticCurveTo(cx - w / 2, cy - h / 2, cx, cy - h / 2);
-            gc.quadraticCurveTo(cx + w / 2, cy - h / 2, cx + w / 2, cy);
-            gc.quadraticCurveTo(cx + w / 2, cy + h / 2, cx, cy + h / 2);
-            gc.quadraticCurveTo(cx - w / 2, cy + h / 2, cx - w / 2, cy + h / 2);
-            gc.closePath();
-            gc.fill();
-        } else if (duration == Duration.EIGHTH || duration == Duration.SIXTEENTH) {
-            double slant = eighthRestSlant;
-            double height = staffLineSpacing * 0.8;
-            double startX = x - w / 2;
-            double startY = y - height / 2;
-            double endX = x + w / 2;
-            double endY = y + height / 2 + slant;
-            gc.strokeLine(startX, startY, endX, endY);
-            int hooks = (duration == Duration.SIXTEENTH) ? 2 : 1;
-            for (int i = 0; i < hooks; i++) {
-                double hookX = endX - i * 4;
-                double hookY = endY - i * 6;
-                gc.strokeLine(endX, endY, hookX, hookY);
-            }
+        if (glyph == null) {
+            return;
         }
+
+        // Font size derived from restHeight to preserve visual proportion.
+        // The multiplication factor (2.0) compensates for the typical difference
+        // between the bounding box of the old geometric drawing and the SMuFL glyph's em‑square.
+        double fontSize = restHeight * 4;
+        Font bravura = BravuraFont.getFont();
+        Font glyphFont = Font.font(bravura.getFamily(), fontSize);
+
+        gc.setFill(Color.BLACK);
+        gc.setFont(glyphFont);
+        gc.setTextAlign(TextAlignment.CENTER);
+        gc.setTextBaseline(VPos.CENTER);
+        gc.fillText(glyph.unicode(), x, y);
     }
 
     private void drawLedgerLines(GraphicsContext gc, double x, double firstLineY, int position,

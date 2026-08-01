@@ -130,12 +130,10 @@ public class MusicNotationApp extends Application {
     }
 
     private static Score createSampleScore() {
-        // Score-ul începe în Do major, cheia sol, 4/4
         Score score = new Score(KeySignature.C_MAJOR, ClefType.TREBLE, TimeSignature.COMMON_TIME);
 
         // ============================================================
-        // Măsura 1 – sistem cu o singură măsură (la început)
-        // Testează: start repeat, tempo, text deasupra, slur, dinamică p
+        // Măsura 1 – start repeat, tempo, text, slur, dinamică p
         // ============================================================
         Measure m1 = new Measure();
         m1.addStartRepeat();
@@ -155,8 +153,7 @@ public class MusicNotationApp extends Application {
         score.addMeasure(m1);
 
         // ============================================================
-        // Măsura 2 – sistem cu mai multe măsuri (împreună cu măsura 3 etc.)
-        // Testează: text dedesubt, dinamică mf, hairpin (crescendo), articulație accent
+        // Măsura 2 – text dedesubt, dinamică mf, hairpin (crescendo), accent
         // ============================================================
         Measure m2 = new Measure();
         m2.addTextExpression(new TextExpression("cantabile", TextPlacement.BELOW));
@@ -175,8 +172,7 @@ public class MusicNotationApp extends Application {
         score.addMeasure(m2);
 
         // ============================================================
-        // Măsura 3 – schimbă time signature și key signature (G major)
-        // Testează: beaming (optimi), slur, dinamică f, hairpin (decrescendo), end repeat
+        // Măsura 3 – time 6/8, key G major, beaming (optimi), slur, f, decrescendo, end repeat
         // ============================================================
         Measure m3 = new Measure();
         m3.addTimeSignature(TimeSignature.SIX_EIGHT);
@@ -202,8 +198,7 @@ public class MusicNotationApp extends Application {
         score.addMeasure(m3);
 
         // ============================================================
-        // Măsura 4 – schimbă clef (bass), time signature (9/8), tuplet (triplet), articulație staccato, dynamic mp
-        // Testează: clef change, tuplet, rests (nu avem, dar putem adăuga mai târziu)
+        // Măsura 4 – clef bass, time 9/8, tuplet (triplet), staccato, mp
         // ============================================================
         Measure m4 = new Measure();
         m4.addClef(ClefType.BASS);
@@ -224,8 +219,7 @@ public class MusicNotationApp extends Application {
         score.addMeasure(m4);
 
         // ============================================================
-        // Măsura 5 – schimbă tempo (BPM), text deasupra și dedesubt, legături (tie), slur după tie, articulații marcato și tenuto, dinamici f și pp, hairpin (crescendo)
-        // Testează: legături, mai multe articulații, mai multe dinamici
+        // Măsura 5 – tempo BPM, două texte, tie, slur, marcato, tenuto, f, pp, hairpin crescendo
         // ============================================================
         Measure m5 = new Measure();
         m5.addTempo(Tempo.ofBpm(96));
@@ -249,8 +243,7 @@ public class MusicNotationApp extends Application {
         score.addMeasure(m5);
 
         // ============================================================
-        // Măsura 6 – schimbă clef (treble), key (C major), time (3/4), note de șaisprezecime cu tuplet (5:4), articulație staccatissimo, dynamic ppp
-        // Testează: schimbări multiple, beaming la șaisprezecimi, tuplet cu 5 note
+        // Măsura 6 – clef alto, key C major, time 3/4, sixteenths, tuplet 5:4, staccatissimo, ppp
         // ============================================================
         Measure m6 = new Measure();
         m6.addClef(ClefType.ALTO);
@@ -271,8 +264,7 @@ public class MusicNotationApp extends Application {
         score.addMeasure(m6);
 
         // ============================================================
-        // Măsura 7 – revenire la 4/4 și Fa major (o bemol), notă întreagă cu fermata, dynamic fff, text "Fine", end repeat
-        // Testează: notă întreagă, fermata, ultimul sistem (nu se justifică)
+        // Măsura 7 – clef tenor, time 4/4, key F major, whole note with fermata, fff, text "Fine", end repeat
         // ============================================================
         Measure m7 = new Measure();
         m7.addClef(ClefType.TENOR);
@@ -288,52 +280,86 @@ public class MusicNotationApp extends Application {
         score.addMeasure(m7);
 
         // ============================================================
-        // Măsurile 8, 9, 10 – pentru a crea sisteme cu mai multe măsuri și a testa justificarea
-        // Măsura 8: resturi și note pentru a testa poziționarea resturilor și beaming
-        // Măsura 9: doar note de optimi pentru a testa beaming-ul
-        // Măsura 10: notă întreagă pentru a testa o măsură foarte scurtă
+        // Măsura 8 – WHOLE rest (4/4)
         // ============================================================
-
-        // Măsura 8
         Measure m8 = new Measure();
-        // Adăugăm un rest de pătrime și apoi note
-        Note rest1 = new Note(Duration.QUARTER);
-        Note r1 = new Note(Pitch.of("E4"), Duration.QUARTER);
-        Note r2 = new Note(Pitch.of("F4"), Duration.QUARTER);
-        Note r3 = new Note(Pitch.of("G4"), Duration.QUARTER);
-        m8.addNote(rest1);
-        m8.addNote(r1);
-        m8.addNote(r2);
-        m8.addNote(r3);
+        Note restWhole = new Note(Duration.WHOLE);
+        m8.addNote(restWhole);
         score.addMeasure(m8);
 
-        // Măsura 9 – doar note de optimi (4 optimi = 2 pătrimi) pentru a testa beaming
+        // ============================================================
+        // Măsura 9 – HALF rest + două note pătrimi (pentru a umple 2 bătăi)
+        // ============================================================
         Measure m9 = new Measure();
-        Note o1 = new Note(Pitch.of("C#5"), Duration.SIXTEENTH);
-        Note o2 = new Note(Pitch.of("Db5"), Duration.SIXTEENTH);
-        Note o3 = new Note(Pitch.of("En5"), Duration.SIXTEENTH);
-        Note o4 = new Note(Pitch.of("F5"), Duration.SIXTEENTH);
-        Note o5 = new Note(Pitch.of("F5"), Duration.SIXTEENTH);
-        Note o6 = new Note(Pitch.of("F5"), Duration.SIXTEENTH);
-        Note o7 = new Note(Pitch.of("F5"), Duration.SIXTEENTH);
-        Note o8 = new Note(Pitch.of("F5"), Duration.SIXTEENTH);
-        m9.addNote(o1);
-        m9.addNote(o2);
-        m9.addNote(o3);
-        m9.addNote(o4);
-        m9.addNote(o5);
-        m9.addNote(o6);
-        m9.addNote(o7);
-        m9.addNote(o8);
+        Note restHalf = new Note(Duration.HALF);
+        Note nHalf1 = new Note(Pitch.of("C4"), Duration.QUARTER);
+        Note nHalf2 = new Note(Pitch.of("D4"), Duration.QUARTER);
+        m9.addNote(restHalf);
+        m9.addNote(nHalf1);
+        m9.addNote(nHalf2);
         score.addMeasure(m9);
 
-        // Măsura 10 – notă întreagă (foarte scurtă)
+        // ============================================================
+        // Măsura 10 – QUARTER rest, notă, quarter rest, notă
+        // ============================================================
         Measure m10 = new Measure();
-        Note whole2 = new Note(Pitch.of("C3"), Duration.WHOLE);
-        m10.addNote(whole2);
+        Note restQ1 = new Note(Duration.QUARTER);
+        Note nQ1 = new Note(Pitch.of("E4"), Duration.QUARTER);
+        Note restQ2 = new Note(Duration.QUARTER);
+        Note nQ2 = new Note(Pitch.of("F4"), Duration.QUARTER);
+        m10.addNote(restQ1);
+        m10.addNote(nQ1);
+        m10.addNote(restQ2);
+        m10.addNote(nQ2);
         score.addMeasure(m10);
 
-        // Validăm score-ul (se asigură că fiecare măsură are durata corectă)
+        // ============================================================
+        // Măsura 11 – EIGHTH rest, notă, eighth rest, notă, și încă două optimi
+        // ============================================================
+        Measure m11 = new Measure();
+        Note restE1 = new Note(Duration.EIGHTH);
+        Note nE1 = new Note(Pitch.of("G4"), Duration.EIGHTH);
+        Note restE2 = new Note(Duration.EIGHTH);
+        Note nE2 = new Note(Pitch.of("A4"), Duration.EIGHTH);
+        Note nE3 = new Note(Pitch.of("B4"), Duration.EIGHTH);
+        Note nE4 = new Note(Pitch.of("C5"), Duration.EIGHTH);
+        m11.addNote(restE1);
+        m11.addNote(nE1);
+        m11.addNote(restE2);
+        m11.addNote(nE2);
+        m11.addNote(nE3);
+        m11.addNote(nE4);
+        score.addMeasure(m11);
+
+        // ============================================================
+        // Măsura 12 – SIXTEENTH rest + notă, + rest + notă, etc. (umplem 4 bătăi)
+        // ============================================================
+        Measure m12 = new Measure();
+        Note restS1 = new Note(Duration.SIXTEENTH);
+        Note nS1 = new Note(Pitch.of("D5"), Duration.SIXTEENTH);
+        Note restS2 = new Note(Duration.SIXTEENTH);
+        Note nS2 = new Note(Pitch.of("E5"), Duration.SIXTEENTH);
+        Note restS3 = new Note(Duration.SIXTEENTH);
+        Note nS3 = new Note(Pitch.of("F5"), Duration.SIXTEENTH);
+        Note restS4 = new Note(Duration.SIXTEENTH);
+        Note nS4 = new Note(Pitch.of("G5"), Duration.SIXTEENTH);
+        // Mai adăugăm încă 8 șaisprezecimi (2 bătăi) pentru a umple măsura 4/4
+        // Total 16 șaisprezecimi = 4 bătăi
+        m12.addNote(restS1);
+        m12.addNote(nS1);
+        m12.addNote(restS2);
+        m12.addNote(nS2);
+        m12.addNote(restS3);
+        m12.addNote(nS3);
+        m12.addNote(restS4);
+        m12.addNote(nS4);
+        // Încă 8 șaisprezecimi (2 bătăi) – le adăugăm ca note
+        for (int i = 0; i < 8; i++) {
+            m12.addNote(new Note(Pitch.of("A5"), Duration.SIXTEENTH));
+        }
+        score.addMeasure(m12);
+
+        // Validăm score-ul
         score.validate();
         return score;
     }

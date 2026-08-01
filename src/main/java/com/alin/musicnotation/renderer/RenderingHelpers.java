@@ -9,7 +9,6 @@ import java.util.List;
 public final class RenderingHelpers {
 
     // Offset pentru a compensa diferența dintre elipse și glyph-urile Bravura
-    // Valoarea exactă trebuie verificată vizual; aceasta este o estimare.
     private static final double STEM_ATTACH_OFFSET = 2.2;
 
     private RenderingHelpers() {
