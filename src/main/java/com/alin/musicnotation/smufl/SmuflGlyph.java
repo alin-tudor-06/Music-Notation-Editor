@@ -47,7 +47,23 @@ public enum SmuflGlyph {
     STACCATO(0xE4A2),
     TENUTO(0xE4A1),
     MARCATO(0xE4A3),
-    STACCATISSIMO(0xE4A4);
+    STACCATISSIMO(0xE4A4),
+
+    // ===== Time Signature Digits =====
+    TIME_SIG_0(0xE080),
+    TIME_SIG_1(0xE081),
+    TIME_SIG_2(0xE082),
+    TIME_SIG_3(0xE083),
+    TIME_SIG_4(0xE084),
+    TIME_SIG_5(0xE085),
+    TIME_SIG_6(0xE086),
+    TIME_SIG_7(0xE087),
+    TIME_SIG_8(0xE088),
+    TIME_SIG_9(0xE089),
+
+    // ===== Time Signature Symbols =====
+    TIME_SIG_COMMON(0xE08A),
+    TIME_SIG_CUT(0xE08B);
 
     private final int codePoint;
     private final String unicode;
@@ -74,5 +90,27 @@ public enum SmuflGlyph {
      */
     public int codePoint() {
         return codePoint;
+    }
+
+    /**
+     * Maps a numeric character to its corresponding SMuFL time signature glyph.
+     *
+     * @param digit the character to map ('0' through '9')
+     * @return the corresponding SmuflGlyph, or null if invalid
+     */
+    public static SmuflGlyph timeSignatureDigit(char digit) {
+        return switch (digit) {
+            case '0' -> TIME_SIG_0;
+            case '1' -> TIME_SIG_1;
+            case '2' -> TIME_SIG_2;
+            case '3' -> TIME_SIG_3;
+            case '4' -> TIME_SIG_4;
+            case '5' -> TIME_SIG_5;
+            case '6' -> TIME_SIG_6;
+            case '7' -> TIME_SIG_7;
+            case '8' -> TIME_SIG_8;
+            case '9' -> TIME_SIG_9;
+            default -> null;
+        };
     }
 }

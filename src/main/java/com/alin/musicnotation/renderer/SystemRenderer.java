@@ -1,6 +1,7 @@
 package com.alin.musicnotation.renderer;
 
 import com.alin.musicnotation.layout.SystemPlacement;
+import com.alin.musicnotation.model.*;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
@@ -44,20 +45,50 @@ public final class SystemRenderer {
         double lineSpacing = config.staff().lineSpacing();
         double startPadding = config.measure().startPadding();
 
-        // Desenăm cheia, gama și timpul la începutul fiecărui sistem
-        double currentX = systemX + 6;
-        clefRenderer.drawClef(gc, currentX, systemY, staffHeight, lineSpacing, state.currentClef());
-        currentX += 44;
+        // Verifică dacă prima măsură din sistem are o schimbare de clef/key/time
+        boolean firstMeasureHasChange = false;
+        if (!placement.systemLayout().measureLayouts().isEmpty()) {
+            int firstIndex = placement.systemLayout().measureLayouts().get(0).measureIndex();
+            MeasureRenderData firstData = renderDataMap.get(firstIndex);
+            if (firstData != null) {
+                Measure firstMeasure = firstData.measure();
+                // Verifică dacă există o schimbare față de starea curentă
+                if (firstMeasure.clef() != null && firstMeasure.clef() != state.currentClef()) {
+                    firstMeasureHasChange = true;
+                }
+                if (firstMeasure.keySignature() != null && !firstMeasure.keySignature().equals(state.currentKey())) {
+                    firstMeasureHasChange = true;
+                }
+                if (firstMeasure.timeSignature() != null && !firstMeasure.timeSignature().equals(state.currentTime())) {
+                    firstMeasureHasChange = true;
+                }
+            }
+        }
 
-        double keyWidth = keySignatureRenderer.drawInitial(gc, currentX, systemY,
-                state.currentKey(), state.currentClef(), lineSpacing);
-        currentX += keyWidth;
+        double currentX = systemX;
 
-        double timeSigX = currentX + 10;
-        timeSignatureRenderer.drawInitial(gc, timeSigX, systemY, staffHeight, lineSpacing, state.currentTime());
-        Font font = Font.font("Serif", FontWeight.BOLD, lineSpacing * TIME_SIGNATURE_FONT_SIZE_FACTOR);
-        double timeSigWidth = timeSignatureRenderer.calculateWidth(font, state.currentTime());
-        currentX = timeSigX + timeSigWidth + startPadding;
+        // Desenează starea curentă la începutul sistemului DOAR dacă:
+        // - este primul sistem (întotdeauna desenăm la începutul partiturii)
+        // - sau prima măsură NU are o schimbare care va fi desenată în măsură
+        if (isFirstSystem || !firstMeasureHasChange) {
+            currentX = systemX + 6;
+            clefRenderer.drawClef(gc, currentX, systemY, staffHeight, lineSpacing, state.currentClef());
+            currentX += 44;
+
+            double keyWidth = keySignatureRenderer.drawInitial(gc, currentX, systemY,
+                    state.currentKey(), state.currentClef(), lineSpacing);
+            currentX += keyWidth;
+
+            double timeSigX = currentX + 10;
+            timeSignatureRenderer.drawInitial(gc, timeSigX, systemY, staffHeight, lineSpacing, state.currentTime());
+            Font font = Font.font("Serif", FontWeight.BOLD, lineSpacing * TIME_SIGNATURE_FONT_SIZE_FACTOR);
+            double timeSigWidth = timeSignatureRenderer.calculateWidth(font, state.currentTime());
+            currentX = timeSigX + timeSigWidth + startPadding;
+        } else {
+            // Dacă prima măsură are schimbare, începem direct cu startPadding
+            // pentru că schimbarea va fi desenată de MeasurePainter
+            currentX = systemX + startPadding;
+        }
 
         RenderingState currentState = state;
         double lastBarX = systemX;
@@ -75,10 +106,7 @@ public final class SystemRenderer {
             lastBarX = currentX;
         }
 
-        // Adăugăm un mic padding la sfârșitul sistemului înainte de a desena liniile
-        double systemEndX = lastBarX + SYSTEM_END_PADDING;
-        drawStaffLines(gc, systemX, systemY, systemEndX - systemX);
-
+        drawStaffLines(gc, systemX, systemY, lastBarX - systemX);
         return currentState;
     }
 
