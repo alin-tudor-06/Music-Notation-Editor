@@ -66,7 +66,8 @@ public final class MeasurePainter {
             double justifiedWidth,
             RenderingState oldState,
             RenderingState newState,
-            RenderConfig config
+            RenderConfig config,
+            boolean isLastMeasure
     ) {
 
         var staff = config.staff();
@@ -82,13 +83,12 @@ public final class MeasurePainter {
         double lineSpacing = staff.lineSpacing();
         double middleLineY = firstLineY + staff.middleLine() * (lineSpacing / 2);
         double startPadding = measureConfig.startPadding();
-        double endPadding = measureConfig.endPadding();
 
         // 1. Tempo & text
         tempoRenderer.draw(gc, measure, startX, firstLineY, lineSpacing);
         textExpressionRenderer.draw(gc, measure, startX, firstLineY, staffHeight, lineSpacing);
 
-        // 2. Draw clef / key / time changes at startX + startPadding
+        // 2. Draw clef / key / time changes
         double currentX = startX + startPadding;
 
         if (measure.clef() != null && measure.clef() != oldState.currentClef()) {
@@ -114,7 +114,7 @@ public final class MeasurePainter {
             currentX += timeWidth + 10;
         }
 
-        // 3. Shift note layouts by startX + startPadding + extraWidth
+        // 3. Shift and draw notes
         double noteOffsetX = startX + startPadding + extraWidth;
         Map<Note, NoteLayout> shiftedMap = new HashMap<>();
         for (Map.Entry<Note, NoteLayout> entry : layoutMap.entrySet()) {
@@ -124,12 +124,11 @@ public final class MeasurePainter {
             );
         }
 
-        // 4. Compute beamed notes
         List<NoteLayout> layouts = new ArrayList<>(shiftedMap.values());
         layouts.sort(Comparator.comparingDouble(NoteLayout::x));
         Set<Note> beamedNotes = BeamAnalyzer.computeBeamedNotes(layouts);
 
-        // 5. Draw notes and all associated elements
+        // Draw notes, beams, tuplets, slurs, articulations, dynamics, hairpins
         noteRenderer.draw(gc, measure, shiftedMap, firstLineY, middleLineY, staff.middleLine(),
                 note.headWidth(), note.headHeight(), note.stemLength(),
                 note.ledgerExtension(), note.outlineWidth(),
@@ -159,7 +158,7 @@ public final class MeasurePainter {
         hairpinRenderer.draw(gc, measure, shiftedMap, firstLineY, staffHeight,
                 staff.lineSpacing(), note.headWidth(), note.headHeight());
 
-        // 6. Barlines
+        // 4. Barlines
         double barX = startX + justifiedWidth;
 
         if (measure.hasStartRepeat()) {
@@ -168,7 +167,9 @@ public final class MeasurePainter {
                     staff.lineSpacing(), BarlineType.START_REPEAT);
         }
 
-        if (measure.hasEndRepeat()) {
+        if (isLastMeasure) {
+            repeatRenderer.drawFinalBarline(gc, barX, firstLineY, staffHeight, staff.lineSpacing());
+        } else if (measure.hasEndRepeat()) {
             repeatRenderer.drawBarline(gc, barX, firstLineY, staffHeight,
                     staff.lineSpacing(), BarlineType.END_REPEAT);
         } else {

@@ -1,7 +1,6 @@
 package com.alin.musicnotation.renderer;
 
 import com.alin.musicnotation.layout.SystemPlacement;
-import com.alin.musicnotation.model.*;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
@@ -18,7 +17,7 @@ public final class SystemRenderer {
     private final TimeSignatureRenderer timeSignatureRenderer;
 
     private static final double TIME_SIGNATURE_FONT_SIZE_FACTOR = 2.2;
-    private static final double SYSTEM_END_PADDING = 15; // Padding la sfârșitul sistemului
+    private static final double SYSTEM_END_PADDING = 10;
 
     public SystemRenderer(RenderConfig config,
                           MeasureRenderer measureRenderer,
@@ -45,52 +44,50 @@ public final class SystemRenderer {
         double lineSpacing = config.staff().lineSpacing();
         double startPadding = config.measure().startPadding();
 
-        // Verifică dacă prima măsură din sistem are o schimbare de clef/key/time
-        boolean firstMeasureHasChange = false;
-        if (!placement.systemLayout().measureLayouts().isEmpty()) {
+        // Determinăm starea care va fi afișată la începutul sistemului
+        RenderingState displayState = state;
+
+        if (!isFirstSystem && !placement.systemLayout().measureLayouts().isEmpty()) {
             int firstIndex = placement.systemLayout().measureLayouts().get(0).measureIndex();
             MeasureRenderData firstData = renderDataMap.get(firstIndex);
             if (firstData != null) {
-                Measure firstMeasure = firstData.measure();
-                // Verifică dacă există o schimbare față de starea curentă
+                var firstMeasure = firstData.measure();
+
+                var displayClef = state.currentClef();
+                var displayKey = state.currentKey();
+                var displayTime = state.currentTime();
+
                 if (firstMeasure.clef() != null && firstMeasure.clef() != state.currentClef()) {
-                    firstMeasureHasChange = true;
+                    displayClef = firstMeasure.clef();
                 }
                 if (firstMeasure.keySignature() != null && !firstMeasure.keySignature().equals(state.currentKey())) {
-                    firstMeasureHasChange = true;
+                    displayKey = firstMeasure.keySignature();
                 }
                 if (firstMeasure.timeSignature() != null && !firstMeasure.timeSignature().equals(state.currentTime())) {
-                    firstMeasureHasChange = true;
+                    displayTime = firstMeasure.timeSignature();
                 }
+
+                displayState = new RenderingState(displayClef, displayKey, displayTime);
             }
         }
 
-        double currentX = systemX;
+        // Desenăm la începutul sistemului în ordinea: CLEF → KEY → TIME
+        double currentX = systemX + 6;
 
-        // Desenează starea curentă la începutul sistemului DOAR dacă:
-        // - este primul sistem (întotdeauna desenăm la începutul partiturii)
-        // - sau prima măsură NU are o schimbare care va fi desenată în măsură
-        if (isFirstSystem || !firstMeasureHasChange) {
-            currentX = systemX + 6;
-            clefRenderer.drawClef(gc, currentX, systemY, staffHeight, lineSpacing, state.currentClef());
-            currentX += 44;
+        clefRenderer.drawClef(gc, currentX, systemY, staffHeight, lineSpacing, displayState.currentClef());
+        currentX += 44;
 
-            double keyWidth = keySignatureRenderer.drawInitial(gc, currentX, systemY,
-                    state.currentKey(), state.currentClef(), lineSpacing);
-            currentX += keyWidth;
+        double keyWidth = keySignatureRenderer.drawInitial(gc, currentX, systemY,
+                displayState.currentKey(), displayState.currentClef(), lineSpacing);
+        currentX += keyWidth;
 
-            double timeSigX = currentX + 10;
-            timeSignatureRenderer.drawInitial(gc, timeSigX, systemY, staffHeight, lineSpacing, state.currentTime());
-            Font font = Font.font("Serif", FontWeight.BOLD, lineSpacing * TIME_SIGNATURE_FONT_SIZE_FACTOR);
-            double timeSigWidth = timeSignatureRenderer.calculateWidth(font, state.currentTime());
-            currentX = timeSigX + timeSigWidth + startPadding;
-        } else {
-            // Dacă prima măsură are schimbare, începem direct cu startPadding
-            // pentru că schimbarea va fi desenată de MeasurePainter
-            currentX = systemX + startPadding;
-        }
+        double timeSigX = currentX + 10;
+        timeSignatureRenderer.drawInitial(gc, timeSigX, systemY, staffHeight, lineSpacing, displayState.currentTime());
+        Font font = Font.font("Serif", FontWeight.BOLD, lineSpacing * TIME_SIGNATURE_FONT_SIZE_FACTOR);
+        double timeSigWidth = timeSignatureRenderer.calculateWidth(font, displayState.currentTime());
+        currentX = timeSigX + timeSigWidth + startPadding;
 
-        RenderingState currentState = state;
+        RenderingState currentState = displayState;
         double lastBarX = systemX;
 
         for (var measureLayout : placement.systemLayout().measureLayouts()) {
@@ -106,7 +103,8 @@ public final class SystemRenderer {
             lastBarX = currentX;
         }
 
-        drawStaffLines(gc, systemX, systemY, lastBarX - systemX);
+        double systemEndX = lastBarX + SYSTEM_END_PADDING;
+        drawStaffLines(gc, systemX, systemY, systemEndX - systemX);
         return currentState;
     }
 

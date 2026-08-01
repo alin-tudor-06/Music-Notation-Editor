@@ -9,6 +9,7 @@ public record MeasureRenderData(
         MeasureSpacingResult spacingResult,
         double extraWidth,
         double justifiedWidth,
-        double justificationScale
+        double justificationScale,
+        boolean isLastMeasure
 ) {
 }

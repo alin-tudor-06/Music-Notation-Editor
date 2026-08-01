@@ -29,10 +29,8 @@ public final class MeasureRenderer {
         MeasureSpacingResult spacingResult = data.spacingResult();
         double scale = data.justificationScale();
 
-        // 1. Advance state to get the correct clef/key/time for THIS measure
         RenderingState measureState = RenderingStateMachine.advance(state, measure);
 
-        // 2. Build natural layouts using the measure's state
         Map<Note, NoteLayout> naturalLayouts = NoteLayoutFactory.buildNoteLayouts(
                 spacingResult,
                 0.0,
@@ -42,14 +40,12 @@ public final class MeasureRenderer {
                 measureState.currentClef()
         );
 
-        // 3. Apply justification scale
         Map<Note, NoteLayout> justifiedLayouts = LayoutScaler.scaleLayouts(
                 naturalLayouts,
                 0.0,
                 scale
         );
 
-        // 4. Delegate painting
         painter.paint(gc,
                 measure,
                 justifiedLayouts,
@@ -59,7 +55,8 @@ public final class MeasureRenderer {
                 data.justifiedWidth(),
                 state,
                 measureState,
-                config
+                config,
+                data.isLastMeasure()
         );
 
         return measureState;

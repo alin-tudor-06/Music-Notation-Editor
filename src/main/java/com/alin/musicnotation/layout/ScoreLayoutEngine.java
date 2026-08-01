@@ -17,7 +17,7 @@ public final class ScoreLayoutEngine {
     private final RenderConfig config;
 
     private static final double START_PADDING = 15;
-    private static final double END_PADDING = 45;        // ← mărit de la 30 la 45
+    private static final double END_PADDING = 45;
     private static final double PRE_NOTE_PADDING = 6;
     private static final double CLEF_WIDTH = 44;
     private static final double KEY_WIDTH = 40;
@@ -65,7 +65,8 @@ public final class ScoreLayoutEngine {
             measureLayouts.add(new MeasureLayout(
                     allMeasures.indexOf(measure),
                     naturalWidth,
-                    totalWidth
+                    totalWidth,
+                    1.0
             ));
 
             tempState = RenderingStateMachine.advance(tempState, measure);
@@ -73,8 +74,8 @@ public final class ScoreLayoutEngine {
 
         double availableWidth = pageWidth - leftMargin - rightMargin;
         if (availableWidth <= 0) availableWidth = 200;
-        List<SystemLayout> systems = SystemBreaker.computeSystems(measureLayouts, availableWidth);
 
+        List<SystemLayout> systems = SystemBreaker.computeSystems(measureLayouts, availableWidth);
         List<SystemLayout> justifiedSystems = MeasureJustificationEngine.justifySystems(systems, availableWidth);
 
         PageLayout pageLayout = pageLayoutEngine.computeLayout(justifiedSystems);
@@ -86,8 +87,9 @@ public final class ScoreLayoutEngine {
                 score.initialTimeSignature()
         );
 
+        int totalMeasures = allMeasures.size();
+
         for (SystemLayout system : justifiedSystems) {
-            double systemScale = system.justificationScale();
             for (MeasureLayout ml : system.measureLayouts()) {
                 int idx = ml.measureIndex();
                 Measure measure = allMeasures.get(idx);
@@ -95,7 +97,9 @@ public final class ScoreLayoutEngine {
                 double extraWidth = extraWidths.get(idx);
 
                 double fixedWidth = START_PADDING + extraWidth + PRE_NOTE_PADDING + END_PADDING;
-                double justifiedTotalWidth = fixedWidth + (ml.naturalWidth() * systemScale);
+                double justifiedTotalWidth = fixedWidth + (ml.naturalWidth() * ml.justificationScale());
+
+                boolean isLastMeasure = (idx == totalMeasures - 1);
 
                 renderDataList.add(new MeasureRenderData(
                         idx,
@@ -103,7 +107,8 @@ public final class ScoreLayoutEngine {
                         spacingResult,
                         extraWidth,
                         justifiedTotalWidth,
-                        systemScale
+                        ml.justificationScale(),
+                        isLastMeasure
                 ));
 
                 state = RenderingStateMachine.advance(state, measure);

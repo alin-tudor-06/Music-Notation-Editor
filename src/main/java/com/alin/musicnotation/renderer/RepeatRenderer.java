@@ -25,7 +25,6 @@ public class RepeatRenderer {
                 gc.strokeLine(x, firstLineY, x, bottomY);
             }
             case START_REPEAT -> {
-                // thick line left, thin line right, dots after thin line
                 gc.setLineWidth(lineWidth);
                 gc.strokeLine(x, firstLineY, x, bottomY);
                 double thinX = x + gap;
@@ -37,7 +36,6 @@ public class RepeatRenderer {
                 gc.fillOval(dotX - dotSize / 2, midY + dotOffsetY - dotSize / 2, dotSize, dotSize);
             }
             case END_REPEAT -> {
-                // thin line left, thick line right, dots before thin line
                 gc.setLineWidth(thinWidth);
                 gc.strokeLine(x, firstLineY, x, bottomY);
                 double thickX = x + gap;
@@ -49,5 +47,23 @@ public class RepeatRenderer {
                 gc.fillOval(dotX - dotSize / 2, midY + dotOffsetY - dotSize / 2, dotSize, dotSize);
             }
         }
+    }
+
+    public void drawFinalBarline(GraphicsContext gc, double x, double firstLineY,
+                                 double staffHeight, double staffLineSpacing) {
+        double bottomY = firstLineY + staffHeight;
+        double thinWidth = staffLineSpacing * 0.08;
+        double thickWidth = staffLineSpacing * 0.25;
+        double gap = staffLineSpacing * 0.15;
+
+        gc.setStroke(Color.BLACK);
+        gc.setLineWidth(1);
+
+        gc.setLineWidth(thinWidth);
+        gc.strokeLine(x, firstLineY, x, bottomY);
+
+        double thickX = x + gap + thinWidth;
+        gc.setLineWidth(thickWidth);
+        gc.strokeLine(thickX, firstLineY, thickX, bottomY);
     }
 }

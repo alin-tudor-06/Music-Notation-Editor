@@ -131,7 +131,7 @@ public class MusicNotationApp extends Application {
 
     private static Score createSampleScore() {
         // Score-ul începe în Do major, cheia sol, 4/4
-        Score score = new Score(KeySignature.C_MAJOR, ClefType.TREBLE, TimeSignature.COMMON_TIME);
+        Score score = new Score(KeySignature.G_MAJOR, ClefType.TREBLE, TimeSignature.COMMON_TIME);
 
         // ============================================================
         // Măsura 1 – 4/4 (common time) – implicit, dar îl setăm explicit
@@ -168,9 +168,11 @@ public class MusicNotationApp extends Application {
         // Măsura 4 – 9/8 (9 optimi)
         // ============================================================
         Measure m4 = new Measure();
+        m4.addClef(ClefType.BASS);
+        m4.addKeySignature(KeySignature.F_MAJOR);
         m4.addTimeSignature(TimeSignature.NINE_EIGHT);
         for (int i = 0; i < 9; i++) {
-            m4.addNote(new Note(Pitch.of("D5"), Duration.EIGHTH));
+            m4.addNote(new Note(Pitch.of("C3"), Duration.EIGHTH));
         }
         score.addMeasure(m4);
 
@@ -180,7 +182,7 @@ public class MusicNotationApp extends Application {
         Measure m5 = new Measure();
         m5.addTimeSignature(TimeSignature.TWELVE_EIGHT);
         for (int i = 0; i < 12; i++) {
-            m5.addNote(new Note(Pitch.of("E5"), Duration.EIGHTH));
+            m5.addNote(new Note(Pitch.of("D4"), Duration.EIGHTH));
         }
         score.addMeasure(m5);
 
