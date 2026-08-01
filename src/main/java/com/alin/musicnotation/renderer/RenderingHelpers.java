@@ -8,6 +8,10 @@ import java.util.List;
 
 public final class RenderingHelpers {
 
+    // Offset pentru a compensa diferența dintre elipse și glyph-urile Bravura
+    // Valoarea exactă trebuie verificată vizual; aceasta este o estimare.
+    private static final double STEM_ATTACH_OFFSET = 2.2;
+
     private RenderingHelpers() {
         // Utility class - no instantiation
     }
@@ -24,10 +28,21 @@ public final class RenderingHelpers {
         return avg > middleLinePosition ? StemDirection.UP : StemDirection.DOWN;
     }
 
+    /**
+     * Calculates the x-coordinate where the stem should attach to the notehead.
+     * Adjusted for Bravura SMuFL glyphs to ensure proper visual alignment.
+     */
     public static double stemAttachX(NoteLayout layout, StemDirection direction, double noteHeadWidth) {
-        return direction == StemDirection.UP
+        double baseX = direction == StemDirection.UP
                 ? layout.x() + noteHeadWidth / 2
                 : layout.x() - noteHeadWidth / 2;
+
+        // Ajustare pentru Bravura glyph-uri (compensează diferența față de elipse)
+        // Pentru UP, stem-ul se atașează ușor spre interior
+        // Pentru DOWN, stem-ul se atașează ușor spre interior
+        return direction == StemDirection.UP
+                ? baseX - STEM_ATTACH_OFFSET
+                : baseX + STEM_ATTACH_OFFSET;
     }
 
     public static double computeStemTipY(NoteLayout layout, StemDirection direction,

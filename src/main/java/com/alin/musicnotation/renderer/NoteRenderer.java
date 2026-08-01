@@ -77,17 +77,32 @@ public class NoteRenderer {
     }
 
     private void drawNoteHead(GraphicsContext gc, double x, double y, Duration duration,
-                              double noteHeadWidth, double noteHeadHeight, double noteHeadOutlineWidth) {
-        double headX = x - noteHeadWidth / 2;
-        double headY = y - noteHeadHeight / 2;
-        if (duration.isFilled()) {
-            gc.setFill(Color.BLACK);
-            gc.fillOval(headX, headY, noteHeadWidth, noteHeadHeight);
-        } else {
-            gc.setStroke(Color.BLACK);
-            gc.setLineWidth(noteHeadOutlineWidth);
-            gc.strokeOval(headX, headY, noteHeadWidth, noteHeadHeight);
-        }
+                              double noteHeadWidth, double noteHeadHeight,
+                              double noteHeadOutlineWidth) {
+
+        // Select the correct glyph based on duration
+        SmuflGlyph glyph = switch (duration) {
+            case WHOLE -> SmuflGlyph.NOTEHEAD_WHOLE;
+            case HALF -> SmuflGlyph.NOTEHEAD_HALF;
+            default -> SmuflGlyph.NOTEHEAD_BLACK; // QUARTER, EIGHTH, SIXTEENTH
+        };
+
+        // Font size based on existing noteHeadHeight configuration
+        // Factor 1.8 provides a size visually similar to the previous ellipses
+        double fontSize = noteHeadHeight * 4;
+
+        Font bravura = BravuraFont.getFont();
+        Font glyphFont = Font.font(bravura.getFamily(), fontSize);
+
+        gc.setFill(Color.BLACK);
+        gc.setFont(glyphFont);
+        gc.setTextAlign(TextAlignment.CENTER);
+        gc.setTextBaseline(VPos.CENTER);
+
+        // Draw glyph centered at (x, y)
+        // No offsets are applied initially. If visual testing reveals misalignment,
+        // add small constants (±1-2 px) after verification.
+        gc.fillText(glyph.unicode(), x, y);
     }
 
     private void drawStem(GraphicsContext gc, double stemX, double stemBottomY, double stemTopY) {

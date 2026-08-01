@@ -2,19 +2,22 @@ package com.alin.musicnotation.renderer;
 
 import com.alin.musicnotation.model.*;
 import com.alin.musicnotation.model.clef.ClefType;
+import com.alin.musicnotation.smufl.BravuraFont;
+import com.alin.musicnotation.smufl.SmuflGlyph;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
+import javafx.scene.text.TextAlignment;
+import javafx.geometry.VPos;
 
 import java.util.*;
 
 public class KeySignatureRenderer {
 
     private static final double KEY_ACCIDENTAL_SPACING = 8;
-    private static final double ACCIDENTAL_FONT_SIZE_FACTOR = 1.2;
+    private static final double ACCIDENTAL_FONT_SIZE_FACTOR = 2; // puțin mai mare pentru armură
 
     // --- Pitch-uri canonice pentru semnăturile de cheie ---
-    // Treble clef sharps (standard positions)
     private static final Pitch[] TREBLE_SHARPS = {
             Pitch.of("F#5"),
             Pitch.of("C#5"),
@@ -25,7 +28,6 @@ public class KeySignatureRenderer {
             Pitch.of("B#4")
     };
 
-    // Bass clef sharps (standard positions)
     private static final Pitch[] BASS_SHARPS = {
             Pitch.of("F#3"),
             Pitch.of("C#3"),
@@ -36,7 +38,6 @@ public class KeySignatureRenderer {
             Pitch.of("B#2")
     };
 
-    // Treble clef flats (standard positions)
     private static final Pitch[] TREBLE_FLATS = {
             Pitch.of("Bb4"),
             Pitch.of("Eb5"),
@@ -47,7 +48,6 @@ public class KeySignatureRenderer {
             Pitch.of("Fb4")
     };
 
-    // Bass clef flats (standard positions)
     private static final Pitch[] BASS_FLATS = {
             Pitch.of("Bb2"),
             Pitch.of("Eb3"),
@@ -124,7 +124,11 @@ public class KeySignatureRenderer {
         for (Pitch pitch : orderedPitches) {
             int position = staffPosition(pitch, clef);
             double y = firstLineY + position * (staffLineSpacing / 2);
-            drawAccidental(gc, currentX, y, pitch.accidental(), staffLineSpacing);
+
+            // Folosim Accidental din pitch pentru a desena glyph-ul corect
+            Accidental accidental = pitch.accidental();
+            drawAccidental(gc, currentX, y, accidental, staffLineSpacing);
+
             currentX += KEY_ACCIDENTAL_SPACING + staffLineSpacing * 0.7;
         }
         return currentX - x;
@@ -144,21 +148,35 @@ public class KeySignatureRenderer {
         return currentX - x;
     }
 
+    /**
+     * Desenează un accidental (diez, bemol sau becar) folosind fontul Bravura.
+     */
     private void drawAccidental(GraphicsContext gc, double x, double y,
                                 Accidental accidental, double staffLineSpacing) {
         if (accidental == Accidental.NONE) return;
-        String symbol = accidental.unicodeSymbol();
+
+        // Mapare Accidental -> SmuflGlyph
+        SmuflGlyph glyph = switch (accidental) {
+            case SHARP -> SmuflGlyph.SHARP;
+            case FLAT -> SmuflGlyph.FLAT;
+            case NATURAL -> SmuflGlyph.NATURAL;
+            default -> null;
+        };
+
+        if (glyph == null) return;
+
+        // Font Bravura la dimensiunea potrivită
+        double fontSize = staffLineSpacing * ACCIDENTAL_FONT_SIZE_FACTOR;
+        Font bravura = BravuraFont.getFont();
+        Font glyphFont = Font.font(bravura.getFamily(), fontSize);
+
         gc.setFill(Color.BLACK);
-        gc.setFont(Font.font("Serif", staffLineSpacing * ACCIDENTAL_FONT_SIZE_FACTOR));
-        gc.setTextAlign(javafx.scene.text.TextAlignment.CENTER);
-        gc.setTextBaseline(javafx.geometry.VPos.CENTER);
-        gc.fillText(symbol, x, y);
+        gc.setFont(glyphFont);
+        gc.setTextAlign(TextAlignment.CENTER);
+        gc.setTextBaseline(VPos.CENTER);
+        gc.fillText(glyph.unicode(), x, y);
     }
 
-    /**
-     * Returnează pitch-urile alterate în ordinea corectă de desenare,
-     * folosind pitch-urile canonice pentru cheia specificată.
-     */
     private List<Pitch> getAlteredPitchesInOrder(KeySignature ks, ClefType clef) {
         if (ks == null || ks.alteredPitches().isEmpty()) return Collections.emptyList();
 
@@ -203,10 +221,6 @@ public class KeySignatureRenderer {
         return totalWidth;
     }
 
-    /**
-     * Calculează poziția unui pitch pe portativ (0 = linia de sus, 4 = linia de jos).
-     * Aceeași metodă este folosită și pentru poziționarea notelor individuale.
-     */
     private int staffPosition(Pitch pitch, ClefType clef) {
         return diatonicIndex(clef.referencePitch()) - diatonicIndex(pitch);
     }
