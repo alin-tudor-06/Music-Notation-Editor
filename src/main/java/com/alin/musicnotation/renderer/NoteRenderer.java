@@ -3,6 +3,8 @@ package com.alin.musicnotation.renderer;
 import com.alin.musicnotation.model.*;
 import com.alin.musicnotation.model.layout.NoteLayout;
 import com.alin.musicnotation.model.layout.StemDirection;
+import com.alin.musicnotation.smufl.BravuraFont;
+import com.alin.musicnotation.smufl.SmuflGlyph;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
@@ -187,15 +189,39 @@ public class NoteRenderer {
         gc.strokeLine(x - halfWidth, y, x + halfWidth, y);
     }
 
+    /**
+     * Draws an accidental using the Bravura SMuFL font.
+     * The mapping from Accidental to SmuflGlyph is done directly in this renderer.
+     * This keeps the model (Accidental) independent of rendering concerns.
+     */
     private void drawAccidental(GraphicsContext gc, double x, double y,
                                 Accidental accidental, double staffLineSpacing) {
-        if (accidental == Accidental.NONE) return;
-        String symbol = accidental.unicodeSymbol();
+        if (accidental == Accidental.NONE) {
+            return;
+        }
+
+        // Map Accidental to SmuflGlyph
+        SmuflGlyph glyph = switch (accidental) {
+            case SHARP -> SmuflGlyph.SHARP;
+            case FLAT -> SmuflGlyph.FLAT;
+            case NATURAL -> SmuflGlyph.NATURAL;
+            default -> null;
+        };
+
+        if (glyph == null) {
+            return;
+        }
+
+        // Create properly sized Bravura font
+        double fontSize = staffLineSpacing * 2; // same factor as before
+        Font bravura = BravuraFont.getFont();
+        Font glyphFont = Font.font(bravura.getFamily(), fontSize);
+
         gc.setFill(Color.BLACK);
-        gc.setFont(Font.font("Serif", staffLineSpacing * 1.2));
+        gc.setFont(glyphFont);
         gc.setTextAlign(TextAlignment.CENTER);
         gc.setTextBaseline(VPos.CENTER);
-        gc.fillText(symbol, x, y);
+        gc.fillText(glyph.unicode(), x, y);
     }
 
     private boolean shouldDisplayAccidental(Pitch pitch, KeySignature activeKey) {

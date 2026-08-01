@@ -32,7 +32,7 @@ public class MusicNotationApp extends Application {
     private static final double WINDOW_HEIGHT = 1000;
     private static final double STAFF_LINE_SPACING = 16;
     private static final double STAFF_MARGIN = 80;
-    private static final double NOTE_SPACING_PER_QUARTER = 80;
+    private static final double NOTE_SPACING_PER_QUARTER = 90;
     private static final double SYSTEM_SPACING = STAFF_LINE_SPACING * 14;
     private static final double TOP_MARGIN = 140;
 
@@ -142,9 +142,9 @@ public class MusicNotationApp extends Application {
         m1.addTempo(new Tempo("Allegro", 120));
         m1.addTextExpression(new TextExpression("dolce", TextPlacement.ABOVE));
 
-        Note c4 = new Note(Pitch.of("C4"), Duration.QUARTER);
-        Note d4 = new Note(Pitch.of("D4"), Duration.QUARTER);
-        Note e4 = new Note(Pitch.of("E4"), Duration.QUARTER);
+        Note c4 = new Note(Pitch.of("C#4"), Duration.QUARTER);
+        Note d4 = new Note(Pitch.of("Db4"), Duration.QUARTER);
+        Note e4 = new Note(Pitch.of("En4"), Duration.QUARTER);
         Note f4 = new Note(Pitch.of("F4"), Duration.QUARTER);
         m1.addNote(c4);
         m1.addNote(d4);
@@ -184,7 +184,7 @@ public class MusicNotationApp extends Application {
         m3.addTextExpression(new TextExpression("espressivo", TextPlacement.ABOVE));
 
         Note e8_1 = new Note(Pitch.of("E4"), Duration.EIGHTH);
-        Note f8_1 = new Note(Pitch.of("F#4"), Duration.EIGHTH);
+        Note f8_1 = new Note(Pitch.of("Fn4"), Duration.EIGHTH);
         Note g8_1 = new Note(Pitch.of("G4"), Duration.EIGHTH);
         Note a8_1 = new Note(Pitch.of("A4"), Duration.EIGHTH);
         Note b8_1 = new Note(Pitch.of("B4"), Duration.EIGHTH);
@@ -309,9 +309,9 @@ public class MusicNotationApp extends Application {
 
         // Măsura 9 – doar note de optimi (4 optimi = 2 pătrimi) pentru a testa beaming
         Measure m9 = new Measure();
-        Note o1 = new Note(Pitch.of("C5"), Duration.SIXTEENTH);
-        Note o2 = new Note(Pitch.of("D5"), Duration.SIXTEENTH);
-        Note o3 = new Note(Pitch.of("E5"), Duration.SIXTEENTH);
+        Note o1 = new Note(Pitch.of("C#5"), Duration.SIXTEENTH);
+        Note o2 = new Note(Pitch.of("Db5"), Duration.SIXTEENTH);
+        Note o3 = new Note(Pitch.of("En5"), Duration.SIXTEENTH);
         Note o4 = new Note(Pitch.of("F5"), Duration.SIXTEENTH);
         Note o5 = new Note(Pitch.of("F5"), Duration.SIXTEENTH);
         Note o6 = new Note(Pitch.of("F5"), Duration.SIXTEENTH);
