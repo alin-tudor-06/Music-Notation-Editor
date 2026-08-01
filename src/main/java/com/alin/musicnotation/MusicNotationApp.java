@@ -11,6 +11,8 @@ import com.alin.musicnotation.model.tempo.*;
 import com.alin.musicnotation.model.text.*;
 import com.alin.musicnotation.renderer.*;
 import com.alin.musicnotation.layout.*;
+import com.alin.musicnotation.smufl.BravuraFont;
+import javafx.scene.text.Font;
 import javafx.application.Application;
 import javafx.scene.Scene;
 import javafx.scene.canvas.Canvas;
@@ -104,6 +106,10 @@ public class MusicNotationApp extends Application {
         primaryStage.setTitle("Music Notation");
         primaryStage.setScene(scene);
         primaryStage.show();
+
+        // === TEST: Încărcare Bravura font ===
+        Font bravura = BravuraFont.getFont();
+        System.out.println("Bravura font family: " + bravura.getFamily());
     }
 
     private void drawStaff(Canvas canvas) {
