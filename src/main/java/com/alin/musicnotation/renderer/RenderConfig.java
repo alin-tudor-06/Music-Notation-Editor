@@ -21,7 +21,7 @@ public record RenderConfig(
                 new BeamConfig(5, 7, s * 1.4 * 0.6, 0.25),
                 new TupletConfig(s * 2.5, s * 0.5, 0.9),
                 new SlurConfig(s * 1.6),
-                new ArticulationConfig(1.0, s * 0.8),
+                new ArticulationConfig(2, s ),
                 new DynamicConfig(0.8, s * 1.4),           // ← offset redus
                 new MeasureLayoutConfig(30, 25, 20, 6),
                 new SpacingConfig(8, 14),

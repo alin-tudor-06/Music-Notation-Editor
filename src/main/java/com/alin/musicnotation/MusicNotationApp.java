@@ -130,110 +130,156 @@ public class MusicNotationApp extends Application {
     }
 
     private static Score createSampleScore() {
-        // Score-ul începe în Do major, cheia sol, 4/4
-        Score score = new Score(KeySignature.G_MAJOR, ClefType.TREBLE, TimeSignature.COMMON_TIME);
+        Score score = new Score(KeySignature.C_MAJOR, ClefType.TREBLE, TimeSignature.COMMON_TIME);
 
         // ============================================================
-        // Măsura 1 – 4/4 (common time) – implicit, dar îl setăm explicit
+        // Măsura 1 – Staccato și Staccatissimo (AUTO, tijă sus/jos)
         // ============================================================
         Measure m1 = new Measure();
-        m1.addTimeSignature(TimeSignature.COMMON_TIME);
-        m1.addNote(new Note(Pitch.of("C4"), Duration.QUARTER));
-        m1.addNote(new Note(Pitch.of("D4"), Duration.QUARTER));
-        m1.addNote(new Note(Pitch.of("E4"), Duration.QUARTER));
-        m1.addNote(new Note(Pitch.of("F4"), Duration.QUARTER));
+        Note n1 = new Note(Pitch.of("C4"), Duration.SIXTEENTH);
+        Note n2 = new Note(Pitch.of("E4"), Duration.SIXTEENTH);
+        Note n3 = new Note(Pitch.of("G4"), Duration.SIXTEENTH);
+        Note n4 = new Note(Pitch.of("B4"), Duration.SIXTEENTH);
+        m1.addNote(n1);
+        m1.addNote(n2);
+        m1.addNote(n3);
+        m1.addNote(n4);
+        m1.addArticulation(new Articulation(n1, ArticulationType.STACCATO));
+        m1.addArticulation(new Articulation(n2, ArticulationType.STACCATISSIMO));
+        m1.addArticulation(new Articulation(n3, ArticulationType.STACCATO));
+        m1.addArticulation(new Articulation(n4, ArticulationType.STACCATISSIMO));
         score.addMeasure(m1);
 
         // ============================================================
-        // Măsura 2 – 3/4
+        // Măsura 2 – Accent și Marcato (AUTO, tijă sus/jos)
         // ============================================================
         Measure m2 = new Measure();
-        m2.addTimeSignature(TimeSignature.THREE_FOUR);
-        m2.addNote(new Note(Pitch.of("G4"), Duration.QUARTER));
-        m2.addNote(new Note(Pitch.of("A4"), Duration.QUARTER));
-        m2.addNote(new Note(Pitch.of("B4"), Duration.QUARTER));
+        Note n5 = new Note(Pitch.of("C4"), Duration.SIXTEENTH);
+        Note n6 = new Note(Pitch.of("E4"), Duration.SIXTEENTH);
+        Note n7 = new Note(Pitch.of("G4"), Duration.SIXTEENTH);
+        Note n8 = new Note(Pitch.of("B4"), Duration.SIXTEENTH);
+        m2.addNote(n5);
+        m2.addNote(n6);
+        m2.addNote(n7);
+        m2.addNote(n8);
+        m2.addArticulation(new Articulation(n5, ArticulationType.ACCENT));
+        m2.addArticulation(new Articulation(n6, ArticulationType.MARCATO));
+        m2.addArticulation(new Articulation(n7, ArticulationType.ACCENT));
+        m2.addArticulation(new Articulation(n8, ArticulationType.MARCATO));
         score.addMeasure(m2);
 
         // ============================================================
-        // Măsura 3 – 6/8 (umplem cu 6 optimi)
+        // Măsura 3 – Tenuto (AUTO, tijă sus/jos)
         // ============================================================
         Measure m3 = new Measure();
-        m3.addTimeSignature(TimeSignature.SIX_EIGHT);
-        for (int i = 0; i < 6; i++) {
-            m3.addNote(new Note(Pitch.of("C5"), Duration.EIGHTH));
-        }
+        Note n9 = new Note(Pitch.of("C5"), Duration.SIXTEENTH);
+        Note n10 = new Note(Pitch.of("E5"), Duration.SIXTEENTH);
+        Note n11 = new Note(Pitch.of("G5"), Duration.SIXTEENTH);
+        Note n12 = new Note(Pitch.of("B5"), Duration.SIXTEENTH);
+        m3.addNote(n9);
+        m3.addNote(n10);
+        m3.addNote(n11);
+        m3.addNote(n12);
+        m3.addArticulation(new Articulation(n9, ArticulationType.TENUTO));
+        m3.addArticulation(new Articulation(n10, ArticulationType.TENUTO));
+        m3.addArticulation(new Articulation(n11, ArticulationType.TENUTO));
+        m3.addArticulation(new Articulation(n12, ArticulationType.TENUTO));
         score.addMeasure(m3);
 
         // ============================================================
-        // Măsura 4 – 9/8 (9 optimi)
+        // Măsura 4 – Fermata deasupra și dedesubt (explicit)
         // ============================================================
         Measure m4 = new Measure();
-        m4.addClef(ClefType.BASS);
-        m4.addKeySignature(KeySignature.F_MAJOR);
-        m4.addTimeSignature(TimeSignature.NINE_EIGHT);
-        for (int i = 0; i < 9; i++) {
-            m4.addNote(new Note(Pitch.of("C3"), Duration.EIGHTH));
-        }
+        Note n13 = new Note(Pitch.of("C4"), Duration.SIXTEENTH);
+        Note n14 = new Note(Pitch.of("E4"), Duration.SIXTEENTH);
+        Note n15 = new Note(Pitch.of("G4"), Duration.SIXTEENTH);
+        Note n16 = new Note(Pitch.of("B4"), Duration.SIXTEENTH);
+        m4.addNote(n13);
+        m4.addNote(n14);
+        m4.addNote(n15);
+        m4.addNote(n16);
+        m4.addArticulation(new Articulation(n13, ArticulationType.FERMATA, ArticulationPlacement.ABOVE));
+        m4.addArticulation(new Articulation(n14, ArticulationType.FERMATA, ArticulationPlacement.BELOW));
+        m4.addArticulation(new Articulation(n15, ArticulationType.FERMATA, ArticulationPlacement.ABOVE));
+        m4.addArticulation(new Articulation(n16, ArticulationType.FERMATA, ArticulationPlacement.BELOW));
         score.addMeasure(m4);
 
         // ============================================================
-        // Măsura 5 – 12/8 (12 optimi – test pentru numere cu două cifre)
+        // Măsura 5 – Combinații: Staccato + Accent pe aceeași notă (AUTO)
         // ============================================================
         Measure m5 = new Measure();
-        m5.addTimeSignature(TimeSignature.TWELVE_EIGHT);
-        for (int i = 0; i < 12; i++) {
-            m5.addNote(new Note(Pitch.of("D4"), Duration.EIGHTH));
-        }
+        Note n17 = new Note(Pitch.of("C4"), Duration.SIXTEENTH);
+        Note n18 = new Note(Pitch.of("E4"), Duration.SIXTEENTH);
+        Note n19 = new Note(Pitch.of("G4"), Duration.SIXTEENTH);
+        Note n20 = new Note(Pitch.of("B4"), Duration.SIXTEENTH);
+        m5.addNote(n17);
+        m5.addNote(n18);
+        m5.addNote(n19);
+        m5.addNote(n20);
+        m5.addArticulation(new Articulation(n17, ArticulationType.STACCATO));
+        m5.addArticulation(new Articulation(n17, ArticulationType.ACCENT));
+        m5.addArticulation(new Articulation(n18, ArticulationType.STACCATISSIMO));
+        m5.addArticulation(new Articulation(n18, ArticulationType.MARCATO));
+        m5.addArticulation(new Articulation(n19, ArticulationType.TENUTO));
+        m5.addArticulation(new Articulation(n19, ArticulationType.ACCENT));
+        m5.addArticulation(new Articulation(n20, ArticulationType.STACCATO));
+        m5.addArticulation(new Articulation(n20, ArticulationType.TENUTO));
         score.addMeasure(m5);
 
         // ============================================================
-        // Măsura 6 – 2/2 (cut time)
+        // Măsura 6 – Articulații pe note cu tijă în sus și în jos (test AUTO)
+        // Toate notele sunt pătrimi, dar poziționate diferit pe portativ
         // ============================================================
         Measure m6 = new Measure();
-        m6.addTimeSignature(TimeSignature.CUT_TIME);
-        m6.addNote(new Note(Pitch.of("F4"), Duration.HALF));
-        m6.addNote(new Note(Pitch.of("G4"), Duration.HALF));
+        Note n21 = new Note(Pitch.of("C4"), Duration.SIXTEENTH);   // tijă sus
+        Note n22 = new Note(Pitch.of("F4"), Duration.SIXTEENTH);   // tijă sus (sub mijloc)
+        Note n23 = new Note(Pitch.of("A4"), Duration.SIXTEENTH);   // tijă jos (peste mijloc)
+        Note n24 = new Note(Pitch.of("C5"), Duration.SIXTEENTH);   // tijă jos
+        m6.addNote(n21);
+        m6.addNote(n22);
+        m6.addNote(n23);
+        m6.addNote(n24);
+        m6.addArticulation(new Articulation(n21, ArticulationType.STACCATO));
+        m6.addArticulation(new Articulation(n22, ArticulationType.ACCENT));
+        m6.addArticulation(new Articulation(n23, ArticulationType.STACCATISSIMO));
+        m6.addArticulation(new Articulation(n24, ArticulationType.MARCATO));
         score.addMeasure(m6);
 
         // ============================================================
-        // Măsura 7 – 2/4
+        // Măsura 7 – Articulații cu placement explicit ABOVE/BELOW (pentru test)
         // ============================================================
         Measure m7 = new Measure();
-        m7.addTimeSignature(TimeSignature.TWO_FOUR);
-        m7.addNote(new Note(Pitch.of("A4"), Duration.QUARTER));
-        m7.addNote(new Note(Pitch.of("B4"), Duration.QUARTER));
+        Note n25 = new Note(Pitch.of("C4"), Duration.SIXTEENTH);
+        Note n26 = new Note(Pitch.of("E4"), Duration.SIXTEENTH);
+        Note n27 = new Note(Pitch.of("G4"), Duration.SIXTEENTH);
+        Note n28 = new Note(Pitch.of("B4"), Duration.SIXTEENTH);
+        m7.addNote(n25);
+        m7.addNote(n26);
+        m7.addNote(n27);
+        m7.addNote(n28);
+        m7.addArticulation(new Articulation(n25, ArticulationType.STACCATO, ArticulationPlacement.ABOVE));
+        m7.addArticulation(new Articulation(n26, ArticulationType.STACCATO, ArticulationPlacement.BELOW));
+        m7.addArticulation(new Articulation(n27, ArticulationType.ACCENT, ArticulationPlacement.ABOVE));
+        m7.addArticulation(new Articulation(n28, ArticulationType.ACCENT, ArticulationPlacement.BELOW));
         score.addMeasure(m7);
 
         // ============================================================
-        // Măsura 8 – 5/4
+        // Măsura 8 – Fermata cu AUTO (tijă sus/jos)
         // ============================================================
         Measure m8 = new Measure();
-        m8.addTimeSignature(new TimeSignature(5, 4));
-        for (int i = 0; i < 5; i++) {
-            m8.addNote(new Note(Pitch.of("C5"), Duration.QUARTER));
-        }
+        Note n29 = new Note(Pitch.of("C4"), Duration.SIXTEENTH);
+        Note n30 = new Note(Pitch.of("E4"), Duration.SIXTEENTH);
+        Note n31 = new Note(Pitch.of("G4"), Duration.SIXTEENTH);
+        Note n32 = new Note(Pitch.of("B4"), Duration.SIXTEENTH);
+        m8.addNote(n29);
+        m8.addNote(n30);
+        m8.addNote(n31);
+        m8.addNote(n32);
+        m8.addArticulation(new Articulation(n29, ArticulationType.FERMATA));
+        m8.addArticulation(new Articulation(n30, ArticulationType.FERMATA));
+        m8.addArticulation(new Articulation(n31, ArticulationType.FERMATA));
+        m8.addArticulation(new Articulation(n32, ArticulationType.FERMATA));
         score.addMeasure(m8);
-
-        // ============================================================
-        // Măsura 9 – revenire la 4/4 (common time)
-        // ============================================================
-        Measure m9 = new Measure();
-        m9.addTimeSignature(TimeSignature.COMMON_TIME);
-        m9.addNote(new Note(Pitch.of("D5"), Duration.QUARTER));
-        m9.addNote(new Note(Pitch.of("E5"), Duration.QUARTER));
-        m9.addNote(new Note(Pitch.of("F5"), Duration.QUARTER));
-        m9.addNote(new Note(Pitch.of("G5"), Duration.QUARTER));
-        score.addMeasure(m9);
-
-        // ============================================================
-        // Măsura 10 – 3/8 (trei optimi)
-        // ============================================================
-        Measure m10 = new Measure();
-        m10.addTimeSignature(new TimeSignature(3, 8));
-        for (int i = 0; i < 3; i++) {
-            m10.addNote(new Note(Pitch.of("A5"), Duration.EIGHTH));
-        }
-        score.addMeasure(m10);
 
         // Validăm score-ul
         score.validate();

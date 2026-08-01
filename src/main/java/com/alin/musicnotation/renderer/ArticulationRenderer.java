@@ -1,19 +1,23 @@
 package com.alin.musicnotation.renderer;
 
-import com.alin.musicnotation.model.*;
-import com.alin.musicnotation.model.articulation.*;
+import com.alin.musicnotation.model.Measure;
+import com.alin.musicnotation.model.Note;
+import com.alin.musicnotation.model.articulation.Articulation;
+import com.alin.musicnotation.model.articulation.ArticulationPlacement;
+import com.alin.musicnotation.model.articulation.ArticulationType;
 import com.alin.musicnotation.model.layout.NoteLayout;
 import com.alin.musicnotation.model.layout.StemDirection;
+import com.alin.musicnotation.smufl.BravuraFont;
+import com.alin.musicnotation.smufl.SmuflGlyph;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.TextAlignment;
+import javafx.geometry.VPos;
 
 import java.util.Map;
 
 public class ArticulationRenderer {
-
-    private static final double ARTICULATION_FONT_SIZE_FACTOR = 1.0;
 
     public void draw(GraphicsContext gc, Measure measure, Map<Note, NoteLayout> layoutMap,
                      double middleLineY, int middleLinePosition,
@@ -24,6 +28,17 @@ public class ArticulationRenderer {
 
         if (measure.articulations().isEmpty()) return;
 
+        // Set up Bravura font once (outside the loop)
+        Font bravura = BravuraFont.getFont();
+        double fontSize = staffLineSpacing * articulationFontSizeFactor;
+        Font glyphFont = Font.font(bravura.getFamily(), fontSize);
+
+        // Configure GraphicsContext once (outside the loop)
+        gc.setFill(Color.BLACK);
+        gc.setFont(glyphFont);
+        gc.setTextAlign(TextAlignment.CENTER);
+        gc.setTextBaseline(VPos.CENTER);
+
         for (Articulation art : measure.articulations()) {
             NoteLayout layout = layoutMap.get(art.note());
             if (layout == null) continue;
@@ -31,6 +46,7 @@ public class ArticulationRenderer {
             double x = layout.x();
             double y = layout.y();
 
+            // Calculate effective placement (exactly the same logic as before)
             ArticulationPlacement effectivePlacement = art.placement();
             if (effectivePlacement == ArticulationPlacement.AUTO) {
                 StemDirection dir = RenderingHelpers.stemDirection(layout.position(), middleLinePosition);
@@ -46,6 +62,7 @@ public class ArticulationRenderer {
                 }
             }
 
+            // Calculate vertical position (exactly the same logic as before)
             double offset = articulationOffset;
             if (art.type() == ArticulationType.FERMATA) {
                 offset *= 1.4;
@@ -55,15 +72,20 @@ public class ArticulationRenderer {
                     ? y - offset
                     : y + offset;
 
-            String symbol = articulationSymbol(art.type(), effectivePlacement);
-            gc.setFill(Color.BLACK);
-            gc.setFont(Font.font("Serif", staffLineSpacing * articulationFontSizeFactor));
-            gc.setTextAlign(TextAlignment.CENTER);
-            gc.setTextBaseline(javafx.geometry.VPos.CENTER);
-            gc.fillText(symbol, x, symbolY);
+            // Get the appropriate SMuFL glyph
+            SmuflGlyph glyph = glyphFor(art.type(), effectivePlacement);
+            if (glyph == null) {
+                continue;
+            }
+
+            gc.fillText(glyph.unicode(), x, symbolY);
         }
     }
 
+    /**
+     * Returns the default placement for an articulation type when AUTO is specified.
+     * This logic is unchanged from the original implementation.
+     */
     private ArticulationPlacement defaultPlacement(ArticulationType type) {
         return switch (type) {
             case STACCATO, STACCATISSIMO -> ArticulationPlacement.BELOW;
@@ -71,17 +93,18 @@ public class ArticulationRenderer {
         };
     }
 
-    private String articulationSymbol(ArticulationType type, ArticulationPlacement placement) {
-        if (type == ArticulationType.FERMATA) {
-            return placement == ArticulationPlacement.ABOVE ? "⌒" : "⌣";
-        }
+    /**
+     * Maps an ArticulationType and effective placement to the corresponding SMuFL glyph.
+     */
+    private SmuflGlyph glyphFor(ArticulationType type, ArticulationPlacement placement) {
+        boolean above = placement == ArticulationPlacement.ABOVE;
         return switch (type) {
-            case STACCATO -> "•";
-            case STACCATISSIMO -> "‣";
-            case ACCENT -> ">";
-            case MARCATO -> "^";
-            case TENUTO -> "-";
-            default -> "?";
+            case ACCENT -> above ? SmuflGlyph.ACCENT : SmuflGlyph.ACCENT_BELOW;
+            case STACCATO -> above ? SmuflGlyph.STACCATO : SmuflGlyph.STACCATO_BELOW;
+            case TENUTO -> above ? SmuflGlyph.TENUTO : SmuflGlyph.TENUTO_BELOW;
+            case STACCATISSIMO -> above ? SmuflGlyph.STACCATISSIMO : SmuflGlyph.STACCATISSIMO_BELOW;
+            case MARCATO -> above ? SmuflGlyph.MARCATO : SmuflGlyph.MARCATO_BELOW;
+            case FERMATA -> above ? SmuflGlyph.FERMATA : SmuflGlyph.FERMATA_BELOW;
         };
     }
 }

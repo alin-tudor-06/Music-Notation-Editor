@@ -42,12 +42,18 @@ public enum SmuflGlyph {
     FLAG_16TH_DOWN(0xE243),
 
     // ===== Articulations =====
-    FERMATA(0xE4C0),
     ACCENT(0xE4A0),
+    ACCENT_BELOW(0xE4A1),
     STACCATO(0xE4A2),
-    TENUTO(0xE4A1),
-    MARCATO(0xE4A3),
-    STACCATISSIMO(0xE4A4),
+    STACCATO_BELOW(0xE4A3),
+    TENUTO(0xE4A4),
+    TENUTO_BELOW(0xE4A5),
+    STACCATISSIMO(0xE4A6),
+    STACCATISSIMO_BELOW(0xE4A7),
+    MARCATO(0xE4AC),
+    MARCATO_BELOW(0xE4AD),
+    FERMATA(0xE4C0),
+    FERMATA_BELOW(0xE4C1),
 
     // ===== Time Signature Digits =====
     TIME_SIG_0(0xE080),
