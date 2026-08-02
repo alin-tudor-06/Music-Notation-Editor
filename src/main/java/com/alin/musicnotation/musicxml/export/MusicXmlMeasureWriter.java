@@ -1,12 +1,11 @@
 package com.alin.musicnotation.musicxml.export;
 
 import com.alin.musicnotation.model.Measure;
-import com.alin.musicnotation.model.clef.ClefType;          // ← corect
+import com.alin.musicnotation.model.clef.ClefType;
 import com.alin.musicnotation.model.KeySignature;
 import com.alin.musicnotation.model.TimeSignature;
 import com.alin.musicnotation.musicxml.common.MusicXmlClefMapper;
 import com.alin.musicnotation.musicxml.common.MusicXmlConstants;
-import com.alin.musicnotation.musicxml.common.MusicXmlDurationMapper;
 
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamWriter;
@@ -28,7 +27,6 @@ public class MusicXmlMeasureWriter {
         writer.writeStartElement("measure");
         writer.writeAttribute("number", String.valueOf(measureNumber));
 
-        // Determinăm valorile corecte de scris
         ClefType clefToWrite = currentClef;
         KeySignature keyToWrite = currentKey;
         TimeSignature timeToWrite = currentTime;
@@ -37,46 +35,24 @@ public class MusicXmlMeasureWriter {
         boolean hasKeyChange = measure.keySignature() != null && !measure.keySignature().equals(currentKey);
         boolean hasTimeChange = measure.timeSignature() != null && !measure.timeSignature().equals(currentTime);
 
-        if (hasClefChange) {
-            clefToWrite = measure.clef();
-        }
-        if (hasKeyChange) {
-            keyToWrite = measure.keySignature();
-        }
-        if (hasTimeChange) {
-            timeToWrite = measure.timeSignature();
-        }
+        if (hasClefChange) clefToWrite = measure.clef();
+        if (hasKeyChange) keyToWrite = measure.keySignature();
+        if (hasTimeChange) timeToWrite = measure.timeSignature();
 
-        // Scriem attributes dacă:
-        // - este prima măsură
-        // - sau există o schimbare
         if (isFirstMeasure || hasClefChange || hasKeyChange || hasTimeChange) {
             writer.writeStartElement("attributes");
 
-            // Divisions
             writer.writeStartElement("divisions");
             writer.writeCharacters(String.valueOf(MusicXmlConstants.DIVISIONS));
             writer.writeEndElement();
 
-            // Clef – se scrie întotdeauna în prima măsură sau la schimbare
-            if (isFirstMeasure || hasClefChange) {
-                writeClef(clefToWrite);
-            }
+            if (isFirstMeasure || hasClefChange) writeClef(clefToWrite);
+            if (isFirstMeasure || hasKeyChange) writeKey(keyToWrite);
+            if (isFirstMeasure || hasTimeChange) writeTime(timeToWrite);
 
-            // Key – se scrie întotdeauna în prima măsură sau la schimbare
-            if (isFirstMeasure || hasKeyChange) {
-                writeKey(keyToWrite);
-            }
-
-            // Time – se scrie întotdeauna în prima măsură sau la schimbare
-            if (isFirstMeasure || hasTimeChange) {
-                writeTime(timeToWrite);
-            }
-
-            writer.writeEndElement(); // attributes
+            writer.writeEndElement();
         }
 
-        // Note
         for (var note : measure.notes()) {
             noteWriter.writeNote(note);
         }

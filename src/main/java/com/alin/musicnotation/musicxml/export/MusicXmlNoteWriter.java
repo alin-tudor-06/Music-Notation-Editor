@@ -10,9 +10,11 @@ import javax.xml.stream.XMLStreamWriter;
 public class MusicXmlNoteWriter {
 
     private final XMLStreamWriter writer;
+    private final MusicXmlNotationWriter notationWriter;
 
     public MusicXmlNoteWriter(XMLStreamWriter writer) {
         this.writer = writer;
+        this.notationWriter = new MusicXmlNotationWriter(writer);
     }
 
     public void writeNote(Note note) throws XMLStreamException {
@@ -26,6 +28,21 @@ public class MusicXmlNoteWriter {
 
         writeDuration(note);
         writeType(note);
+
+        // Tie (legătură de durată) – elemente directe în <note>
+        if (note.tieStart()) {
+            writer.writeStartElement("tie");
+            writer.writeAttribute("type", "start");
+            writer.writeEndElement();
+        }
+        if (note.tieEnd()) {
+            writer.writeStartElement("tie");
+            writer.writeAttribute("type", "stop");
+            writer.writeEndElement();
+        }
+
+        // Notations – un singur element care conține toate notațiile
+        notationWriter.writeNotations(note);
 
         writer.writeEndElement(); // note
     }

@@ -26,7 +26,6 @@ public final class MusicXmlPitchMapper {
         return pitch.octave();
     }
 
-    // Pentru import
     public static Pitch toPitch(String step, Integer alter, int octave) {
         Accidental accidental = (alter == null) ? Accidental.NONE
                 : switch (alter) {

@@ -22,7 +22,7 @@ public final class MusicXmlDurationMapper {
             case HALF -> "half";
             case QUARTER -> "quarter";
             case EIGHTH -> "eighth";
-            case SIXTEENTH -> "16th";   // ← corectat: "16th" în loc de "sixteenth"
+            case SIXTEENTH -> "16th";
         };
     }
 

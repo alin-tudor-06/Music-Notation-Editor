@@ -16,27 +16,10 @@ public class MusicXmlContext {
         this.currentTime = initialTime;
     }
 
-    public ClefType getCurrentClef() {
-        return currentClef;
-    }
-
-    public void setCurrentClef(ClefType currentClef) {
-        this.currentClef = currentClef;
-    }
-
-    public KeySignature getCurrentKey() {
-        return currentKey;
-    }
-
-    public void setCurrentKey(KeySignature currentKey) {
-        this.currentKey = currentKey;
-    }
-
-    public TimeSignature getCurrentTime() {
-        return currentTime;
-    }
-
-    public void setCurrentTime(TimeSignature currentTime) {
-        this.currentTime = currentTime;
-    }
+    public ClefType getCurrentClef() { return currentClef; }
+    public void setCurrentClef(ClefType currentClef) { this.currentClef = currentClef; }
+    public KeySignature getCurrentKey() { return currentKey; }
+    public void setCurrentKey(KeySignature currentKey) { this.currentKey = currentKey; }
+    public TimeSignature getCurrentTime() { return currentTime; }
+    public void setCurrentTime(TimeSignature currentTime) { this.currentTime = currentTime; }
 }

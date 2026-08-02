@@ -23,7 +23,6 @@ public final class MusicXmlClefMapper {
         };
     }
 
-    // Pentru import
     public static ClefType fromSignAndLine(String sign, int line) {
         for (ClefType clef : ClefType.values()) {
             if (getSign(clef).equals(sign) && getLine(clef) == line) {

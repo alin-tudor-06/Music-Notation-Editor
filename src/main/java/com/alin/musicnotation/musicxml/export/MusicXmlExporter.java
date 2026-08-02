@@ -58,9 +58,9 @@ public class MusicXmlExporter {
             writer.writeAttribute("id", MusicXmlConstants.PART_ID);
             writer.writeStartElement("part-name");
             writer.writeCharacters(MusicXmlConstants.DEFAULT_PART_NAME);
-            writer.writeEndElement(); // part-name
-            writer.writeEndElement(); // score-part
-            writer.writeEndElement(); // part-list
+            writer.writeEndElement();
+            writer.writeEndElement();
+            writer.writeEndElement();
 
             writer.writeStartElement("part");
             writer.writeAttribute("id", MusicXmlConstants.PART_ID);
@@ -88,15 +88,9 @@ public class MusicXmlExporter {
                         measureNumber == 1
                 );
 
-                if (measure.clef() != null) {
-                    context.setCurrentClef(measure.clef());
-                }
-                if (measure.keySignature() != null) {
-                    context.setCurrentKey(measure.keySignature());
-                }
-                if (measure.timeSignature() != null) {
-                    context.setCurrentTime(measure.timeSignature());
-                }
+                if (measure.clef() != null) context.setCurrentClef(measure.clef());
+                if (measure.keySignature() != null) context.setCurrentKey(measure.keySignature());
+                if (measure.timeSignature() != null) context.setCurrentTime(measure.timeSignature());
 
                 measureNumber++;
             }
@@ -106,14 +100,8 @@ public class MusicXmlExporter {
             writer.writeEndDocument();
             writer.flush();
 
-        } catch (XMLStreamException e) {
-            throw e;
         } finally {
-            try {
-                writer.close();
-            } catch (XMLStreamException e) {
-                // ignore sau log
-            }
+            try { writer.close(); } catch (XMLStreamException e) { /* ignore */ }
         }
     }
 
@@ -122,11 +110,11 @@ public class MusicXmlExporter {
         writer.writeStartElement("encoding");
         writer.writeStartElement("software");
         writer.writeCharacters(MusicXmlConstants.SOFTWARE_NAME);
-        writer.writeEndElement(); // software
+        writer.writeEndElement();
         writer.writeStartElement("encoding-date");
         writer.writeCharacters(dateSupplier.get().toString());
-        writer.writeEndElement(); // encoding-date
-        writer.writeEndElement(); // encoding
-        writer.writeEndElement(); // identification
+        writer.writeEndElement();
+        writer.writeEndElement();
+        writer.writeEndElement();
     }
 }
