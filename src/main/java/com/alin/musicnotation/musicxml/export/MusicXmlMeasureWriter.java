@@ -1,15 +1,18 @@
 package com.alin.musicnotation.musicxml.export;
 
-import com.alin.musicnotation.model.*;
+import com.alin.musicnotation.model.Measure;
+import com.alin.musicnotation.model.Note;
+import com.alin.musicnotation.model.Slur;
+import com.alin.musicnotation.model.articulation.Articulation;
 import com.alin.musicnotation.model.clef.ClefType;
+import com.alin.musicnotation.model.KeySignature;
+import com.alin.musicnotation.model.TimeSignature;
 import com.alin.musicnotation.musicxml.common.MusicXmlClefMapper;
 import com.alin.musicnotation.musicxml.common.MusicXmlConstants;
 
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamWriter;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public class MusicXmlMeasureWriter {
 
@@ -28,7 +31,7 @@ public class MusicXmlMeasureWriter {
         writer.writeStartElement("measure");
         writer.writeAttribute("number", String.valueOf(measureNumber));
 
-        // ---- Attributes (clef, key, time) ----
+        // Attributes (clef, key, time)
         ClefType clefToWrite = currentClef;
         KeySignature keyToWrite = currentKey;
         TimeSignature timeToWrite = currentTime;
@@ -55,20 +58,19 @@ public class MusicXmlMeasureWriter {
             writer.writeEndElement();
         }
 
-        // ---- Note: pregătire pentru slurs ----
+        // ---- Slurs ----
         List<Slur> slurs = measure.slurs();
         Map<Note, Integer> noteSlurNumber = new HashMap<>();
         Map<Note, Boolean> noteSlurStart = new HashMap<>();
         Map<Note, Boolean> noteSlurStop = new HashMap<>();
 
-        // Pentru fiecare slur, identificăm prima și ultima notă
         for (int i = 0; i < slurs.size(); i++) {
             Slur slur = slurs.get(i);
             List<Note> notes = slur.notes();
             if (notes.size() >= 2) {
                 Note first = notes.get(0);
                 Note last = notes.get(notes.size() - 1);
-                int slurNumber = i + 1; // numerotare de la 1
+                int slurNumber = i + 1;
                 noteSlurNumber.put(first, slurNumber);
                 noteSlurNumber.put(last, slurNumber);
                 noteSlurStart.put(first, true);
@@ -76,18 +78,21 @@ public class MusicXmlMeasureWriter {
             }
         }
 
-        // ---- Scriem notele ----
-        List<Note> notes = measure.notes();
-        for (int i = 0; i < notes.size(); i++) {
-            Note note = notes.get(i);
+        // ---- Write notes ----
+        for (Note note : measure.notes()) {
             int slurNumber = noteSlurNumber.getOrDefault(note, 0);
             boolean slurStart = noteSlurStart.getOrDefault(note, false);
             boolean slurStop = noteSlurStop.getOrDefault(note, false);
 
-            noteWriter.writeNote(note, slurNumber, slurStart, slurStop);
+            // Get articulations for this note
+            List<Articulation> articulations = measure.articulations().stream()
+                    .filter(a -> a.note() == note)
+                    .toList();
+
+            noteWriter.writeNote(note, slurNumber, slurStart, slurStop, articulations);
         }
 
-        writer.writeEndElement(); // measure
+        writer.writeEndElement();
     }
 
     private void writeClef(ClefType clef) throws XMLStreamException {

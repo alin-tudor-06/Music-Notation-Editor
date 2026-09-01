@@ -205,8 +205,8 @@ public class MusicNotationApp extends Application {
         m4.addNote(n13);
         m4.addNote(n14);
         m4.addNote(n15);
-        m4.addArticulation(new Articulation(n12, ArticulationType.TENUTO));
-        m4.addArticulation(new Articulation(n15, ArticulationType.TENUTO));
+        m4.addArticulation(new Articulation(n12, ArticulationType.MARCATO));
+        m4.addArticulation(new Articulation(n15, ArticulationType.FERMATA));
         m4.addDynamic(new Dynamic(n15, DynamicType.F));
         m4.addHairpin(new Hairpin(n12, n15, HairpinType.DECRESCENDO, HairpinPlacement.ABOVE));
         score.addMeasure(m4);

@@ -1,6 +1,8 @@
 package com.alin.musicnotation.musicxml.export;
 
 import com.alin.musicnotation.model.*;
+import com.alin.musicnotation.model.articulation.Articulation;
+import com.alin.musicnotation.model.articulation.ArticulationType;
 import com.alin.musicnotation.model.clef.ClefType;
 
 import java.nio.file.Path;
@@ -13,18 +15,31 @@ public class MusicXmlExportTest {
     public static void main(String[] args) throws Exception {
         Score score = new Score(KeySignature.C_MAJOR, ClefType.TREBLE, TimeSignature.COMMON_TIME);
 
-        // Măsura 1: 4/4 - Do Re Mi Fa cu slur
-        Measure m1 = new Measure();
-        Note n1 = new Note(Pitch.of("C4"), Duration.QUARTER);
-        Note n2 = new Note(Pitch.of("D4"), Duration.QUARTER);
-        Note n3 = new Note(Pitch.of("E4"), Duration.QUARTER);
-        Note n4 = new Note(Pitch.of("F4"), Duration.QUARTER);
-        m1.addNote(n1);
-        m1.addNote(n2);
-        m1.addNote(n3);
-        m1.addNote(n4);
-        m1.addSlur(new Slur(List.of(n1, n2, n3, n4))); // ← adaugă slur
-        score.addMeasure(m1);
+        Measure m = new Measure();
+
+        // 6 note, fiecare cu o articulație diferită
+        Note n1 = new Note(Pitch.of("C4"), Duration.EIGHTH);
+        Note n2 = new Note(Pitch.of("D4"), Duration.EIGHTH);
+        Note n3 = new Note(Pitch.of("E4"), Duration.EIGHTH);
+        Note n4 = new Note(Pitch.of("F4"), Duration.EIGHTH);
+        Note n5 = new Note(Pitch.of("G4"), Duration.EIGHTH);
+        Note n6 = new Note(Pitch.of("A4"), Duration.EIGHTH);
+
+        m.addNote(n1);
+        m.addNote(n2);
+        m.addNote(n3);
+        m.addNote(n4);
+        m.addNote(n5);
+        m.addNote(n6);
+
+        m.addArticulation(new Articulation(n1, ArticulationType.STACCATO));
+        m.addArticulation(new Articulation(n2, ArticulationType.STACCATISSIMO));
+        m.addArticulation(new Articulation(n3, ArticulationType.ACCENT));
+        m.addArticulation(new Articulation(n4, ArticulationType.MARCATO));
+        m.addArticulation(new Articulation(n5, ArticulationType.TENUTO));
+        m.addArticulation(new Articulation(n6, ArticulationType.FERMATA));
+
+        score.addMeasure(m);
 
         // Măsura 2: 4/4 - tie + note
         Measure m2 = new Measure();
@@ -88,6 +103,8 @@ public class MusicXmlExportTest {
         MusicXmlExporter exporter = new MusicXmlExporter();
         Path outputPath = Paths.get(System.getProperty("user.home"), "Desktop", "test.musicxml");
         exporter.export(score, outputPath);
+        String xml = exporter.exportToString(score);
+        System.out.println(xml);
 
         System.out.println("✅ Fișier generat: " + outputPath);
     }
