@@ -17,7 +17,7 @@ public class MusicXmlNoteWriter {
         this.notationWriter = new MusicXmlNotationWriter(writer);
     }
 
-    public void writeNote(Note note) throws XMLStreamException {
+    public void writeNote(Note note, int slurNumber, boolean slurStart, boolean slurStop) throws XMLStreamException {
         writer.writeStartElement("note");
 
         if (note.isRest()) {
@@ -29,7 +29,7 @@ public class MusicXmlNoteWriter {
         writeDuration(note);
         writeType(note);
 
-        // Tie (legătură de durată) – elemente directe în <note>
+        // ---- Tie (legătură de durată) ----
         if (note.tieStart()) {
             writer.writeStartElement("tie");
             writer.writeAttribute("type", "start");
@@ -41,8 +41,13 @@ public class MusicXmlNoteWriter {
             writer.writeEndElement();
         }
 
-        // Notations – un singur element care conține toate notațiile
-        notationWriter.writeNotations(note);
+        // ---- Slur (legătură de portament) ----
+        // Elementul <slur> este scris DOAR în <notations> pentru a evita dublarea.
+        // Conform specificației MusicXML, <slur> poate apărea direct în <note> SAU în <notations>.
+        // Am ales varianta cu <notations> pentru a centraliza toate notațiile.
+
+        // ---- Notations ----
+        notationWriter.writeNotations(note, slurNumber, slurStart, slurStop);
 
         writer.writeEndElement(); // note
     }

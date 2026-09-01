@@ -5,18 +5,25 @@ import com.alin.musicnotation.model.clef.ClefType;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.List;
+
 
 public class MusicXmlExportTest {
 
     public static void main(String[] args) throws Exception {
         Score score = new Score(KeySignature.C_MAJOR, ClefType.TREBLE, TimeSignature.COMMON_TIME);
 
-        // Măsura 1: 4/4 - Do Re Mi Fa
+        // Măsura 1: 4/4 - Do Re Mi Fa cu slur
         Measure m1 = new Measure();
-        m1.addNote(new Note(Pitch.of("C4"), Duration.QUARTER));
-        m1.addNote(new Note(Pitch.of("D4"), Duration.QUARTER));
-        m1.addNote(new Note(Pitch.of("E4"), Duration.QUARTER));
-        m1.addNote(new Note(Pitch.of("F4"), Duration.QUARTER));
+        Note n1 = new Note(Pitch.of("C4"), Duration.QUARTER);
+        Note n2 = new Note(Pitch.of("D4"), Duration.QUARTER);
+        Note n3 = new Note(Pitch.of("E4"), Duration.QUARTER);
+        Note n4 = new Note(Pitch.of("F4"), Duration.QUARTER);
+        m1.addNote(n1);
+        m1.addNote(n2);
+        m1.addNote(n3);
+        m1.addNote(n4);
+        m1.addSlur(new Slur(List.of(n1, n2, n3, n4))); // ← adaugă slur
         score.addMeasure(m1);
 
         // Măsura 2: 4/4 - tie + note

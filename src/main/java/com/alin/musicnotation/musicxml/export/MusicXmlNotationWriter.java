@@ -5,11 +5,6 @@ import com.alin.musicnotation.model.Note;
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamWriter;
 
-/**
- * Scrie elementul <notations> pentru o notă.
- * Conține: tied, slur, articulations, tuplet.
- * Un singur <notations> pe notă, conform specificației MusicXML.
- */
 public class MusicXmlNotationWriter {
 
     private final XMLStreamWriter writer;
@@ -18,15 +13,12 @@ public class MusicXmlNotationWriter {
         this.writer = writer;
     }
 
-    /**
-     * Scrie <notations> pentru nota dată.
-     * Include doar elementele care sunt prezente (tie, slur, articulații, etc.).
-     */
-    public void writeNotations(Note note) throws XMLStreamException {
+    public void writeNotations(Note note, int slurNumber, boolean slurStart, boolean slurStop) throws XMLStreamException {
         boolean hasTie = note.tieStart() || note.tieEnd();
+        boolean hasSlur = slurStart || slurStop;
 
-        if (!hasTie) {
-            return; // nu scriem <notations> dacă nu e nimic
+        if (!hasTie && !hasSlur) {
+            return;
         }
 
         writer.writeStartElement("notations");
@@ -43,7 +35,19 @@ public class MusicXmlNotationWriter {
             writer.writeEndElement();
         }
 
-        // ---- Pe viitor: Slur, Articulations, Tuplet ----
+        // ---- Slur (legături de portament) ----
+        if (slurStart) {
+            writer.writeStartElement("slur");
+            writer.writeAttribute("type", "start");
+            writer.writeAttribute("number", String.valueOf(slurNumber));
+            writer.writeEndElement();
+        }
+        if (slurStop) {
+            writer.writeStartElement("slur");
+            writer.writeAttribute("type", "stop");
+            writer.writeAttribute("number", String.valueOf(slurNumber));
+            writer.writeEndElement();
+        }
 
         writer.writeEndElement(); // notations
     }
