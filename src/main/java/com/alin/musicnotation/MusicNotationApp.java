@@ -103,20 +103,21 @@ public class MusicNotationApp extends Application {
     }
 
     private Score loadScore() {
-        if (Files.exists(IMPORT_FILE)) {
+        Path mxl = Paths.get(System.getProperty("user.home"), "Desktop", "melody.mxl");
+        Path xml = Paths.get(System.getProperty("user.home"), "Desktop", "melody.musicxml");
+        Path file = Files.exists(mxl) ? mxl : xml;
+
+        if (Files.exists(file)) {
             try {
-                System.out.println("📂 Încărcare fișier: " + IMPORT_FILE);
+                System.out.println("📂 Încărcare fișier: " + file);
                 MusicXmlImporter importer = new MusicXmlImporter();
-                Score imported = importer.importFromFile(IMPORT_FILE);
-                System.out.println("✅ Fișier importat cu succes: "
-                        + imported.measures().size() + " măsuri");
+                Score imported = importer.importFromFile(file);
+                System.out.println("✅ Fișier importat: " + imported.measures().size() + " măsuri");
                 return imported;
             } catch (Exception e) {
                 System.err.println("❌ Eroare la import: " + e.getMessage());
                 e.printStackTrace();
             }
-        } else {
-            System.out.println("ℹ️ melody.musicxml nu există. Se folosește sample score-ul.");
         }
         return createSampleScore();
     }

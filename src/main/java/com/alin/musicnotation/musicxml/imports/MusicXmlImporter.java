@@ -14,6 +14,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 
 /**
  * Orchestrator pentru importul MusicXML.
@@ -22,9 +24,30 @@ import java.util.List;
 public class MusicXmlImporter {
 
     public Score importFromFile(Path file) throws Exception {
+        String name = file.getFileName().toString().toLowerCase();
+        if (name.endsWith(".mxl")) {
+            return importFromMxl(file);
+        }
         try (InputStream is = Files.newInputStream(file)) {
             return importFromStream(is);
         }
+    }
+
+    private Score importFromMxl(Path file) throws Exception {
+        try (ZipInputStream zis = new ZipInputStream(Files.newInputStream(file))) {
+            ZipEntry entry;
+            while ((entry = zis.getNextEntry()) != null) {
+                String entryName = entry.getName().toLowerCase();
+                if (entryName.endsWith(".xml") && !entryName.startsWith("meta-inf/")) {
+                    byte[] data = zis.readAllBytes();
+                    try (InputStream is = new ByteArrayInputStream(data)) {
+                        System.out.println("📦 MXL: citire " + entry.getName());
+                        return importFromStream(is);
+                    }
+                }
+            }
+        }
+        throw new IllegalArgumentException("Nu s-a găsit MusicXML în .mxl: " + file);
     }
 
     public Score importFromString(String xml) throws Exception {
