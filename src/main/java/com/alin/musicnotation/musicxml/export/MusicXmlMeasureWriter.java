@@ -4,6 +4,7 @@ import com.alin.musicnotation.model.Measure;
 import com.alin.musicnotation.model.Note;
 import com.alin.musicnotation.model.Slur;
 import com.alin.musicnotation.model.articulation.Articulation;
+import com.alin.musicnotation.model.dynamic.Dynamic;
 import com.alin.musicnotation.model.clef.ClefType;
 import com.alin.musicnotation.model.KeySignature;
 import com.alin.musicnotation.model.TimeSignature;
@@ -18,10 +19,12 @@ public class MusicXmlMeasureWriter {
 
     private final XMLStreamWriter writer;
     private final MusicXmlNoteWriter noteWriter;
+    private final MusicXmlDirectionWriter directionWriter;
 
     public MusicXmlMeasureWriter(XMLStreamWriter writer) {
         this.writer = writer;
         this.noteWriter = new MusicXmlNoteWriter(writer);
+        this.directionWriter = new MusicXmlDirectionWriter(writer);
     }
 
     public void writeMeasure(Measure measure, int measureNumber,
@@ -31,7 +34,7 @@ public class MusicXmlMeasureWriter {
         writer.writeStartElement("measure");
         writer.writeAttribute("number", String.valueOf(measureNumber));
 
-        // Attributes (clef, key, time)
+        // ---- Attributes (clef, key, time) ----
         ClefType clefToWrite = currentClef;
         KeySignature keyToWrite = currentKey;
         TimeSignature timeToWrite = currentTime;
@@ -46,19 +49,16 @@ public class MusicXmlMeasureWriter {
 
         if (isFirstMeasure || hasClefChange || hasKeyChange || hasTimeChange) {
             writer.writeStartElement("attributes");
-
             writer.writeStartElement("divisions");
             writer.writeCharacters(String.valueOf(MusicXmlConstants.DIVISIONS));
             writer.writeEndElement();
-
             if (isFirstMeasure || hasClefChange) writeClef(clefToWrite);
             if (isFirstMeasure || hasKeyChange) writeKey(keyToWrite);
             if (isFirstMeasure || hasTimeChange) writeTime(timeToWrite);
-
             writer.writeEndElement();
         }
 
-        // ---- Slurs ----
+        // ---- Pregătire pentru slurs ----
         List<Slur> slurs = measure.slurs();
         Map<Note, Integer> noteSlurNumber = new HashMap<>();
         Map<Note, Boolean> noteSlurStart = new HashMap<>();
@@ -78,22 +78,33 @@ public class MusicXmlMeasureWriter {
             }
         }
 
-        // ---- Write notes ----
+        // ---- Scriem notele ----
         for (Note note : measure.notes()) {
+
+            // 1. Dinamici atașate acestei note (înainte de notă!)
+            for (Dynamic dyn : measure.dynamics()) {
+                if (dyn.note() == note) {
+                    directionWriter.writeDynamic(dyn);
+                }
+            }
+
+            // 2. Slur info
             int slurNumber = noteSlurNumber.getOrDefault(note, 0);
             boolean slurStart = noteSlurStart.getOrDefault(note, false);
             boolean slurStop = noteSlurStop.getOrDefault(note, false);
 
-            // Get articulations for this note
+            // 3. Articulații atașate acestei note
             List<Articulation> articulations = measure.articulations().stream()
                     .filter(a -> a.note() == note)
                     .toList();
 
+            // 4. Scriem nota
             noteWriter.writeNote(note, slurNumber, slurStart, slurStop, articulations);
         }
 
-        writer.writeEndElement();
+        writer.writeEndElement(); // measure
     }
+
 
     private void writeClef(ClefType clef) throws XMLStreamException {
         writer.writeStartElement("clef");

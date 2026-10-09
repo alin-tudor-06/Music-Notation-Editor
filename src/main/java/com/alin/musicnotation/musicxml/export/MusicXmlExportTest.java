@@ -4,52 +4,54 @@ import com.alin.musicnotation.model.*;
 import com.alin.musicnotation.model.articulation.Articulation;
 import com.alin.musicnotation.model.articulation.ArticulationType;
 import com.alin.musicnotation.model.clef.ClefType;
+import com.alin.musicnotation.model.dynamic.Dynamic;
+import com.alin.musicnotation.model.dynamic.DynamicType;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
-
 
 public class MusicXmlExportTest {
 
     public static void main(String[] args) throws Exception {
         Score score = new Score(KeySignature.C_MAJOR, ClefType.TREBLE, TimeSignature.COMMON_TIME);
 
-        Measure m = new Measure();
+        // ============================================================
+        // Măsura 1: 4/4 - Do Re Mi Fa + slur + articulații + dinamici
+        // ============================================================
+        Measure m1 = new Measure();
+        Note m1n1 = new Note(Pitch.of("C4"), Duration.QUARTER);
+        Note m1n2 = new Note(Pitch.of("D4"), Duration.QUARTER);
+        Note m1n3 = new Note(Pitch.of("E4"), Duration.QUARTER);
+        Note m1n4 = new Note(Pitch.of("F4"), Duration.QUARTER);
+        m1.addNote(m1n1);
+        m1.addNote(m1n2);
+        m1.addNote(m1n3);
+        m1.addNote(m1n4);
+        m1.addSlur(new Slur(List.of(m1n1, m1n2, m1n3, m1n4)));
+        m1.addArticulation(new Articulation(m1n1, ArticulationType.STACCATO));
+        m1.addArticulation(new Articulation(m1n2, ArticulationType.ACCENT));
+        m1.addArticulation(new Articulation(m1n3, ArticulationType.TENUTO));
+        m1.addArticulation(new Articulation(m1n4, ArticulationType.MARCATO));
+        m1.addDynamic(new Dynamic(m1n1, DynamicType.P));
+        m1.addDynamic(new Dynamic(m1n2, DynamicType.MF));
+        m1.addDynamic(new Dynamic(m1n3, DynamicType.F));
+        m1.addDynamic(new Dynamic(m1n4, DynamicType.FF));
+        score.addMeasure(m1);
 
-        // 6 note, fiecare cu o articulație diferită
-        Note n1 = new Note(Pitch.of("C4"), Duration.EIGHTH);
-        Note n2 = new Note(Pitch.of("D4"), Duration.EIGHTH);
-        Note n3 = new Note(Pitch.of("E4"), Duration.EIGHTH);
-        Note n4 = new Note(Pitch.of("F4"), Duration.EIGHTH);
-        Note n5 = new Note(Pitch.of("G4"), Duration.EIGHTH);
-        Note n6 = new Note(Pitch.of("A4"), Duration.EIGHTH);
-
-        m.addNote(n1);
-        m.addNote(n2);
-        m.addNote(n3);
-        m.addNote(n4);
-        m.addNote(n5);
-        m.addNote(n6);
-
-        m.addArticulation(new Articulation(n1, ArticulationType.STACCATO));
-        m.addArticulation(new Articulation(n2, ArticulationType.STACCATISSIMO));
-        m.addArticulation(new Articulation(n3, ArticulationType.ACCENT));
-        m.addArticulation(new Articulation(n4, ArticulationType.MARCATO));
-        m.addArticulation(new Articulation(n5, ArticulationType.TENUTO));
-        m.addArticulation(new Articulation(n6, ArticulationType.FERMATA));
-
-        score.addMeasure(m);
-
-        // Măsura 2: 4/4 - tie + note
+        // ============================================================
+        // Măsura 2: 4/4 - tie
+        // ============================================================
         Measure m2 = new Measure();
         m2.addNote(new Note(Pitch.of("G4"), Duration.QUARTER, true, false));
-        m2.addNote(new Note(Pitch.of("B4"), Duration.QUARTER));
+        m2.addNote(new Note(Pitch.of("G4"), Duration.QUARTER, false, true));
         m2.addNote(new Note(Pitch.of("A4"), Duration.QUARTER));
-        m2.addNote(new Note(Pitch.of("G4"), Duration.QUARTER,false,true));
+        m2.addNote(new Note(Pitch.of("B4"), Duration.QUARTER));
         score.addMeasure(m2);
 
-        // Măsura 3: 3/4 - G major + timp 3/4
+        // ============================================================
+        // Măsura 3: 3/4 - G major
+        // ============================================================
         Measure m3 = new Measure();
         m3.addKeySignature(KeySignature.G_MAJOR);
         m3.addTimeSignature(TimeSignature.THREE_FOUR);
@@ -58,7 +60,9 @@ public class MusicXmlExportTest {
         m3.addNote(new Note(Pitch.of("E5"), Duration.QUARTER));
         score.addMeasure(m3);
 
-        // Măsura 4: 4/4 - Bass clef
+        // ============================================================
+        // Măsura 4: 4/4 - Bass clef + revenire la 4/4
+        // ============================================================
         Measure m4 = new Measure();
         m4.addClef(ClefType.BASS);
         m4.addTimeSignature(TimeSignature.COMMON_TIME);
@@ -68,14 +72,18 @@ public class MusicXmlExportTest {
         m4.addNote(new Note(Pitch.of("F3"), Duration.QUARTER));
         score.addMeasure(m4);
 
+        // ============================================================
         // Măsura 5: 4/4 - resturi
+        // ============================================================
         Measure m5 = new Measure();
         m5.addNote(new Note(Duration.HALF));
         m5.addNote(new Note(Duration.QUARTER));
         m5.addNote(new Note(Duration.QUARTER));
         score.addMeasure(m5);
 
+        // ============================================================
         // Măsura 6: 4/4 - accidentale
+        // ============================================================
         Measure m6 = new Measure();
         m6.addNote(new Note(Pitch.of("C#4"), Duration.QUARTER));
         m6.addNote(new Note(Pitch.of("Db4"), Duration.QUARTER));
@@ -83,12 +91,16 @@ public class MusicXmlExportTest {
         m6.addNote(new Note(Pitch.of("E4"), Duration.QUARTER));
         score.addMeasure(m6);
 
+        // ============================================================
         // Măsura 7: 4/4 - notă întreagă
+        // ============================================================
         Measure m7 = new Measure();
         m7.addNote(new Note(Pitch.of("C4"), Duration.WHOLE));
         score.addMeasure(m7);
 
+        // ============================================================
         // Măsura 8: 4/4 - optimi + pătrimi
+        // ============================================================
         Measure m8 = new Measure();
         m8.addNote(new Note(Pitch.of("C4"), Duration.EIGHTH));
         m8.addNote(new Note(Pitch.of("D4"), Duration.EIGHTH));
@@ -103,9 +115,8 @@ public class MusicXmlExportTest {
         MusicXmlExporter exporter = new MusicXmlExporter();
         Path outputPath = Paths.get(System.getProperty("user.home"), "Desktop", "test.musicxml");
         exporter.export(score, outputPath);
-        String xml = exporter.exportToString(score);
-        System.out.println(xml);
 
         System.out.println("✅ Fișier generat: " + outputPath);
+        System.out.println("📂 Deschide-l în MuseScore pentru verificare.");
     }
 }
