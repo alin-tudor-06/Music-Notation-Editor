@@ -39,6 +39,10 @@ public final class Measure {
         notes.add(note);
     }
 
+    public void removeNote(Note note) {
+        notes.remove(note);
+    }
+
     // ----- Tuplets, Slurs, Articulations, Dynamics, Hairpins -----
 
     private static void ensureAllNotesPresent(Collection<Note> measureNotes, Collection<Note> objectNotes, String objectName) {

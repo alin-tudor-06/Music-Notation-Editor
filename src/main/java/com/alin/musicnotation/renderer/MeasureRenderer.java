@@ -1,5 +1,6 @@
 package com.alin.musicnotation.renderer;
 
+import com.alin.musicnotation.editor.RenderedLayout;
 import com.alin.musicnotation.layout.LayoutScaler;
 import com.alin.musicnotation.layout.MeasureSpacingResult;
 import com.alin.musicnotation.model.Measure;
@@ -24,7 +25,8 @@ public final class MeasureRenderer {
                                  double startX,
                                  double firstLineY,
                                  RenderingState state,
-                                 Note highlightNote) {
+                                 Note highlightNote,
+                                 RenderedLayout.Builder builder) {
 
         Measure measure = data.measure();
         MeasureSpacingResult spacingResult = data.spacingResult();
@@ -46,6 +48,20 @@ public final class MeasureRenderer {
                 0.0,
                 scale
         );
+
+        // Populăm hit-box-urile notelor cu poziții absolute
+        double startPadding = config.measure().startPadding();
+        double noteOffsetX = startX + startPadding + data.extraWidth();
+        for (NoteLayout nl : justifiedLayouts.values()) {
+            if (!nl.note().isRest()) {
+                builder.addNote(
+                        nl.note(),
+                        noteOffsetX + nl.x(),
+                        nl.y(),
+                        14  // rază hit-box
+                );
+            }
+        }
 
         painter.paint(gc,
                 measure,

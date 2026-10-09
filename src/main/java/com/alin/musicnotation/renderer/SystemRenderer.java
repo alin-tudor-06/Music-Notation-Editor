@@ -1,5 +1,6 @@
 package com.alin.musicnotation.renderer;
 
+import com.alin.musicnotation.editor.RenderedLayout;
 import com.alin.musicnotation.layout.SystemPlacement;
 import com.alin.musicnotation.model.Note;
 import javafx.scene.canvas.GraphicsContext;
@@ -37,7 +38,8 @@ public final class SystemRenderer {
                                  Map<Integer, MeasureRenderData> renderDataMap,
                                  RenderingState state,
                                  boolean isFirstSystem,
-                                 Note highlightNote) {
+                                 Note highlightNote,
+                                 RenderedLayout.Builder builder) {
 
         double systemX = placement.x();
         double systemY = placement.y();
@@ -89,7 +91,7 @@ public final class SystemRenderer {
         double timeSigWidth = timeSignatureRenderer.calculateWidth(font, displayState.currentTime());
         currentX = timeSigX + timeSigWidth + startPadding;
 
-        RenderingState currentState = displayState;
+        RenderingState currentState = state;
         double lastBarX = systemX;
 
         for (var measureLayout : placement.systemLayout().measureLayouts()) {
@@ -99,8 +101,15 @@ public final class SystemRenderer {
                 throw new IllegalStateException("No render data for measure index: " + index);
             }
 
-            currentState = measureRenderer.render(gc, data, currentX, systemY, currentState,highlightNote);
             double measureWidth = data.justifiedWidth();
+
+            // Adaugă hit box pentru măsură
+            builder.addMeasure(data.measure(), currentX, systemY,
+                    measureWidth, staffHeight, systemY, lineSpacing,
+                    currentState.currentClef());
+
+            currentState = measureRenderer.render(gc, data, currentX, systemY,
+                    currentState, highlightNote, builder);
             currentX += measureWidth;
             lastBarX = currentX;
         }

@@ -1,5 +1,10 @@
 package com.alin.musicnotation;
 
+import com.alin.musicnotation.editor.EditMode;
+import com.alin.musicnotation.editor.EditorState;
+import com.alin.musicnotation.editor.HitTester;
+import com.alin.musicnotation.editor.RenderedLayout;
+import com.alin.musicnotation.editor.ScoreEditor;
 import com.alin.musicnotation.layout.PageLayoutEngine;
 import com.alin.musicnotation.layout.ScoreLayoutEngine;
 import com.alin.musicnotation.model.*;
@@ -19,6 +24,9 @@ import javafx.scene.Scene;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.*;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyEvent;
+import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.text.Font;
@@ -26,13 +34,14 @@ import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 
 import java.io.File;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 
 public class MusicNotationApp extends Application {
 
-    private static final double WINDOW_WIDTH = 900;
+    private static final double WINDOW_WIDTH = 1000;
     private static final double WINDOW_HEIGHT = 1000;
     private static final double STAFF_LINE_SPACING = 16;
     private static final double STAFF_MARGIN = 80;
@@ -77,10 +86,12 @@ public class MusicNotationApp extends Application {
     private final PlaybackCursor playbackCursor = new PlaybackCursor();
     private List<MidiSequenceBuilder.NoteTiming> noteTimings = List.of();
 
+    // Editor
+    private final EditorState editorState = new EditorState();
+
+    // UI
     private Canvas canvas;
     private Label statusBar;
-
-    // UI playback controls
     private ToolBar playbackToolBar;
     private Button playBtn;
     private Slider volumeSlider;
@@ -107,16 +118,19 @@ public class MusicNotationApp extends Application {
     @Override
     public void start(Stage primaryStage) {
         this.primaryStage = primaryStage;
-
-        // Pornim cu un score gol
-        score = createEmptyScore();
+        this.score = createEmptyScore();
 
         MenuBar menuBar = buildMenuBar();
 
+        // Toolbar palette
+        ToolBar paletteToolbar = buildPaletteToolbar();
+
+        // Toolbar playback (ascunsă inițial)
         playbackToolBar = buildPlaybackToolBar();
         playbackToolBar.setVisible(false);
         playbackToolBar.setManaged(false);
 
+        // Canvas + ScrollPane
         canvas = new Canvas();
         ScrollPane scrollPane = new ScrollPane(canvas);
         scrollPane.setFitToWidth(true);
@@ -130,7 +144,7 @@ public class MusicNotationApp extends Application {
         statusBar = new Label();
 
         BorderPane root = new BorderPane();
-        root.setTop(new VBox(menuBar, playbackToolBar));
+        root.setTop(new VBox(menuBar, paletteToolbar, playbackToolBar));
         root.setCenter(scrollPane);
         root.setBottom(statusBar);
 
@@ -138,6 +152,10 @@ public class MusicNotationApp extends Application {
         primaryStage.setTitle("Music Notation");
         primaryStage.setScene(scene);
         primaryStage.show();
+
+        // Evenimente
+        canvas.setOnMouseClicked(this::handleCanvasClick);
+        scene.setOnKeyPressed(this::handleKeyPressed);
 
         applyScoreToMidi(score);
         updateStatusBar();
@@ -195,6 +213,58 @@ public class MusicNotationApp extends Application {
 
         return new MenuBar(fileMenu, playbackMenu);
     }
+
+    // ============================================================
+    //  PALETTE TOOLBAR
+    // ============================================================
+
+    private ToolBar buildPaletteToolbar() {
+        ToggleGroup group = new ToggleGroup();
+
+        ToggleButton selectBtn = makeToggle("↖", EditMode.SELECT, group, true);
+        ToggleButton wholeBtn = makeToggle("𝅝", EditMode.ADD_WHOLE, group, false);
+        ToggleButton halfBtn = makeToggle("𝅗𝅥", EditMode.ADD_HALF, group, false);
+        ToggleButton quarterBtn = makeToggle("♩", EditMode.ADD_QUARTER, group, false);
+        ToggleButton eighthBtn = makeToggle("♪", EditMode.ADD_EIGHTH, group, false);
+        ToggleButton sixteenthBtn = makeToggle("♬", EditMode.ADD_SIXTEENTH, group, false);
+
+        ToggleButton wholeRestBtn = makeToggle("𝄻", EditMode.ADD_WHOLE_REST, group, false);
+        ToggleButton halfRestBtn = makeToggle("𝄼", EditMode.ADD_HALF_REST, group, false);
+        ToggleButton quarterRestBtn = makeToggle("𝄽", EditMode.ADD_QUARTER_REST, group, false);
+        ToggleButton eighthRestBtn = makeToggle("𝄾", EditMode.ADD_EIGHTH_REST, group, false);
+        ToggleButton sixteenthRestBtn = makeToggle("𝄿", EditMode.ADD_SIXTEENTH_REST, group, false);
+
+        group.selectedToggleProperty().addListener((obs, oldT, newT) -> {
+            if (newT == null) {
+                editorState.setMode(EditMode.SELECT);
+            } else {
+                editorState.setMode((EditMode) newT.getUserData());
+            }
+        });
+
+        ToolBar toolbar = new ToolBar(
+                selectBtn,
+                new Separator(Orientation.VERTICAL),
+                wholeBtn, halfBtn, quarterBtn, eighthBtn, sixteenthBtn,
+                new Separator(Orientation.VERTICAL),
+                wholeRestBtn, halfRestBtn, quarterRestBtn, eighthRestBtn, sixteenthRestBtn
+        );
+        toolbar.setStyle("-fx-font-size: 18px;");
+        return toolbar;
+    }
+
+    private ToggleButton makeToggle(String label, EditMode mode, ToggleGroup group, boolean selected) {
+        ToggleButton btn = new ToggleButton(label);
+        btn.setToggleGroup(group);
+        btn.setUserData(mode);
+        btn.setSelected(selected);
+        btn.setMinWidth(45);
+        return btn;
+    }
+
+    // ============================================================
+    //  PLAYBACK TOOLBAR
+    // ============================================================
 
     private ToolBar buildPlaybackToolBar() {
         playBtn = new Button("▶ Play");
@@ -281,7 +351,7 @@ public class MusicNotationApp extends Application {
             chooser.setInitialDirectory(currentFile.getParent().toFile());
         } else {
             Path desktop = Paths.get(System.getProperty("user.home"), "Desktop");
-            if (java.nio.file.Files.exists(desktop)) chooser.setInitialDirectory(desktop.toFile());
+            if (Files.exists(desktop)) chooser.setInitialDirectory(desktop.toFile());
         }
 
         File file = chooser.showOpenDialog(primaryStage);
@@ -326,7 +396,7 @@ public class MusicNotationApp extends Application {
             chooser.setInitialDirectory(currentFile.getParent().toFile());
         } else {
             Path desktop = Paths.get(System.getProperty("user.home"), "Desktop");
-            if (java.nio.file.Files.exists(desktop)) chooser.setInitialDirectory(desktop.toFile());
+            if (Files.exists(desktop)) chooser.setInitialDirectory(desktop.toFile());
         }
 
         File file = chooser.showSaveDialog(primaryStage);
@@ -343,13 +413,80 @@ public class MusicNotationApp extends Application {
     }
 
     // ============================================================
+    //  MOUSE + KEYBOARD
+    // ============================================================
+
+    private void handleCanvasClick(MouseEvent event) {
+        double mx = event.getX();
+        double my = event.getY();
+
+        RenderedLayout layout = layoutRenderer.getLastLayout();
+
+        // 1. Dacă am dat click pe o notă existentă → selectare
+        Note hit = HitTester.findNoteAt(layout, mx, my);
+        if (hit != null) {
+            editorState.setSelectedNote(hit);
+            drawStaff();
+            return;
+        }
+
+        // 2. Mod SELECT → deselectare
+        if (editorState.getMode() == EditMode.SELECT) {
+            editorState.clearSelection();
+            drawStaff();
+            return;
+        }
+
+        // 3. Mod ADD → găsim măsura
+        RenderedLayout.MeasureHitBox mh = HitTester.findMeasureAt(layout, mx, my);
+        if (mh == null) return;
+
+        // 4. Construim nota
+        Duration dur = modeToDuration(editorState.getMode());
+        Note newNote;
+        if (editorState.getMode().isRestMode()) {
+            newNote = new Note(dur);
+        } else {
+            int pos = HitTester.staffPositionFromY(mh, my);
+            Pitch pitch = HitTester.pitchFromStaffPosition(pos, mh.clef());
+            newNote = new Note(pitch, dur);
+        }
+
+        // 5. Adăugăm în score
+        ScoreEditor.addNoteSmart(score, mh.measure(), newNote);
+
+        // 6. Rebuild MIDI + redraw
+        applyScoreToMidi(score);
+        drawStaff();
+    }
+
+    private void handleKeyPressed(KeyEvent event) {
+        if (event.getCode() == KeyCode.DELETE || event.getCode() == KeyCode.BACK_SPACE) {
+            Note sel = editorState.getSelectedNote();
+            if (sel != null) {
+                ScoreEditor.removeNote(score, sel);
+                editorState.clearSelection();
+                applyScoreToMidi(score);
+                drawStaff();
+            }
+        }
+    }
+
+    private static Duration modeToDuration(EditMode mode) {
+        return switch (mode) {
+            case ADD_WHOLE, ADD_WHOLE_REST -> Duration.WHOLE;
+            case ADD_HALF, ADD_HALF_REST -> Duration.HALF;
+            case ADD_QUARTER, ADD_QUARTER_REST -> Duration.QUARTER;
+            case ADD_EIGHTH, ADD_EIGHTH_REST -> Duration.EIGHTH;
+            case ADD_SIXTEENTH, ADD_SIXTEENTH_REST -> Duration.SIXTEENTH;
+            default -> Duration.QUARTER;
+        };
+    }
+
+    // ============================================================
     //  LOGICĂ INTERNĂ
     // ============================================================
 
-    /**
-     * Creează un score gol cu o singură măsură goală,
-     * la fel ca File → New.
-     */
     private static Score createEmptyScore() {
         Score score = new Score(KeySignature.C_MAJOR, ClefType.TREBLE, TimeSignature.COMMON_TIME);
         score.addMeasure(new Measure());
@@ -361,6 +498,7 @@ public class MusicNotationApp extends Application {
         this.score = newScore;
         this.currentFile = file;
         playbackCursor.reset();
+        editorState.clearSelection();
 
         applyScoreToMidi(score);
         updateStatusBar();
@@ -387,7 +525,8 @@ public class MusicNotationApp extends Application {
                 ? currentFile.getFileName().toString()
                 : "untitled";
         statusBar.setText("📄 " + name
-                + "  |  " + score.measures().size() + " măsuri");
+                + "  |  " + score.measures().size() + " măsuri"
+                + "  |  Mod: " + editorState.getMode());
     }
 
     private void showError(String title, Exception e) {
@@ -428,8 +567,15 @@ public class MusicNotationApp extends Application {
                 score.initialTimeSignature()
         );
 
+        // Highlight: playback cursor are prioritate, altfel nota selectată
+        Note highlight = playbackCursor.isPlaying()
+                ? playbackCursor.getCurrentNote()
+                : editorState.getSelectedNote();
+
         layoutRenderer.render(gc, result.pageLayout(), result.renderDataList(),
-                initialState, playbackCursor.getCurrentNote());
+                initialState, highlight);
+
+        updateStatusBar();
     }
 
     public static void main(String[] args) {
