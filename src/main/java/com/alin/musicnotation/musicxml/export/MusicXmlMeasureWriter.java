@@ -5,6 +5,7 @@ import com.alin.musicnotation.model.Note;
 import com.alin.musicnotation.model.Slur;
 import com.alin.musicnotation.model.articulation.Articulation;
 import com.alin.musicnotation.model.dynamic.Dynamic;
+import com.alin.musicnotation.model.hairpin.Hairpin;
 import com.alin.musicnotation.model.clef.ClefType;
 import com.alin.musicnotation.model.KeySignature;
 import com.alin.musicnotation.model.TimeSignature;
@@ -36,12 +37,12 @@ public class MusicXmlMeasureWriter {
         writer.writeStartElement("measure");
         writer.writeAttribute("number", String.valueOf(measureNumber));
 
-        // ---- Start Repeat (barline location="left") ----
+        // ---- Start Repeat ----
         if (measure.hasStartRepeat()) {
             barlineWriter.writeStartRepeat();
         }
 
-        // ---- Attributes (clef, key, time) ----
+        // ---- Attributes ----
         ClefType clefToWrite = currentClef;
         KeySignature keyToWrite = currentKey;
         TimeSignature timeToWrite = currentTime;
@@ -70,7 +71,7 @@ public class MusicXmlMeasureWriter {
             directionWriter.writeTempo(measure.tempo());
         }
 
-        // ---- Pregătire pentru slurs ----
+        // ---- Pregătire slurs ----
         List<Slur> slurs = measure.slurs();
         Map<Note, Integer> noteSlurNumber = new HashMap<>();
         Map<Note, Boolean> noteSlurStart = new HashMap<>();
@@ -90,31 +91,77 @@ public class MusicXmlMeasureWriter {
             }
         }
 
-        // ---- Scriem notele ----
-        for (Note note : measure.notes()) {
+        // ---- Pregătire hairpins ----
+        List<Note> allNotes = measure.notes();
+        List<Hairpin> hairpins = measure.hairpins();
 
-            // 1. Dinamici
+        // hairpinStartsAt: note -> hairpins care încep la această notă
+        Map<Note, List<Hairpin>> hairpinStartsAt = new HashMap<>();
+        // hairpinStopsBefore: note -> hairpins care se termină ÎNAINTEA acestei note
+        Map<Note, List<Hairpin>> hairpinStopsBefore = new HashMap<>();
+        // hairpinsEndingAtMeasureEnd: hairpins care se termină pe ultima notă din măsură
+        List<Hairpin> hairpinsEndingAtMeasureEnd = new ArrayList<>();
+
+        for (Hairpin hp : hairpins) {
+            hairpinStartsAt.computeIfAbsent(hp.startNote(), k -> new ArrayList<>()).add(hp);
+
+            int endIdx = allNotes.indexOf(hp.endNote());
+            if (endIdx >= 0) {
+                if (endIdx + 1 < allNotes.size()) {
+                    Note afterEnd = allNotes.get(endIdx + 1);
+                    hairpinStopsBefore.computeIfAbsent(afterEnd, k -> new ArrayList<>()).add(hp);
+                } else {
+                    hairpinsEndingAtMeasureEnd.add(hp);
+                }
+            }
+        }
+
+        // ---- Scriem notele ----
+        for (Note note : allNotes) {
+
+            // 1. Hairpin stops (înaintea notei curente, dacă hairpin s-a terminat pe nota precedentă)
+            List<Hairpin> stops = hairpinStopsBefore.get(note);
+            if (stops != null) {
+                for (Hairpin hp : stops) {
+                    directionWriter.writeHairpinStop(hp);
+                }
+            }
+
+            // 2. Hairpin starts (înaintea notei curente)
+            List<Hairpin> starts = hairpinStartsAt.get(note);
+            if (starts != null) {
+                for (Hairpin hp : starts) {
+                    directionWriter.writeHairpinStart(hp);
+                }
+            }
+
+            // 3. Dinamici
             for (Dynamic dyn : measure.dynamics()) {
                 if (dyn.note() == note) {
                     directionWriter.writeDynamic(dyn);
                 }
             }
 
-            // 2. Slur info
+            // 4. Slur info
             int slurNumber = noteSlurNumber.getOrDefault(note, 0);
             boolean slurStart = noteSlurStart.getOrDefault(note, false);
             boolean slurStop = noteSlurStop.getOrDefault(note, false);
 
-            // 3. Articulații
+            // 5. Articulații
             List<Articulation> articulations = measure.articulations().stream()
                     .filter(a -> a.note() == note)
                     .toList();
 
-            // 4. Nota
+            // 6. Nota
             noteWriter.writeNote(note, slurNumber, slurStart, slurStop, articulations);
         }
 
-        // ---- End Repeat (barline location="right") ----
+        // ---- Hairpin stops pentru hairpins care se termină pe ultima notă ----
+        for (Hairpin hp : hairpinsEndingAtMeasureEnd) {
+            directionWriter.writeHairpinStop(hp);
+        }
+
+        // ---- End Repeat ----
         if (measure.hasEndRepeat()) {
             barlineWriter.writeEndRepeat();
         }

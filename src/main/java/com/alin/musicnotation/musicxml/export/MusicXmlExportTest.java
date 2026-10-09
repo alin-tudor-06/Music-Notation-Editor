@@ -6,6 +6,9 @@ import com.alin.musicnotation.model.articulation.ArticulationType;
 import com.alin.musicnotation.model.clef.ClefType;
 import com.alin.musicnotation.model.dynamic.Dynamic;
 import com.alin.musicnotation.model.dynamic.DynamicType;
+import com.alin.musicnotation.model.hairpin.Hairpin;
+import com.alin.musicnotation.model.hairpin.HairpinPlacement;
+import com.alin.musicnotation.model.hairpin.HairpinType;
 import com.alin.musicnotation.model.tempo.Tempo;
 import com.alin.musicnotation.model.tempo.TempoPlacement;
 
@@ -133,6 +136,32 @@ public class MusicXmlExportTest {
         m10.addNote(new Note(Pitch.of("C5"), Duration.QUARTER));
         m10.addEndRepeat();
         score.addMeasure(m10);
+
+        // Măsura 11: Crescendo + Decrescendo
+        Measure m11 = new Measure();
+        Note hn1 = new Note(Pitch.of("C4"), Duration.QUARTER);
+        Note hn2 = new Note(Pitch.of("D4"), Duration.QUARTER);
+        Note hn3 = new Note(Pitch.of("E4"), Duration.QUARTER);
+        Note hn4 = new Note(Pitch.of("F4"), Duration.QUARTER);
+        m11.addNote(hn1);
+        m11.addNote(hn2);
+        m11.addNote(hn3);
+        m11.addNote(hn4);
+        m11.addHairpin(new Hairpin(hn1, hn4, HairpinType.CRESCENDO, HairpinPlacement.BELOW));
+        score.addMeasure(m11);
+
+        // Măsura 12: Decrescendo
+        Measure m12 = new Measure();
+        Note dn1 = new Note(Pitch.of("G4"), Duration.QUARTER);
+        Note dn2 = new Note(Pitch.of("F4"), Duration.QUARTER);
+        Note dn3 = new Note(Pitch.of("E4"), Duration.QUARTER);
+        Note dn4 = new Note(Pitch.of("D4"), Duration.QUARTER);
+        m12.addNote(dn1);
+        m12.addNote(dn2);
+        m12.addNote(dn3);
+        m12.addNote(dn4);
+        m12.addHairpin(new Hairpin(dn1, dn4, HairpinType.DECRESCENDO, HairpinPlacement.ABOVE));
+        score.addMeasure(m12);
 
         score.validate();
 

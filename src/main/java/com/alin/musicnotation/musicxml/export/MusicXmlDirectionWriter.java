@@ -4,6 +4,8 @@ import com.alin.musicnotation.model.dynamic.Dynamic;
 import com.alin.musicnotation.model.dynamic.DynamicPlacement;
 import com.alin.musicnotation.model.tempo.Tempo;
 import com.alin.musicnotation.model.tempo.TempoPlacement;
+import com.alin.musicnotation.model.hairpin.Hairpin;
+import com.alin.musicnotation.model.hairpin.HairpinPlacement;
 
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamWriter;
@@ -108,6 +110,45 @@ public class MusicXmlDirectionWriter {
             writer.writeAttribute("tempo", String.valueOf(tempo.bpm()));
             writer.writeEndElement(); // sound
         }
+
+        writer.writeEndElement(); // direction
+    }
+
+    public void writeHairpinStart(Hairpin hp) throws XMLStreamException {
+        writer.writeStartElement("direction");
+
+        // Placement
+        HairpinPlacement placement = hp.placement();
+        String placementValue = (placement == HairpinPlacement.ABOVE) ? "above" : "below";
+        writer.writeAttribute("placement", placementValue);
+
+        writer.writeStartElement("direction-type");
+        writer.writeEmptyElement("wedge");
+        // Crescendo -> "crescendo", Decrescendo -> "diminuendo"
+        String wedgeType = switch (hp.type()) {
+            case CRESCENDO -> "crescendo";
+            case DECRESCENDO -> "diminuendo";
+        };
+        writer.writeAttribute("type", wedgeType);
+        writer.writeEndElement(); // direction-type
+
+        writer.writeEndElement(); // direction
+    }
+
+    /**
+     * Scrie sfârșitul unui hairpin (stop).
+     */
+    public void writeHairpinStop(Hairpin hp) throws XMLStreamException {
+        writer.writeStartElement("direction");
+
+        HairpinPlacement placement = hp.placement();
+        String placementValue = (placement == HairpinPlacement.ABOVE) ? "above" : "below";
+        writer.writeAttribute("placement", placementValue);
+
+        writer.writeStartElement("direction-type");
+        writer.writeEmptyElement("wedge");
+        writer.writeAttribute("type", "stop");
+        writer.writeEndElement(); // direction-type
 
         writer.writeEndElement(); // direction
     }
