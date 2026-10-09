@@ -6,6 +6,7 @@ import com.alin.musicnotation.model.Slur;
 import com.alin.musicnotation.model.articulation.Articulation;
 import com.alin.musicnotation.model.dynamic.Dynamic;
 import com.alin.musicnotation.model.hairpin.Hairpin;
+import com.alin.musicnotation.model.text.TextExpression;
 import com.alin.musicnotation.model.clef.ClefType;
 import com.alin.musicnotation.model.KeySignature;
 import com.alin.musicnotation.model.TimeSignature;
@@ -71,6 +72,11 @@ public class MusicXmlMeasureWriter {
             directionWriter.writeTempo(measure.tempo());
         }
 
+        // ---- Text Expressions (dolce, cantabile, etc.) ----
+        for (TextExpression expr : measure.textExpressions()) {
+            directionWriter.writeTextExpression(expr);
+        }
+
         // ---- Pregătire slurs ----
         List<Slur> slurs = measure.slurs();
         Map<Note, Integer> noteSlurNumber = new HashMap<>();
@@ -95,11 +101,8 @@ public class MusicXmlMeasureWriter {
         List<Note> allNotes = measure.notes();
         List<Hairpin> hairpins = measure.hairpins();
 
-        // hairpinStartsAt: note -> hairpins care încep la această notă
         Map<Note, List<Hairpin>> hairpinStartsAt = new HashMap<>();
-        // hairpinStopsBefore: note -> hairpins care se termină ÎNAINTEA acestei note
         Map<Note, List<Hairpin>> hairpinStopsBefore = new HashMap<>();
-        // hairpinsEndingAtMeasureEnd: hairpins care se termină pe ultima notă din măsură
         List<Hairpin> hairpinsEndingAtMeasureEnd = new ArrayList<>();
 
         for (Hairpin hp : hairpins) {
@@ -119,7 +122,6 @@ public class MusicXmlMeasureWriter {
         // ---- Scriem notele ----
         for (Note note : allNotes) {
 
-            // 1. Hairpin stops (înaintea notei curente, dacă hairpin s-a terminat pe nota precedentă)
             List<Hairpin> stops = hairpinStopsBefore.get(note);
             if (stops != null) {
                 for (Hairpin hp : stops) {
@@ -127,7 +129,6 @@ public class MusicXmlMeasureWriter {
                 }
             }
 
-            // 2. Hairpin starts (înaintea notei curente)
             List<Hairpin> starts = hairpinStartsAt.get(note);
             if (starts != null) {
                 for (Hairpin hp : starts) {
@@ -135,28 +136,23 @@ public class MusicXmlMeasureWriter {
                 }
             }
 
-            // 3. Dinamici
             for (Dynamic dyn : measure.dynamics()) {
                 if (dyn.note() == note) {
                     directionWriter.writeDynamic(dyn);
                 }
             }
 
-            // 4. Slur info
             int slurNumber = noteSlurNumber.getOrDefault(note, 0);
             boolean slurStart = noteSlurStart.getOrDefault(note, false);
             boolean slurStop = noteSlurStop.getOrDefault(note, false);
 
-            // 5. Articulații
             List<Articulation> articulations = measure.articulations().stream()
                     .filter(a -> a.note() == note)
                     .toList();
 
-            // 6. Nota
             noteWriter.writeNote(note, slurNumber, slurStart, slurStop, articulations);
         }
 
-        // ---- Hairpin stops pentru hairpins care se termină pe ultima notă ----
         for (Hairpin hp : hairpinsEndingAtMeasureEnd) {
             directionWriter.writeHairpinStop(hp);
         }

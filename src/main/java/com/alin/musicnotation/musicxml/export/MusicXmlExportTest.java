@@ -11,6 +11,8 @@ import com.alin.musicnotation.model.hairpin.HairpinPlacement;
 import com.alin.musicnotation.model.hairpin.HairpinType;
 import com.alin.musicnotation.model.tempo.Tempo;
 import com.alin.musicnotation.model.tempo.TempoPlacement;
+import com.alin.musicnotation.model.text.TextExpression;
+import com.alin.musicnotation.model.text.TextPlacement;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -26,6 +28,7 @@ public class MusicXmlExportTest {
         // ============================================================
         Measure m1 = new Measure();
         m1.addTempo(new Tempo("Allegro", 120));
+        m1.addTextExpression(new TextExpression("dolce", TextPlacement.ABOVE));
         Note m1n1 = new Note(Pitch.of("C4"), Duration.QUARTER);
         Note m1n2 = new Note(Pitch.of("D4"), Duration.QUARTER);
         Note m1n3 = new Note(Pitch.of("E4"), Duration.QUARTER);
@@ -61,6 +64,7 @@ public class MusicXmlExportTest {
         // ============================================================
         Measure m3 = new Measure();
         m3.addTempo(Tempo.ofBpm(96));
+        m3.addTextExpression(new TextExpression("cantabile", TextPlacement.BELOW));
         m3.addKeySignature(KeySignature.G_MAJOR);
         m3.addTimeSignature(TimeSignature.THREE_FOUR);
         m3.addNote(new Note(Pitch.of("C5"), Duration.QUARTER));

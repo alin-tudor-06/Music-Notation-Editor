@@ -6,6 +6,8 @@ import com.alin.musicnotation.model.tempo.Tempo;
 import com.alin.musicnotation.model.tempo.TempoPlacement;
 import com.alin.musicnotation.model.hairpin.Hairpin;
 import com.alin.musicnotation.model.hairpin.HairpinPlacement;
+import com.alin.musicnotation.model.text.TextExpression;
+import com.alin.musicnotation.model.text.TextPlacement;
 
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamWriter;
@@ -148,6 +150,28 @@ public class MusicXmlDirectionWriter {
         writer.writeStartElement("direction-type");
         writer.writeEmptyElement("wedge");
         writer.writeAttribute("type", "stop");
+        writer.writeEndElement(); // direction-type
+
+        writer.writeEndElement(); // direction
+    }
+
+    public void writeTextExpression(TextExpression expr) throws XMLStreamException {
+        if (expr == null) {
+            return;
+        }
+
+        writer.writeStartElement("direction");
+
+        // Placement (ABOVE implicit)
+        TextPlacement placement = expr.placement();
+        String placementValue = (placement == TextPlacement.BELOW) ? "below" : "above";
+        writer.writeAttribute("placement", placementValue);
+
+        // direction-type > words
+        writer.writeStartElement("direction-type");
+        writer.writeStartElement("words");
+        writer.writeCharacters(expr.text());
+        writer.writeEndElement(); // words
         writer.writeEndElement(); // direction-type
 
         writer.writeEndElement(); // direction
