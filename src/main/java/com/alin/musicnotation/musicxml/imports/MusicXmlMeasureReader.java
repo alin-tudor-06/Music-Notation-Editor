@@ -4,6 +4,7 @@ import com.alin.musicnotation.model.Measure;
 import com.alin.musicnotation.model.Note;
 import com.alin.musicnotation.model.Slur;
 import com.alin.musicnotation.model.articulation.Articulation;
+import com.alin.musicnotation.model.dynamic.Dynamic;
 import com.alin.musicnotation.model.clef.ClefType;
 import com.alin.musicnotation.model.KeySignature;
 import com.alin.musicnotation.model.TimeSignature;
@@ -17,12 +18,13 @@ import java.util.Map;
 
 /**
  * Citește un element <measure>.
- * Suportă: attributes, note, slur, articulations.
- * TODO: direction, barline, backup/forward.
+ * Suportă: attributes, note, slur, articulations, dynamics.
+ * TODO: barline (repeat), hairpin, tempo, text expressions.
  */
 public class MusicXmlMeasureReader {
 
     private final MusicXmlNoteReader noteReader = new MusicXmlNoteReader();
+    private final MusicXmlDirectionReader directionReader = new MusicXmlDirectionReader();
 
     public MeasureReadResult readMeasure(MusicXmlReader xml, int currentDivisions) throws Exception {
         Measure measure = new Measure();
@@ -37,6 +39,10 @@ public class MusicXmlMeasureReader {
         Map<Integer, Integer> slurStartIdx = new LinkedHashMap<>();
         Map<Integer, Integer> slurStopIdx = new LinkedHashMap<>();
         Map<Note, List<NoteReadResult.ArticulationInfo>> articulationsByNote = new LinkedHashMap<>();
+
+        // Dinamici în așteptare (aplicate la următoarea notă)
+        List<MusicXmlDirectionReader.DynamicInfo> pendingDynamics = new ArrayList<>();
+        Map<Note, List<MusicXmlDirectionReader.DynamicInfo>> dynamicsByNote = new LinkedHashMap<>();
 
         while (xml.hasNext()) {
             int event = xml.next();
@@ -53,6 +59,12 @@ public class MusicXmlMeasureReader {
                         if (attrs.key() != null) parsedKey = attrs.key();
                         if (attrs.time() != null) parsedTime = attrs.time();
                     }
+                    case "direction" -> {
+                        MusicXmlDirectionReader.DynamicInfo dynInfo = directionReader.readDirection(xml);
+                        if (dynInfo != null) {
+                            pendingDynamics.add(dynInfo);
+                        }
+                    }
                     case "note" -> {
                         NoteReadResult result = noteReader.readNote(xml, effectiveDivisions);
                         Note note = result.note();
@@ -68,6 +80,12 @@ public class MusicXmlMeasureReader {
                         if (!result.articulations().isEmpty()) {
                             articulationsByNote.put(note, result.articulations());
                         }
+
+                        // Aplicăm dinamici în așteptare
+                        if (!pendingDynamics.isEmpty()) {
+                            dynamicsByNote.put(note, new ArrayList<>(pendingDynamics));
+                            pendingDynamics.clear();
+                        }
                     }
                     default -> xml.skipElement();
                 }
@@ -78,7 +96,7 @@ public class MusicXmlMeasureReader {
             }
         }
 
-        // Construim slurs după ce am citit toate notele
+        // Construim slurs
         for (Integer num : slurStartIdx.keySet()) {
             Integer start = slurStartIdx.get(num);
             Integer stop = slurStopIdx.get(num);
@@ -88,11 +106,19 @@ public class MusicXmlMeasureReader {
             }
         }
 
-        // Adăugăm articulațiile la măsură
+        // Articulații
         for (Map.Entry<Note, List<NoteReadResult.ArticulationInfo>> entry : articulationsByNote.entrySet()) {
             Note note = entry.getKey();
             for (NoteReadResult.ArticulationInfo ai : entry.getValue()) {
                 measure.addArticulation(new Articulation(note, ai.type(), ai.placement()));
+            }
+        }
+
+        // Dinamici
+        for (Map.Entry<Note, List<MusicXmlDirectionReader.DynamicInfo>> entry : dynamicsByNote.entrySet()) {
+            Note note = entry.getKey();
+            for (MusicXmlDirectionReader.DynamicInfo di : entry.getValue()) {
+                measure.addDynamic(new Dynamic(note, di.type(), di.placement()));
             }
         }
 
