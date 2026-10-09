@@ -23,7 +23,8 @@ public final class MeasureRenderer {
                                  MeasureRenderData data,
                                  double startX,
                                  double firstLineY,
-                                 RenderingState state) {
+                                 RenderingState state,
+                                 Note highlightNote) {
 
         Measure measure = data.measure();
         MeasureSpacingResult spacingResult = data.spacingResult();
@@ -56,7 +57,8 @@ public final class MeasureRenderer {
                 state,
                 measureState,
                 config,
-                data.isLastMeasure()
+                data.isLastMeasure(),
+                highlightNote
         );
 
         return measureState;

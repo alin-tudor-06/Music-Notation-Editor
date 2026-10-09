@@ -5,6 +5,7 @@ import com.alin.musicnotation.model.Note;
 import com.alin.musicnotation.model.layout.NoteLayout;
 import com.alin.musicnotation.model.repeat.BarlineType;
 import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 
@@ -67,7 +68,8 @@ public final class MeasurePainter {
             RenderingState oldState,
             RenderingState newState,
             RenderConfig config,
-            boolean isLastMeasure
+            boolean isLastMeasure,
+            Note highlightNote
     ) {
 
         var staff = config.staff();
@@ -136,6 +138,19 @@ public final class MeasurePainter {
                 note.restWidth(), note.restHeight(), note.eighthRestSlant(),
                 staff.topLine(), staff.bottomLine(), staff.lineSpacing(),
                 beamedNotes, newState.currentKey());
+
+        // ─── HIGHLIGHT pentru nota curentă ───
+        if (highlightNote != null) {
+            NoteLayout hl = shiftedMap.get(highlightNote);
+            if (hl != null) {
+                gc.setGlobalAlpha(0.45);
+                gc.setFill(Color.web("#FFB74D"));
+                double w = note.headWidth() * 2.4;
+                double h = note.headHeight() * 2.4;
+                gc.fillOval(hl.x() - w / 2, hl.y() - h / 2, w, h);
+                gc.setGlobalAlpha(1.0);
+            }
+        }
 
         beamRenderer.draw(gc, measure, shiftedMap, middleLineY, staff.middleLine(),
                 beam.thickness(), beam.spacing(), beam.hookLength(),

@@ -1,6 +1,7 @@
 package com.alin.musicnotation.renderer;
 
 import com.alin.musicnotation.layout.SystemPlacement;
+import com.alin.musicnotation.model.Note;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
@@ -35,7 +36,8 @@ public final class SystemRenderer {
                                  SystemPlacement placement,
                                  Map<Integer, MeasureRenderData> renderDataMap,
                                  RenderingState state,
-                                 boolean isFirstSystem) {
+                                 boolean isFirstSystem,
+                                 Note highlightNote) {
 
         double systemX = placement.x();
         double systemY = placement.y();
@@ -97,7 +99,7 @@ public final class SystemRenderer {
                 throw new IllegalStateException("No render data for measure index: " + index);
             }
 
-            currentState = measureRenderer.render(gc, data, currentX, systemY, currentState);
+            currentState = measureRenderer.render(gc, data, currentX, systemY, currentState,highlightNote);
             double measureWidth = data.justifiedWidth();
             currentX += measureWidth;
             lastBarX = currentX;

@@ -10,19 +10,28 @@ import com.alin.musicnotation.model.hairpin.*;
 import com.alin.musicnotation.model.tempo.*;
 import com.alin.musicnotation.model.text.*;
 import com.alin.musicnotation.musicxml.imports.MusicXmlImporter;
+import com.alin.musicnotation.playback.MidiPlayer;
+import com.alin.musicnotation.playback.MidiSequenceBuilder;
+import com.alin.musicnotation.playback.PlaybackCursor;
 import com.alin.musicnotation.renderer.*;
 import com.alin.musicnotation.layout.*;
 import com.alin.musicnotation.smufl.BravuraFont;
-import javafx.scene.text.Font;
+import javafx.animation.AnimationTimer;
 import javafx.application.Application;
+import javafx.geometry.Orientation;
 import javafx.scene.Scene;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.Menu;
 import javafx.scene.control.MenuBar;
-import javafx.scene.control.ScrollPane;                 // ← import adăugat
+import javafx.scene.control.ScrollPane;
+import javafx.scene.control.Separator;
+import javafx.scene.control.Slider;
+import javafx.scene.control.ToolBar;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.text.Font;
 import javafx.stage.Stage;
 
 import java.nio.file.Files;
@@ -32,7 +41,7 @@ import java.util.*;
 
 public class MusicNotationApp extends Application {
 
-    private static final double WINDOW_WIDTH = 800;
+    private static final double WINDOW_WIDTH = 900;
     private static final double WINDOW_HEIGHT = 1000;
     private static final double STAFF_LINE_SPACING = 16;
     private static final double STAFF_MARGIN = 80;
@@ -41,7 +50,6 @@ public class MusicNotationApp extends Application {
     private static final double TOP_MARGIN = 140;
     private static final double BOTTOM_MARGIN = 100;
 
-    // Fișierul de importat (dacă există pe Desktop)
     private static final Path IMPORT_FILE = Paths.get(
             System.getProperty("user.home"), "Desktop", "melody.musicxml");
 
@@ -53,9 +61,7 @@ public class MusicNotationApp extends Application {
             WINDOW_WIDTH, STAFF_MARGIN, STAFF_MARGIN, TOP_MARGIN, SYSTEM_SPACING
     );
     private final ScoreLayoutEngine layoutEngine = new ScoreLayoutEngine(
-            spacingEngine,
-            pageLayoutEngine,
-            config
+            spacingEngine, pageLayoutEngine, config
     );
 
     // Renderers
@@ -75,6 +81,13 @@ public class MusicNotationApp extends Application {
 
     private final LayoutRenderer layoutRenderer;
 
+    // Playback
+    private final MidiPlayer midiPlayer = new MidiPlayer();
+    private final PlaybackCursor playbackCursor = new PlaybackCursor();
+    private List<MidiSequenceBuilder.NoteTiming> noteTimings = List.of();
+
+    private Canvas canvas;
+
     public MusicNotationApp() {
         MeasurePainter measurePainter = new MeasurePainter(
                 tempoRenderer, textExpressionRenderer, noteRenderer, beamRenderer,
@@ -89,10 +102,6 @@ public class MusicNotationApp extends Application {
         layoutRenderer = new LayoutRenderer(systemRenderer);
     }
 
-    /**
-     * Încearcă să încarce melody.musicxml de pe Desktop.
-     * Dacă nu există sau eșuează, folosește sample score-ul.
-     */
     private Score loadScore() {
         if (Files.exists(IMPORT_FILE)) {
             try {
@@ -103,11 +112,11 @@ public class MusicNotationApp extends Application {
                         + imported.measures().size() + " măsuri");
                 return imported;
             } catch (Exception e) {
-                System.err.println("❌ Eroare la importul fișierului: " + e.getMessage());
+                System.err.println("❌ Eroare la import: " + e.getMessage());
                 e.printStackTrace();
             }
         } else {
-            System.out.println("ℹ️ Fișierul melody.musicxml nu există pe Desktop. Se folosește sample score-ul.");
+            System.out.println("ℹ️ melody.musicxml nu există. Se folosește sample score-ul.");
         }
         return createSampleScore();
     }
@@ -121,25 +130,45 @@ public class MusicNotationApp extends Application {
                 new Menu("Playback")
         );
 
-        Canvas canvas = new Canvas();
+        // ─── ToolBar cu Playback ───
+        Button playBtn = new Button("▶ Play");
+        Button pauseBtn = new Button("⏸ Pause");
+        Button stopBtn = new Button("⏹ Stop");
 
-        ScrollPane scrollPane = new ScrollPane();
-        scrollPane.setContent(canvas);
+        Slider volumeSlider = new Slider(0, 100, 80);
+        volumeSlider.setPrefWidth(120);
+        volumeSlider.setShowTickLabels(false);
+
+        Slider tempoSlider = new Slider(0.5, 2.0, 1.0);
+        tempoSlider.setPrefWidth(120);
+        tempoSlider.setShowTickLabels(false);
+
+        Label volumeLabel = new Label("Vol:");
+        Label tempoLabel = new Label("Tempo:");
+
+        ToolBar toolBar = new ToolBar(
+                playBtn, pauseBtn, stopBtn,
+                new Separator(Orientation.VERTICAL),
+                volumeLabel, volumeSlider,
+                new Separator(Orientation.VERTICAL),
+                tempoLabel, tempoSlider
+        );
+
+        // ─── Canvas în ScrollPane ───
+        canvas = new Canvas();
+        ScrollPane scrollPane = new ScrollPane(canvas);
         scrollPane.setFitToWidth(true);
         scrollPane.setPannable(true);
         scrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
         scrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
 
-        // ⚠️ Legăm DOAR lățimea (nu înălțimea!)
         canvas.widthProperty().bind(scrollPane.widthProperty().subtract(20));
-
-        // La redimensionarea lățimii → recalculăm layout-ul și desenăm
-        scrollPane.widthProperty().addListener((e) -> drawStaff(canvas));
+        scrollPane.widthProperty().addListener((e) -> drawStaff());
 
         Label statusBar = new Label("Ready");
 
         BorderPane root = new BorderPane();
-        root.setTop(menuBar);
+        root.setTop(new javafx.scene.layout.VBox(menuBar, toolBar));
         root.setCenter(scrollPane);
         root.setBottom(statusBar);
 
@@ -148,30 +177,93 @@ public class MusicNotationApp extends Application {
         primaryStage.setScene(scene);
         primaryStage.show();
 
-        // Primul draw după ce fereastra s-a afișat
-        javafx.application.Platform.runLater(() -> drawStaff(canvas));
+        // ─── Inițializare playback ───
+        try {
+            midiPlayer.load(score);
+            noteTimings = MidiSequenceBuilder.computeTimings(score);
+            System.out.println("🎵 MIDI încărcat. Note: " + noteTimings.size());
+        } catch (Exception e) {
+            System.err.println("❌ Eroare inițializare MIDI: " + e.getMessage());
+            playBtn.setDisable(true);
+        }
+
+        // ─── Butoane ───
+        playBtn.setOnAction(e -> {
+            midiPlayer.play();
+            playbackCursor.setPlaying(true);
+        });
+        pauseBtn.setOnAction(e -> {
+            midiPlayer.pause();
+            playbackCursor.setPlaying(false);
+        });
+        stopBtn.setOnAction(e -> {
+            midiPlayer.stop();
+            playbackCursor.reset();
+            drawStaff();
+        });
+
+        volumeSlider.valueProperty().addListener((obs, oldV, newV) ->
+                midiPlayer.setVolume(newV.intValue()));
+
+        tempoSlider.valueProperty().addListener((obs, oldV, newV) ->
+                midiPlayer.setTempoFactor(newV.floatValue()));
+
+        // ─── AnimationTimer pentru cursor ───
+        AnimationTimer timer = new AnimationTimer() {
+            private long lastDraw = 0;
+
+            @Override
+            public void handle(long now) {
+                if (!playbackCursor.isPlaying()) return;
+                if (now - lastDraw < 33_000_000L) return; // ~30 FPS
+                lastDraw = now;
+
+                long tick = midiPlayer.getTickPosition();
+                playbackCursor.setCurrentTick(tick);
+
+                Note current = findNoteAtTick(tick);
+                if (current != playbackCursor.getCurrentNote()) {
+                    playbackCursor.setCurrentNote(current);
+                    drawStaff();
+                }
+
+                if (!midiPlayer.isRunning()) {
+                    playbackCursor.setPlaying(false);
+                    playbackCursor.setCurrentNote(null);
+                    drawStaff();
+                }
+            }
+        };
+        timer.start();
+
+        // Primul draw
+        javafx.application.Platform.runLater(this::drawStaff);
 
         Font bravura = BravuraFont.getFont();
         System.out.println("Bravura font family: " + bravura.getFamily());
     }
 
-    private void drawStaff(Canvas canvas) {
+    private Note findNoteAtTick(long tick) {
+        for (var t : noteTimings) {
+            if (tick >= t.startTick() && tick < t.endTick()) {
+                return t.note();
+            }
+        }
+        return null;
+    }
+
+    private void drawStaff() {
         double width = canvas.getWidth();
         if (width < 100) return;
 
-        // 1. Calculăm layout-ul
         var result = layoutEngine.layout(score, width, STAFF_MARGIN, STAFF_MARGIN);
 
-        // 2. Calculăm înălțimea necesară
         int systemCount = result.pageLayout().systemPlacements().size();
         double neededHeight = TOP_MARGIN + systemCount * SYSTEM_SPACING + BOTTOM_MARGIN;
-
-        // 3. Setăm înălțimea canvas-ului (nu e bound → OK)
         if (Math.abs(canvas.getHeight() - neededHeight) > 1) {
             canvas.setHeight(neededHeight);
         }
 
-        // 4. Desenăm
         GraphicsContext gc = canvas.getGraphicsContext2D();
         gc.clearRect(0, 0, canvas.getWidth(), canvas.getHeight());
 
@@ -180,7 +272,9 @@ public class MusicNotationApp extends Application {
                 score.keySignature(),
                 score.initialTimeSignature()
         );
-        layoutRenderer.render(gc, result.pageLayout(), result.renderDataList(), initialState);
+
+        layoutRenderer.render(gc, result.pageLayout(), result.renderDataList(),
+                initialState, playbackCursor.getCurrentNote());   // ← highlight
     }
 
     private static Score createSampleScore() {
@@ -362,6 +456,10 @@ public class MusicNotationApp extends Application {
 
         score.validate();
         return score;
+    }
+    @Override
+    public void stop() {
+        midiPlayer.close();
     }
 
     public static void main(String[] args) {

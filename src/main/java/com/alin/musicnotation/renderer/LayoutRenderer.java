@@ -2,6 +2,7 @@ package com.alin.musicnotation.renderer;
 
 import com.alin.musicnotation.layout.PageLayout;
 import com.alin.musicnotation.layout.SystemPlacement;
+import com.alin.musicnotation.model.Note;
 import javafx.scene.canvas.GraphicsContext;
 
 import java.util.HashMap;
@@ -19,7 +20,8 @@ public final class LayoutRenderer {
     public void render(GraphicsContext gc,
                        PageLayout pageLayout,
                        List<MeasureRenderData> renderDataList,
-                       RenderingState initialState) {
+                       RenderingState initialState,
+                       Note highlightNote) {
 
         Map<Integer, MeasureRenderData> renderDataMap = new HashMap<>();
         for (MeasureRenderData data : renderDataList) {
@@ -32,7 +34,7 @@ public final class LayoutRenderer {
         for (int i = 0; i < placements.size(); i++) {
             SystemPlacement placement = placements.get(i);
             boolean isFirstSystem = (i == 0);
-            state = systemRenderer.render(gc, placement, renderDataMap, state, isFirstSystem);
+            state = systemRenderer.render(gc, placement, renderDataMap, state, isFirstSystem,highlightNote);
         }
     }
 }
