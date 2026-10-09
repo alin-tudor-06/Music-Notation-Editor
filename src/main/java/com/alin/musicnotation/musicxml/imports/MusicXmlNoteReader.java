@@ -3,6 +3,8 @@ package com.alin.musicnotation.musicxml.imports;
 import com.alin.musicnotation.model.Duration;
 import com.alin.musicnotation.model.Note;
 import com.alin.musicnotation.model.Pitch;
+import com.alin.musicnotation.model.articulation.ArticulationPlacement;
+import com.alin.musicnotation.model.articulation.ArticulationType;
 import com.alin.musicnotation.musicxml.common.MusicXmlPitchMapper;
 
 import javax.xml.stream.XMLStreamConstants;
@@ -11,8 +13,8 @@ import java.util.List;
 
 /**
  * Citește un element <note> din MusicXML.
- * Suportă: pitch, rest, duration, type, tie, slur.
- * TODO: articulations, tuplet.
+ * Suportă: pitch, rest, duration, type, tie, slur, articulations.
+ * TODO: tuplet.
  */
 public class MusicXmlNoteReader {
 
@@ -25,6 +27,7 @@ public class MusicXmlNoteReader {
         boolean tieStart = false;
         boolean tieEnd = false;
         List<NoteReadResult.SlurInfo> slurs = new ArrayList<>();
+        List<NoteReadResult.ArticulationInfo> articulations = new ArrayList<>();
 
         while (xml.hasNext()) {
             int event = xml.next();
@@ -48,7 +51,7 @@ public class MusicXmlNoteReader {
                         if ("stop".equals(type)) tieEnd = true;
                         xml.skipElement();
                     }
-                    case "notations" -> slurs.addAll(readNotations(xml));
+                    case "notations" -> readNotations(xml, slurs, articulations);
                     default -> xml.skipElement();
                 }
             } else if (event == XMLStreamConstants.END_ELEMENT) {
@@ -68,39 +71,78 @@ public class MusicXmlNoteReader {
             note = new Note(pitch, duration, tieStart, tieEnd);
         }
 
-        return new NoteReadResult(note, slurs);
+        return new NoteReadResult(note, slurs, articulations);
     }
 
     /**
-     * Citește <notations> și extrage slur start/stop.
+     * Citește <notations> și extrage slur start/stop + articulations.
      */
-    private List<NoteReadResult.SlurInfo> readNotations(MusicXmlReader xml) throws Exception {
-        List<NoteReadResult.SlurInfo> slurs = new ArrayList<>();
-
+    private void readNotations(MusicXmlReader xml,
+                               List<NoteReadResult.SlurInfo> slurs,
+                               List<NoteReadResult.ArticulationInfo> articulations) throws Exception {
         while (xml.hasNext()) {
             int event = xml.next();
             if (event == XMLStreamConstants.START_ELEMENT) {
                 String name = xml.getLocalName();
-                if ("slur".equals(name)) {
-                    String type = xml.getAttribute("type");
-                    String numberStr = xml.getAttribute("number");
-                    int number = 1;
-                    if (numberStr != null) {
-                        try { number = Integer.parseInt(numberStr); } catch (NumberFormatException e) { number = 1; }
+                switch (name) {
+                    case "slur" -> {
+                        String type = xml.getAttribute("type");
+                        String numberStr = xml.getAttribute("number");
+                        int number = 1;
+                        if (numberStr != null) {
+                            try { number = Integer.parseInt(numberStr); } catch (NumberFormatException e) { number = 1; }
+                        }
+                        slurs.add(new NoteReadResult.SlurInfo(number, "start".equals(type), "stop".equals(type)));
+                        xml.skipElement();
                     }
-                    boolean start = "start".equals(type);
-                    boolean stop = "stop".equals(type);
-                    slurs.add(new NoteReadResult.SlurInfo(number, start, stop));
-                    xml.skipElement();
-                } else {
-                    xml.skipElement();
+                    case "articulations" -> readArticulations(xml, articulations);
+                    default -> xml.skipElement();
                 }
             } else if (event == XMLStreamConstants.END_ELEMENT) {
                 if ("notations".equals(xml.getLocalName())) break;
             }
         }
+    }
 
-        return slurs;
+    /**
+     * Citește <articulations> și extrage fiecare articulație.
+     */
+    private void readArticulations(MusicXmlReader xml,
+                                   List<NoteReadResult.ArticulationInfo> articulations) throws Exception {
+        while (xml.hasNext()) {
+            int event = xml.next();
+            if (event == XMLStreamConstants.START_ELEMENT) {
+                String name = xml.getLocalName();
+                ArticulationType type = mapArticulationName(name);
+                if (type != null) {
+                    ArticulationPlacement placement = parsePlacement(xml.getAttribute("placement"), type);
+                    articulations.add(new NoteReadResult.ArticulationInfo(type, placement));
+                }
+                xml.skipElement();
+            } else if (event == XMLStreamConstants.END_ELEMENT) {
+                if ("articulations".equals(xml.getLocalName())) break;
+            }
+        }
+    }
+
+    private ArticulationType mapArticulationName(String name) {
+        return switch (name) {
+            case "staccato" -> ArticulationType.STACCATO;
+            case "staccatissimo" -> ArticulationType.STACCATISSIMO;
+            case "accent" -> ArticulationType.ACCENT;
+            case "strong-accent", "marcato" -> ArticulationType.MARCATO;
+            case "tenuto" -> ArticulationType.TENUTO;
+            case "fermata" -> ArticulationType.FERMATA;
+            default -> null;
+        };
+    }
+
+    private ArticulationPlacement parsePlacement(String placementStr, ArticulationType type) {
+        if (placementStr != null) {
+            if ("above".equals(placementStr)) return ArticulationPlacement.ABOVE;
+            if ("below".equals(placementStr)) return ArticulationPlacement.BELOW;
+        }
+        return ArticulationPlacement.AUTO;
     }
 
     private PitchData readPitch(MusicXmlReader xml) throws Exception {

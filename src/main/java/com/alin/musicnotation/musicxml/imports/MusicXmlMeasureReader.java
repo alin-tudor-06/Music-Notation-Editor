@@ -3,6 +3,7 @@ package com.alin.musicnotation.musicxml.imports;
 import com.alin.musicnotation.model.Measure;
 import com.alin.musicnotation.model.Note;
 import com.alin.musicnotation.model.Slur;
+import com.alin.musicnotation.model.articulation.Articulation;
 import com.alin.musicnotation.model.clef.ClefType;
 import com.alin.musicnotation.model.KeySignature;
 import com.alin.musicnotation.model.TimeSignature;
@@ -10,13 +11,13 @@ import com.alin.musicnotation.musicxml.common.MusicXmlClefMapper;
 
 import javax.xml.stream.XMLStreamConstants;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
 /**
  * Citește un element <measure>.
- * Suportă: attributes (divisions, key, time, clef), note, slur.
+ * Suportă: attributes, note, slur, articulations.
  * TODO: direction, barline, backup/forward.
  */
 public class MusicXmlMeasureReader {
@@ -33,8 +34,9 @@ public class MusicXmlMeasureReader {
         int effectiveDivisions = currentDivisions;
 
         List<Note> addedNotes = new ArrayList<>();
-        Map<Integer, Integer> slurStartIdx = new HashMap<>();
-        Map<Integer, Integer> slurStopIdx = new HashMap<>();
+        Map<Integer, Integer> slurStartIdx = new LinkedHashMap<>();
+        Map<Integer, Integer> slurStopIdx = new LinkedHashMap<>();
+        Map<Note, List<NoteReadResult.ArticulationInfo>> articulationsByNote = new LinkedHashMap<>();
 
         while (xml.hasNext()) {
             int event = xml.next();
@@ -62,6 +64,10 @@ public class MusicXmlMeasureReader {
                             if (si.start()) slurStartIdx.put(si.number(), idx);
                             if (si.stop()) slurStopIdx.put(si.number(), idx);
                         }
+
+                        if (!result.articulations().isEmpty()) {
+                            articulationsByNote.put(note, result.articulations());
+                        }
                     }
                     default -> xml.skipElement();
                 }
@@ -79,6 +85,14 @@ public class MusicXmlMeasureReader {
             if (start != null && stop != null && start < stop) {
                 List<Note> slurNotes = new ArrayList<>(addedNotes.subList(start, stop + 1));
                 measure.addSlur(new Slur(slurNotes));
+            }
+        }
+
+        // Adăugăm articulațiile la măsură
+        for (Map.Entry<Note, List<NoteReadResult.ArticulationInfo>> entry : articulationsByNote.entrySet()) {
+            Note note = entry.getKey();
+            for (NoteReadResult.ArticulationInfo ai : entry.getValue()) {
+                measure.addArticulation(new Articulation(note, ai.type(), ai.placement()));
             }
         }
 
