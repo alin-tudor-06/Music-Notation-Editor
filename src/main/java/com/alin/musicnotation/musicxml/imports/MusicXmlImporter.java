@@ -17,43 +17,116 @@ import java.util.List;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
-/**
- * Orchestrator pentru importul MusicXML.
- * API public: importFromFile(Path), importFromString(String).
- */
 public class MusicXmlImporter {
 
     public Score importFromFile(Path file) throws Exception {
-        String name = file.getFileName().toString().toLowerCase();
-        if (name.endsWith(".mxl")) {
-            return importFromMxl(file);
-        }
-        try (InputStream is = Files.newInputStream(file)) {
-            return importFromStream(is);
-        }
-    }
+        byte[] content = Files.readAllBytes(file);
 
-    private Score importFromMxl(Path file) throws Exception {
-        try (ZipInputStream zis = new ZipInputStream(Files.newInputStream(file))) {
-            ZipEntry entry;
-            while ((entry = zis.getNextEntry()) != null) {
-                String entryName = entry.getName().toLowerCase();
-                if (entryName.endsWith(".xml") && !entryName.startsWith("meta-inf/")) {
-                    byte[] data = zis.readAllBytes();
-                    try (InputStream is = new ByteArrayInputStream(data)) {
-                        System.out.println("📦 MXL: citire " + entry.getName());
-                        return importFromStream(is);
-                    }
-                }
+        if (isZip(content)) {
+            System.out.println("📦 Detectat arhivă ZIP (.mxl real)");
+            return importFromZip(content);
+        } else {
+            System.out.println("📄 Detectat XML text");
+            try (InputStream is = new ByteArrayInputStream(content)) {
+                return importFromStream(is);
             }
         }
-        throw new IllegalArgumentException("Nu s-a găsit MusicXML în .mxl: " + file);
     }
 
     public Score importFromString(String xml) throws Exception {
         try (InputStream is = new ByteArrayInputStream(xml.getBytes(StandardCharsets.UTF_8))) {
             return importFromStream(is);
         }
+    }
+
+    /**
+     * Detectează dacă fișierul este ZIP (începe cu "PK" = 0x50 0x4B).
+     */
+    private boolean isZip(byte[] data) {
+        return data.length >= 2 && data[0] == 0x50 && data[1] == 0x4B;
+    }
+
+    /**
+     * Import dintr-o arhivă ZIP.
+     * 1. Caută META-INF/container.xml → află calea rootfile-ului.
+     * 2. Extrage rootfile-ul.
+     * 3. Fallback: orice .xml care nu e în META-INF/.
+     */
+    private Score importFromZip(byte[] zipData) throws Exception {
+        byte[] containerXml = null;
+        String rootFilePath = null;
+
+        // Pas 1: Citim container.xml
+        try (ZipInputStream zis = new ZipInputStream(new ByteArrayInputStream(zipData))) {
+            ZipEntry entry;
+            while ((entry = zis.getNextEntry()) != null) {
+                if (entry.isDirectory()) continue;
+                if ("META-INF/container.xml".equalsIgnoreCase(entry.getName())) {
+                    containerXml = zis.readAllBytes();
+                    break;
+                }
+            }
+        }
+
+        if (containerXml != null) {
+            rootFilePath = parseContainerRootFilePath(containerXml);
+            System.out.println("📦 container.xml → rootfile: " + rootFilePath);
+        }
+
+        // Pas 2: Extragem rootfile-ul
+        if (rootFilePath != null) {
+            try (ZipInputStream zis = new ZipInputStream(new ByteArrayInputStream(zipData))) {
+                ZipEntry entry;
+                while ((entry = zis.getNextEntry()) != null) {
+                    if (entry.isDirectory()) continue;
+                    if (entry.getName().equals(rootFilePath)) {
+                        byte[] data = zis.readAllBytes();
+                        System.out.println("📦 Extras: " + entry.getName());
+                        try (InputStream is = new ByteArrayInputStream(data)) {
+                            return importFromStream(is);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Pas 3: Fallback - orice .xml care nu e META-INF/
+        try (ZipInputStream zis = new ZipInputStream(new ByteArrayInputStream(zipData))) {
+            ZipEntry entry;
+            while ((entry = zis.getNextEntry()) != null) {
+                if (entry.isDirectory()) continue;
+                String name = entry.getName().toLowerCase();
+                if (name.endsWith(".xml") && !name.startsWith("meta-inf/")) {
+                    byte[] data = zis.readAllBytes();
+                    System.out.println("📦 Fallback extragere: " + entry.getName());
+                    try (InputStream is = new ByteArrayInputStream(data)) {
+                        return importFromStream(is);
+                    }
+                }
+            }
+        }
+
+        throw new IllegalArgumentException("Arhiva nu conține MusicXML valid.");
+    }
+
+    private String parseContainerRootFilePath(byte[] containerXml) {
+        try {
+            javax.xml.stream.XMLInputFactory factory = javax.xml.stream.XMLInputFactory.newInstance();
+            factory.setProperty(javax.xml.stream.XMLInputFactory.SUPPORT_DTD, false);
+            var reader = factory.createXMLStreamReader(new ByteArrayInputStream(containerXml));
+
+            while (reader.hasNext()) {
+                int event = reader.next();
+                if (event == XMLStreamConstants.START_ELEMENT
+                        && "rootfile".equals(reader.getLocalName())) {
+                    String path = reader.getAttributeValue(null, "full-path");
+                    if (path != null) return path;
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("⚠️ Eroare parsare container.xml: " + e.getMessage());
+        }
+        return null;
     }
 
     private Score importFromStream(InputStream is) throws Exception {
