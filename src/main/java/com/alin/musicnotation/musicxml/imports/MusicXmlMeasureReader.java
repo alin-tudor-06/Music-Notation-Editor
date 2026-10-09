@@ -2,24 +2,28 @@ package com.alin.musicnotation.musicxml.imports;
 
 import com.alin.musicnotation.model.Measure;
 import com.alin.musicnotation.model.Note;
+import com.alin.musicnotation.model.Slur;
 import com.alin.musicnotation.model.clef.ClefType;
 import com.alin.musicnotation.model.KeySignature;
 import com.alin.musicnotation.model.TimeSignature;
 import com.alin.musicnotation.musicxml.common.MusicXmlClefMapper;
 
 import javax.xml.stream.XMLStreamConstants;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 /**
  * Citește un element <measure>.
- * Suportă: attributes (divisions, key, time, clef) și note.
- * TODO: direction (dynamics, tempo), barline (repeat), backup/forward.
+ * Suportă: attributes (divisions, key, time, clef), note, slur.
+ * TODO: direction, barline, backup/forward.
  */
 public class MusicXmlMeasureReader {
 
     private final MusicXmlNoteReader noteReader = new MusicXmlNoteReader();
 
     public MeasureReadResult readMeasure(MusicXmlReader xml, int currentDivisions) throws Exception {
-        // xml este poziționat la <measure> START_ELEMENT
         Measure measure = new Measure();
 
         ClefType parsedClef = null;
@@ -27,6 +31,10 @@ public class MusicXmlMeasureReader {
         TimeSignature parsedTime = null;
         Integer parsedDivisions = null;
         int effectiveDivisions = currentDivisions;
+
+        List<Note> addedNotes = new ArrayList<>();
+        Map<Integer, Integer> slurStartIdx = new HashMap<>();
+        Map<Integer, Integer> slurStopIdx = new HashMap<>();
 
         while (xml.hasNext()) {
             int event = xml.next();
@@ -44,8 +52,16 @@ public class MusicXmlMeasureReader {
                         if (attrs.time() != null) parsedTime = attrs.time();
                     }
                     case "note" -> {
-                        Note note = noteReader.readNote(xml, effectiveDivisions);
+                        NoteReadResult result = noteReader.readNote(xml, effectiveDivisions);
+                        Note note = result.note();
                         measure.addNote(note);
+                        int idx = addedNotes.size();
+                        addedNotes.add(note);
+
+                        for (NoteReadResult.SlurInfo si : result.slurs()) {
+                            if (si.start()) slurStartIdx.put(si.number(), idx);
+                            if (si.stop()) slurStopIdx.put(si.number(), idx);
+                        }
                     }
                     default -> xml.skipElement();
                 }
@@ -56,11 +72,20 @@ public class MusicXmlMeasureReader {
             }
         }
 
+        // Construim slurs după ce am citit toate notele
+        for (Integer num : slurStartIdx.keySet()) {
+            Integer start = slurStartIdx.get(num);
+            Integer stop = slurStopIdx.get(num);
+            if (start != null && stop != null && start < stop) {
+                List<Note> slurNotes = new ArrayList<>(addedNotes.subList(start, stop + 1));
+                measure.addSlur(new Slur(slurNotes));
+            }
+        }
+
         return new MeasureReadResult(measure, parsedClef, parsedKey, parsedTime, parsedDivisions);
     }
 
     private AttributesResult readAttributes(MusicXmlReader xml) throws Exception {
-        // at <attributes>
         Integer divisions = null;
         ClefType clef = null;
         KeySignature key = null;
@@ -78,9 +103,7 @@ public class MusicXmlMeasureReader {
                     default -> xml.skipElement();
                 }
             } else if (event == XMLStreamConstants.END_ELEMENT) {
-                if ("attributes".equals(xml.getLocalName())) {
-                    break;
-                }
+                if ("attributes".equals(xml.getLocalName())) break;
             }
         }
 

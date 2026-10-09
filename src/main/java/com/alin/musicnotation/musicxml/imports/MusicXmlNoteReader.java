@@ -6,16 +6,17 @@ import com.alin.musicnotation.model.Pitch;
 import com.alin.musicnotation.musicxml.common.MusicXmlPitchMapper;
 
 import javax.xml.stream.XMLStreamConstants;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Citește un element <note> din MusicXML.
- * Suportă: pitch (step, alter, octave), rest, duration, type, tie.
- * TODO: slur, articulations, tuplet.
+ * Suportă: pitch, rest, duration, type, tie, slur.
+ * TODO: articulations, tuplet.
  */
 public class MusicXmlNoteReader {
 
-    public Note readNote(MusicXmlReader xml, int divisions) throws Exception {
-        // xml este poziționat la <note> START_ELEMENT
+    public NoteReadResult readNote(MusicXmlReader xml, int divisions) throws Exception {
         boolean isRest = false;
         String step = null;
         Integer alter = null;
@@ -23,6 +24,7 @@ public class MusicXmlNoteReader {
         String typeName = null;
         boolean tieStart = false;
         boolean tieEnd = false;
+        List<NoteReadResult.SlurInfo> slurs = new ArrayList<>();
 
         while (xml.hasNext()) {
             int event = xml.next();
@@ -41,12 +43,12 @@ public class MusicXmlNoteReader {
                     }
                     case "type" -> typeName = xml.getElementText().trim();
                     case "tie" -> {
-                        // <tie type="start"/> sau <tie type="stop"/>
                         String type = xml.getAttribute("type");
                         if ("start".equals(type)) tieStart = true;
                         if ("stop".equals(type)) tieEnd = true;
                         xml.skipElement();
                     }
+                    case "notations" -> slurs.addAll(readNotations(xml));
                     default -> xml.skipElement();
                 }
             } else if (event == XMLStreamConstants.END_ELEMENT) {
@@ -57,13 +59,48 @@ public class MusicXmlNoteReader {
         }
 
         Duration duration = mapType(typeName);
+        Note note;
 
         if (isRest || step == null || octave == null) {
-            return new Note(duration);
+            note = new Note(duration);
+        } else {
+            Pitch pitch = MusicXmlPitchMapper.toPitch(step, alter, octave);
+            note = new Note(pitch, duration, tieStart, tieEnd);
         }
 
-        Pitch pitch = MusicXmlPitchMapper.toPitch(step, alter, octave);
-        return new Note(pitch, duration, tieStart, tieEnd);
+        return new NoteReadResult(note, slurs);
+    }
+
+    /**
+     * Citește <notations> și extrage slur start/stop.
+     */
+    private List<NoteReadResult.SlurInfo> readNotations(MusicXmlReader xml) throws Exception {
+        List<NoteReadResult.SlurInfo> slurs = new ArrayList<>();
+
+        while (xml.hasNext()) {
+            int event = xml.next();
+            if (event == XMLStreamConstants.START_ELEMENT) {
+                String name = xml.getLocalName();
+                if ("slur".equals(name)) {
+                    String type = xml.getAttribute("type");
+                    String numberStr = xml.getAttribute("number");
+                    int number = 1;
+                    if (numberStr != null) {
+                        try { number = Integer.parseInt(numberStr); } catch (NumberFormatException e) { number = 1; }
+                    }
+                    boolean start = "start".equals(type);
+                    boolean stop = "stop".equals(type);
+                    slurs.add(new NoteReadResult.SlurInfo(number, start, stop));
+                    xml.skipElement();
+                } else {
+                    xml.skipElement();
+                }
+            } else if (event == XMLStreamConstants.END_ELEMENT) {
+                if ("notations".equals(xml.getLocalName())) break;
+            }
+        }
+
+        return slurs;
     }
 
     private PitchData readPitch(MusicXmlReader xml) throws Exception {
@@ -82,9 +119,7 @@ public class MusicXmlNoteReader {
                     default -> xml.skipElement();
                 }
             } else if (event == XMLStreamConstants.END_ELEMENT) {
-                if ("pitch".equals(xml.getLocalName())) {
-                    break;
-                }
+                if ("pitch".equals(xml.getLocalName())) break;
             }
         }
 
