@@ -2,6 +2,7 @@ package com.alin.musicnotation.musicxml.imports;
 
 import com.alin.musicnotation.model.dynamic.DynamicPlacement;
 import com.alin.musicnotation.model.dynamic.DynamicType;
+import com.alin.musicnotation.model.hairpin.HairpinPlacement;
 import com.alin.musicnotation.model.tempo.TempoPlacement;
 import com.alin.musicnotation.model.text.TextPlacement;
 
@@ -12,12 +13,10 @@ import javax.xml.stream.XMLStreamConstants;
  * - dinamica (dacă există <dynamics>)
  * - tempo (dacă există <metronome>)
  * - text expression (dacă există <words> fără <metronome>)
+ * - hairpin (dacă există <wedge>)
  */
 public class MusicXmlDirectionReader {
 
-    /**
-     * Citire <direction>. Returnează un DirectionInfo sau null dacă nimic relevant.
-     */
     public DirectionInfo readDirection(MusicXmlReader xml) throws Exception {
         String placementAttr = xml.getAttribute("placement");
         boolean above = !"below".equals(placementAttr);
@@ -25,7 +24,7 @@ public class MusicXmlDirectionReader {
         DynamicType dynamicType = null;
         String words = null;
         Integer perMinute = null;
-        String beatUnit = null;
+        HairpinDirection hairpinDirection = null;
 
         while (xml.hasNext()) {
             int event = xml.next();
@@ -36,7 +35,7 @@ public class MusicXmlDirectionReader {
                     if (content.dynamicType() != null) dynamicType = content.dynamicType();
                     if (content.words() != null) words = content.words();
                     if (content.perMinute() != null) perMinute = content.perMinute();
-                    if (content.beatUnit() != null) beatUnit = content.beatUnit();
+                    if (content.hairpinDirection() != null) hairpinDirection = content.hairpinDirection();
                 } else {
                     xml.skipElement();
                 }
@@ -45,47 +44,38 @@ public class MusicXmlDirectionReader {
             }
         }
 
-        // 1. Dinamică
+        // 1. Hairpin (prioritate)
+        if (hairpinDirection != null) {
+            HairpinPlacement hp = above ? HairpinPlacement.ABOVE : HairpinPlacement.BELOW;
+            return new DirectionInfo(null, null, null, new HairpinInfo(hairpinDirection, hp));
+        }
+
+        // 2. Dinamică
         if (dynamicType != null) {
             DynamicPlacement dp = above ? DynamicPlacement.ABOVE : DynamicPlacement.BELOW;
-            return new DirectionInfo(
-                    new DynamicInfo(dynamicType, dp),
-                    null,
-                    null
-            );
+            return new DirectionInfo(new DynamicInfo(dynamicType, dp), null, null, null);
         }
 
-        // 2. Tempo (are metronome)
+        // 3. Tempo
         if (perMinute != null) {
             TempoPlacement tp = above ? TempoPlacement.ABOVE : TempoPlacement.BELOW;
-            return new DirectionInfo(
-                    null,
-                    new TempoInfo(words, perMinute, tp),
-                    null
-            );
+            return new DirectionInfo(null, new TempoInfo(words, perMinute, tp), null, null);
         }
 
-        // 3. Text expression (doar words, fără metronome)
+        // 4. Text expression
         if (words != null) {
             TextPlacement tpl = above ? TextPlacement.ABOVE : TextPlacement.BELOW;
-            return new DirectionInfo(
-                    null,
-                    null,
-                    new TextInfo(words, tpl)
-            );
+            return new DirectionInfo(null, null, new TextInfo(words, tpl), null);
         }
 
         return null;
     }
 
-    /**
-     * Citește <direction-type>.
-     */
     private DirectionTypeContent readDirectionType(MusicXmlReader xml) throws Exception {
         DynamicType dynamicType = null;
         String words = null;
         Integer perMinute = null;
-        String beatUnit = null;
+        HairpinDirection hairpinDirection = null;
 
         while (xml.hasNext()) {
             int event = xml.next();
@@ -94,10 +84,13 @@ public class MusicXmlDirectionReader {
                 switch (name) {
                     case "dynamics" -> dynamicType = readDynamics(xml);
                     case "words" -> words = xml.getElementText().trim();
-                    case "metronome" -> {
-                        MetronomeContent mc = readMetronome(xml);
-                        perMinute = mc.perMinute();
-                        beatUnit = mc.beatUnit();
+                    case "metronome" -> perMinute = readMetronomePerMinute(xml);
+                    case "wedge" -> {
+                        String type = xml.getAttribute("type");
+                        if ("crescendo".equals(type)) hairpinDirection = HairpinDirection.CRESCENDO;
+                        else if ("diminuendo".equals(type)) hairpinDirection = HairpinDirection.DIMINUENDO;
+                        else if ("stop".equals(type)) hairpinDirection = HairpinDirection.STOP;
+                        xml.skipElement();
                     }
                     default -> xml.skipElement();
                 }
@@ -106,12 +99,11 @@ public class MusicXmlDirectionReader {
             }
         }
 
-        return new DirectionTypeContent(dynamicType, words, perMinute, beatUnit);
+        return new DirectionTypeContent(dynamicType, words, perMinute, hairpinDirection);
     }
 
     private DynamicType readDynamics(MusicXmlReader xml) throws Exception {
         DynamicType result = null;
-
         while (xml.hasNext()) {
             int event = xml.next();
             if (event == XMLStreamConstants.START_ELEMENT) {
@@ -123,29 +115,24 @@ public class MusicXmlDirectionReader {
                 if ("dynamics".equals(xml.getLocalName())) break;
             }
         }
-
         return result;
     }
 
-    private MetronomeContent readMetronome(MusicXmlReader xml) throws Exception {
-        String beatUnit = null;
+    private Integer readMetronomePerMinute(MusicXmlReader xml) throws Exception {
         Integer perMinute = null;
-
         while (xml.hasNext()) {
             int event = xml.next();
             if (event == XMLStreamConstants.START_ELEMENT) {
-                String name = xml.getLocalName();
-                switch (name) {
-                    case "beat-unit" -> beatUnit = xml.getElementText().trim();
-                    case "per-minute" -> perMinute = Integer.parseInt(xml.getElementText().trim());
-                    default -> xml.skipElement();
+                if ("per-minute".equals(xml.getLocalName())) {
+                    perMinute = Integer.parseInt(xml.getElementText().trim());
+                } else {
+                    xml.skipElement();
                 }
             } else if (event == XMLStreamConstants.END_ELEMENT) {
                 if ("metronome".equals(xml.getLocalName())) break;
             }
         }
-
-        return new MetronomeContent(beatUnit, perMinute);
+        return perMinute;
     }
 
     private DynamicType mapDynamicName(String name) {
@@ -166,16 +153,14 @@ public class MusicXmlDirectionReader {
             DynamicType dynamicType,
             String words,
             Integer perMinute,
-            String beatUnit
+            HairpinDirection hairpinDirection
     ) {}
 
-    private record MetronomeContent(String beatUnit, Integer perMinute) {}
+    public enum HairpinDirection { CRESCENDO, DIMINUENDO, STOP }
 
     public record DynamicInfo(DynamicType type, DynamicPlacement placement) {}
-
     public record TempoInfo(String text, Integer bpm, TempoPlacement placement) {}
-
     public record TextInfo(String text, TextPlacement placement) {}
-
-    public record DirectionInfo(DynamicInfo dynamic, TempoInfo tempo, TextInfo text) {}
+    public record HairpinInfo(HairpinDirection direction, HairpinPlacement placement) {}
+    public record DirectionInfo(DynamicInfo dynamic, TempoInfo tempo, TextInfo text, HairpinInfo hairpin) {}
 }

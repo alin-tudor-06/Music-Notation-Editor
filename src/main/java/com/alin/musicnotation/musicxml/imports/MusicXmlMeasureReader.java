@@ -6,6 +6,8 @@ import com.alin.musicnotation.model.Slur;
 import com.alin.musicnotation.model.tempo.Tempo;
 import com.alin.musicnotation.model.articulation.Articulation;
 import com.alin.musicnotation.model.dynamic.Dynamic;
+import com.alin.musicnotation.model.hairpin.Hairpin;
+import com.alin.musicnotation.model.hairpin.HairpinType;
 import com.alin.musicnotation.model.text.TextExpression;
 import com.alin.musicnotation.model.clef.ClefType;
 import com.alin.musicnotation.model.KeySignature;
@@ -18,11 +20,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Citește un element <measure>.
- * Suportă: attributes, note, slur, articulations, dynamics, tempo, text, barline (repeat).
- * TODO: hairpin.
- */
 public class MusicXmlMeasureReader {
 
     private final MusicXmlNoteReader noteReader = new MusicXmlNoteReader();
@@ -49,9 +46,14 @@ public class MusicXmlMeasureReader {
         MusicXmlDirectionReader.TempoInfo parsedTempo = null;
         List<MusicXmlDirectionReader.TextInfo> parsedTexts = new ArrayList<>();
 
-        // Repeat signs
         boolean startRepeat = false;
         boolean endRepeat = false;
+
+        // Hairpin state
+        MusicXmlDirectionReader.HairpinInfo activeHairpinStart = null;
+        Note activeHairpinStartNote = null;
+        Note lastNoteSeen = null;
+        List<Hairpin> parsedHairpins = new ArrayList<>();
 
         while (xml.hasNext()) {
             int event = xml.next();
@@ -74,16 +76,35 @@ public class MusicXmlMeasureReader {
                             if (di.dynamic() != null) pendingDynamics.add(di.dynamic());
                             if (di.tempo() != null && parsedTempo == null) parsedTempo = di.tempo();
                             if (di.text() != null) parsedTexts.add(di.text());
+                            if (di.hairpin() != null) {
+                                if (di.hairpin().direction() == MusicXmlDirectionReader.HairpinDirection.STOP) {
+                                    // Închidem hairpin-ul activ
+                                    if (activeHairpinStart != null && activeHairpinStartNote != null
+                                            && lastNoteSeen != null
+                                            && !activeHairpinStartNote.equals(lastNoteSeen)) {
+                                        HairpinType ht = activeHairpinStart.direction()
+                                                == MusicXmlDirectionReader.HairpinDirection.CRESCENDO
+                                                ? HairpinType.CRESCENDO
+                                                : HairpinType.DECRESCENDO;
+                                        parsedHairpins.add(new Hairpin(
+                                                activeHairpinStartNote, lastNoteSeen,
+                                                ht, activeHairpinStart.placement()));
+                                    }
+                                    activeHairpinStart = null;
+                                    activeHairpinStartNote = null;
+                                } else {
+                                    // Start nou
+                                    activeHairpinStart = di.hairpin();
+                                    activeHairpinStartNote = null;
+                                }
+                            }
                         }
                     }
                     case "barline" -> {
                         MusicXmlBarlineReader.BarlineInfo bi = barlineReader.readBarline(xml);
                         if (bi != null) {
-                            if ("forward".equals(bi.direction())) {
-                                startRepeat = true;
-                            } else if ("backward".equals(bi.direction())) {
-                                endRepeat = true;
-                            }
+                            if ("forward".equals(bi.direction())) startRepeat = true;
+                            else if ("backward".equals(bi.direction())) endRepeat = true;
                         }
                     }
                     case "note" -> {
@@ -92,6 +113,12 @@ public class MusicXmlMeasureReader {
                         measure.addNote(note);
                         int idx = addedNotes.size();
                         addedNotes.add(note);
+                        lastNoteSeen = note;
+
+                        // Atașăm nota de start pentru hairpin dacă era în așteptare
+                        if (activeHairpinStart != null && activeHairpinStartNote == null) {
+                            activeHairpinStartNote = note;
+                        }
 
                         for (NoteReadResult.SlurInfo si : result.slurs()) {
                             if (si.start()) slurStartIdx.put(si.number(), idx);
@@ -114,6 +141,19 @@ public class MusicXmlMeasureReader {
                     break;
                 }
             }
+        }
+
+        // La final: dacă un hairpin a rămas activ, îl închidem pe ultima notă
+        if (activeHairpinStart != null && activeHairpinStartNote != null
+                && lastNoteSeen != null
+                && !activeHairpinStartNote.equals(lastNoteSeen)) {
+            HairpinType ht = activeHairpinStart.direction()
+                    == MusicXmlDirectionReader.HairpinDirection.CRESCENDO
+                    ? HairpinType.CRESCENDO
+                    : HairpinType.DECRESCENDO;
+            parsedHairpins.add(new Hairpin(
+                    activeHairpinStartNote, lastNoteSeen,
+                    ht, activeHairpinStart.placement()));
         }
 
         // Construim slurs
@@ -151,6 +191,11 @@ public class MusicXmlMeasureReader {
         // Text expressions
         for (MusicXmlDirectionReader.TextInfo ti : parsedTexts) {
             measure.addTextExpression(new TextExpression(ti.text(), ti.placement()));
+        }
+
+        // Hairpins
+        for (Hairpin hp : parsedHairpins) {
+            measure.addHairpin(hp);
         }
 
         // Repeat signs
