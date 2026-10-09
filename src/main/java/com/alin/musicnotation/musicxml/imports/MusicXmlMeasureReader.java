@@ -3,8 +3,10 @@ package com.alin.musicnotation.musicxml.imports;
 import com.alin.musicnotation.model.Measure;
 import com.alin.musicnotation.model.Note;
 import com.alin.musicnotation.model.Slur;
+import com.alin.musicnotation.model.tempo.Tempo;
 import com.alin.musicnotation.model.articulation.Articulation;
 import com.alin.musicnotation.model.dynamic.Dynamic;
+import com.alin.musicnotation.model.text.TextExpression;
 import com.alin.musicnotation.model.clef.ClefType;
 import com.alin.musicnotation.model.KeySignature;
 import com.alin.musicnotation.model.TimeSignature;
@@ -18,8 +20,8 @@ import java.util.Map;
 
 /**
  * Citește un element <measure>.
- * Suportă: attributes, note, slur, articulations, dynamics.
- * TODO: barline (repeat), hairpin, tempo, text expressions.
+ * Suportă: attributes, note, slur, articulations, dynamics, tempo, text.
+ * TODO: barline (repeat), hairpin.
  */
 public class MusicXmlMeasureReader {
 
@@ -40,9 +42,13 @@ public class MusicXmlMeasureReader {
         Map<Integer, Integer> slurStopIdx = new LinkedHashMap<>();
         Map<Note, List<NoteReadResult.ArticulationInfo>> articulationsByNote = new LinkedHashMap<>();
 
-        // Dinamici în așteptare (aplicate la următoarea notă)
         List<MusicXmlDirectionReader.DynamicInfo> pendingDynamics = new ArrayList<>();
         Map<Note, List<MusicXmlDirectionReader.DynamicInfo>> dynamicsByNote = new LinkedHashMap<>();
+
+        // Tempo (poate fi doar unul pe măsură)
+        MusicXmlDirectionReader.TempoInfo parsedTempo = null;
+        // Text expressions (pot fi mai multe)
+        List<MusicXmlDirectionReader.TextInfo> parsedTexts = new ArrayList<>();
 
         while (xml.hasNext()) {
             int event = xml.next();
@@ -60,9 +66,11 @@ public class MusicXmlMeasureReader {
                         if (attrs.time() != null) parsedTime = attrs.time();
                     }
                     case "direction" -> {
-                        MusicXmlDirectionReader.DynamicInfo dynInfo = directionReader.readDirection(xml);
-                        if (dynInfo != null) {
-                            pendingDynamics.add(dynInfo);
+                        MusicXmlDirectionReader.DirectionInfo di = directionReader.readDirection(xml);
+                        if (di != null) {
+                            if (di.dynamic() != null) pendingDynamics.add(di.dynamic());
+                            if (di.tempo() != null && parsedTempo == null) parsedTempo = di.tempo();
+                            if (di.text() != null) parsedTexts.add(di.text());
                         }
                     }
                     case "note" -> {
@@ -81,7 +89,6 @@ public class MusicXmlMeasureReader {
                             articulationsByNote.put(note, result.articulations());
                         }
 
-                        // Aplicăm dinamici în așteptare
                         if (!pendingDynamics.isEmpty()) {
                             dynamicsByNote.put(note, new ArrayList<>(pendingDynamics));
                             pendingDynamics.clear();
@@ -120,6 +127,17 @@ public class MusicXmlMeasureReader {
             for (MusicXmlDirectionReader.DynamicInfo di : entry.getValue()) {
                 measure.addDynamic(new Dynamic(note, di.type(), di.placement()));
             }
+        }
+
+        // Tempo
+        if (parsedTempo != null) {
+            Tempo tempo = new Tempo(parsedTempo.text(), parsedTempo.bpm(), parsedTempo.placement());
+            measure.addTempo(tempo);
+        }
+
+        // Text expressions
+        for (MusicXmlDirectionReader.TextInfo ti : parsedTexts) {
+            measure.addTextExpression(new TextExpression(ti.text(), ti.placement()));
         }
 
         return new MeasureReadResult(measure, parsedClef, parsedKey, parsedTime, parsedDivisions);
