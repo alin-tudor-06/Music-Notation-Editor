@@ -2,13 +2,15 @@ package com.alin.musicnotation.musicxml.export;
 
 import com.alin.musicnotation.model.dynamic.Dynamic;
 import com.alin.musicnotation.model.dynamic.DynamicPlacement;
+import com.alin.musicnotation.model.tempo.Tempo;
+import com.alin.musicnotation.model.tempo.TempoPlacement;
 
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamWriter;
 
 /**
  * Scrie elemente <direction> pentru MusicXML.
- * Folosit pentru dinamici, hairpin, tempo, text expressions.
+ * Folosit pentru dinamici, tempo, hairpin, text expressions.
  */
 public class MusicXmlDirectionWriter {
 
@@ -24,7 +26,6 @@ public class MusicXmlDirectionWriter {
     public void writeDynamic(Dynamic dyn) throws XMLStreamException {
         writer.writeStartElement("direction");
 
-        // Placement (implicit below dacă este AUTO)
         DynamicPlacement placement = dyn.placement();
         if (placement == DynamicPlacement.AUTO) {
             placement = DynamicPlacement.BELOW;
@@ -32,7 +33,6 @@ public class MusicXmlDirectionWriter {
         String placementValue = (placement == DynamicPlacement.ABOVE) ? "above" : "below";
         writer.writeAttribute("placement", placementValue);
 
-        // direction-type > dynamics > <p/> etc.
         writer.writeStartElement("direction-type");
         writer.writeStartElement("dynamics");
 
@@ -51,6 +51,64 @@ public class MusicXmlDirectionWriter {
 
         writer.writeEndElement(); // dynamics
         writer.writeEndElement(); // direction-type
+        writer.writeEndElement(); // direction
+    }
+
+    /**
+     * Scrie un tempo ca element <direction>.
+     * Suportă:
+     * - text descriptiv (ex: "Allegro") -> <words>
+     * - tempo numeric (ex: 120 BPM) -> <metronome>
+     * - ambele combinate
+     */
+    public void writeTempo(Tempo tempo) throws XMLStreamException {
+        if (tempo == null) {
+            return;
+        }
+
+        writer.writeStartElement("direction");
+
+        // Placement implicit: ABOVE
+        TempoPlacement placement = tempo.placement();
+        if (placement == TempoPlacement.BELOW) {
+            writer.writeAttribute("placement", "below");
+        } else {
+            writer.writeAttribute("placement", "above");
+        }
+
+        // <direction-type> pentru text (dacă există)
+        if (tempo.hasText()) {
+            writer.writeStartElement("direction-type");
+            writer.writeStartElement("words");
+            writer.writeCharacters(tempo.text());
+            writer.writeEndElement(); // words
+            writer.writeEndElement(); // direction-type
+        }
+
+        // <direction-type> pentru metronom (dacă există BPM)
+        if (tempo.hasBpm()) {
+            writer.writeStartElement("direction-type");
+            writer.writeStartElement("metronome");
+
+            writer.writeStartElement("beat-unit");
+            writer.writeCharacters("quarter");
+            writer.writeEndElement(); // beat-unit
+
+            writer.writeStartElement("per-minute");
+            writer.writeCharacters(String.valueOf(tempo.bpm()));
+            writer.writeEndElement(); // per-minute
+
+            writer.writeEndElement(); // metronome
+            writer.writeEndElement(); // direction-type
+        }
+
+        // <sound> pentru playback (opțional, dar recomandat)
+        if (tempo.hasBpm()) {
+            writer.writeStartElement("sound");
+            writer.writeAttribute("tempo", String.valueOf(tempo.bpm()));
+            writer.writeEndElement(); // sound
+        }
+
         writer.writeEndElement(); // direction
     }
 }

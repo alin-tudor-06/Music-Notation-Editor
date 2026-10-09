@@ -6,6 +6,8 @@ import com.alin.musicnotation.model.articulation.ArticulationType;
 import com.alin.musicnotation.model.clef.ClefType;
 import com.alin.musicnotation.model.dynamic.Dynamic;
 import com.alin.musicnotation.model.dynamic.DynamicType;
+import com.alin.musicnotation.model.tempo.Tempo;
+import com.alin.musicnotation.model.tempo.TempoPlacement;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -20,6 +22,7 @@ public class MusicXmlExportTest {
         // Măsura 1: 4/4 - Do Re Mi Fa + slur + articulații + dinamici
         // ============================================================
         Measure m1 = new Measure();
+        m1.addTempo(new Tempo("Allegro", 120));
         Note m1n1 = new Note(Pitch.of("C4"), Duration.QUARTER);
         Note m1n2 = new Note(Pitch.of("D4"), Duration.QUARTER);
         Note m1n3 = new Note(Pitch.of("E4"), Duration.QUARTER);
@@ -43,6 +46,7 @@ public class MusicXmlExportTest {
         // Măsura 2: 4/4 - tie
         // ============================================================
         Measure m2 = new Measure();
+        m2.addTempo(new Tempo("Andante", 80));
         m2.addNote(new Note(Pitch.of("G4"), Duration.QUARTER, true, false));
         m2.addNote(new Note(Pitch.of("G4"), Duration.QUARTER, false, true));
         m2.addNote(new Note(Pitch.of("A4"), Duration.QUARTER));
@@ -53,6 +57,7 @@ public class MusicXmlExportTest {
         // Măsura 3: 3/4 - G major
         // ============================================================
         Measure m3 = new Measure();
+        m3.addTempo(Tempo.ofBpm(96));
         m3.addKeySignature(KeySignature.G_MAJOR);
         m3.addTimeSignature(TimeSignature.THREE_FOUR);
         m3.addNote(new Note(Pitch.of("C5"), Duration.QUARTER));
@@ -64,6 +69,7 @@ public class MusicXmlExportTest {
         // Măsura 4: 4/4 - Bass clef + revenire la 4/4
         // ============================================================
         Measure m4 = new Measure();
+        m4.addTempo(new Tempo("Presto", 168, TempoPlacement.BELOW));
         m4.addClef(ClefType.BASS);
         m4.addTimeSignature(TimeSignature.COMMON_TIME);
         m4.addNote(new Note(Pitch.of("C3"), Duration.QUARTER));

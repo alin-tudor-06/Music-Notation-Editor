@@ -58,6 +58,11 @@ public class MusicXmlMeasureWriter {
             writer.writeEndElement();
         }
 
+        // ---- Tempo (dacă există) ----
+        if (measure.tempo() != null) {
+            directionWriter.writeTempo(measure.tempo());
+        }
+
         // ---- Pregătire pentru slurs ----
         List<Slur> slurs = measure.slurs();
         Map<Note, Integer> noteSlurNumber = new HashMap<>();
