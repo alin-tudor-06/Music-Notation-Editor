@@ -4,7 +4,7 @@ public final class MusicXmlConstants {
 
     private MusicXmlConstants() {}
 
-    public static final int DIVISIONS = 16;
+    public static final int DIVISIONS = 480;
     public static final String VERSION = "4.0";
     public static final String PART_ID = "P1";
     public static final String DEFAULT_PART_NAME = "Part";

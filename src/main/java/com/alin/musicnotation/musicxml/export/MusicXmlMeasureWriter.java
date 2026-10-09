@@ -3,6 +3,7 @@ package com.alin.musicnotation.musicxml.export;
 import com.alin.musicnotation.model.Measure;
 import com.alin.musicnotation.model.Note;
 import com.alin.musicnotation.model.Slur;
+import com.alin.musicnotation.model.Tuplet;
 import com.alin.musicnotation.model.articulation.Articulation;
 import com.alin.musicnotation.model.dynamic.Dynamic;
 import com.alin.musicnotation.model.hairpin.Hairpin;
@@ -72,7 +73,7 @@ public class MusicXmlMeasureWriter {
             directionWriter.writeTempo(measure.tempo());
         }
 
-        // ---- Text Expressions (dolce, cantabile, etc.) ----
+        // ---- Text Expressions ----
         for (TextExpression expr : measure.textExpressions()) {
             directionWriter.writeTextExpression(expr);
         }
@@ -94,6 +95,26 @@ public class MusicXmlMeasureWriter {
                 noteSlurNumber.put(last, slurNumber);
                 noteSlurStart.put(first, true);
                 noteSlurStop.put(last, true);
+            }
+        }
+
+        // ---- Pregătire tuplete ----
+        List<Tuplet> tuplets = measure.tuplets();
+        Map<Note, Integer> noteTupletNumber = new HashMap<>();
+        Map<Note, Boolean> noteTupletStart = new HashMap<>();
+        Map<Note, Boolean> noteTupletStop = new HashMap<>();
+
+        for (int i = 0; i < tuplets.size(); i++) {
+            Tuplet t = tuplets.get(i);
+            List<Note> tNotes = t.notes();
+            if (tNotes.size() >= 2) {
+                Note first = tNotes.get(0);
+                Note last = tNotes.get(tNotes.size() - 1);
+                int tupletNumber = i + 1;
+                noteTupletNumber.put(first, tupletNumber);
+                noteTupletNumber.put(last, tupletNumber);
+                noteTupletStart.put(first, true);
+                noteTupletStop.put(last, true);
             }
         }
 
@@ -146,11 +167,16 @@ public class MusicXmlMeasureWriter {
             boolean slurStart = noteSlurStart.getOrDefault(note, false);
             boolean slurStop = noteSlurStop.getOrDefault(note, false);
 
+            int tupletNumber = noteTupletNumber.getOrDefault(note, 0);
+            boolean tupletStart = noteTupletStart.getOrDefault(note, false);
+            boolean tupletStop = noteTupletStop.getOrDefault(note, false);
+
             List<Articulation> articulations = measure.articulations().stream()
                     .filter(a -> a.note() == note)
                     .toList();
 
-            noteWriter.writeNote(note, slurNumber, slurStart, slurStop, articulations);
+            noteWriter.writeNote(note, slurNumber, slurStart, slurStop,
+                    articulations, tupletStart, tupletStop, tupletNumber);
         }
 
         for (Hairpin hp : hairpinsEndingAtMeasureEnd) {
@@ -164,6 +190,7 @@ public class MusicXmlMeasureWriter {
 
         writer.writeEndElement(); // measure
     }
+
 
 
     private void writeClef(ClefType clef) throws XMLStreamException {

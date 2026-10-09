@@ -18,12 +18,14 @@ public class MusicXmlNotationWriter {
     }
 
     public void writeNotations(Note note, int slurNumber, boolean slurStart, boolean slurStop,
-                               List<Articulation> articulations) throws XMLStreamException {
+                               List<Articulation> articulations,
+                               boolean tupletStart, boolean tupletStop, int tupletNumber) throws XMLStreamException {
         boolean hasTie = note.tieStart() || note.tieEnd();
         boolean hasSlur = slurStart || slurStop;
         boolean hasArticulations = articulations != null && !articulations.isEmpty();
+        boolean hasTuplet = tupletStart || tupletStop;
 
-        if (!hasTie && !hasSlur && !hasArticulations) {
+        if (!hasTie && !hasSlur && !hasArticulations && !hasTuplet) {
             return;
         }
 
@@ -55,6 +57,21 @@ public class MusicXmlNotationWriter {
             writer.writeEndElement();
         }
 
+        // ---- Tuplet ----
+        if (tupletStart) {
+            writer.writeStartElement("tuplet");
+            writer.writeAttribute("type", "start");
+            writer.writeAttribute("number", String.valueOf(tupletNumber));
+            writer.writeAttribute("bracket", "yes");
+            writer.writeEndElement();
+        }
+        if (tupletStop) {
+            writer.writeStartElement("tuplet");
+            writer.writeAttribute("type", "stop");
+            writer.writeAttribute("number", String.valueOf(tupletNumber));
+            writer.writeEndElement();
+        }
+
         // ---- Articulations ----
         if (hasArticulations) {
             writer.writeStartElement("articulations");
@@ -82,10 +99,18 @@ public class MusicXmlNotationWriter {
         if (art.placement() != ArticulationPlacement.AUTO) {
             String placement = art.placement() == ArticulationPlacement.ABOVE ? "above" : "below";
             writer.writeAttribute("placement", placement);
+        } else {
+            if (art.type() == ArticulationType.MARCATO || art.type() == ArticulationType.FERMATA ||
+                    art.type() == ArticulationType.ACCENT || art.type() == ArticulationType.TENUTO) {
+                writer.writeAttribute("placement", "above");
+            } else {
+                writer.writeAttribute("placement", "below");
+            }
         }
 
         if (art.type() == ArticulationType.FERMATA) {
-            writer.writeAttribute("type", "upright");
+            writer.writeAttribute("type",
+                    art.placement() == ArticulationPlacement.BELOW ? "inverted" : "upright");
         }
 
         writer.writeEndElement();

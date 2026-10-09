@@ -167,6 +167,19 @@ public class MusicXmlExportTest {
         m12.addHairpin(new Hairpin(dn1, dn4, HairpinType.DECRESCENDO, HairpinPlacement.ABOVE));
         score.addMeasure(m12);
 
+        // Măsura 13: Triplet de optimi
+        Measure m13 = new Measure();
+        Note t1 = new Note(Pitch.of("C4"), Duration.EIGHTH);
+        Note t2 = new Note(Pitch.of("D4"), Duration.EIGHTH);
+        Note t3 = new Note(Pitch.of("E4"), Duration.EIGHTH);
+        m13.addNote(t1);
+        m13.addNote(t2);
+        m13.addNote(t3);
+        m13.addTuplet(new Tuplet(3, 2, List.of(t1, t2, t3)));
+        m13.addNote(new Note(Duration.HALF));
+        m13.addNote(new Note(Duration.QUARTER));
+        score.addMeasure(m13);
+
         score.validate();
 
         MusicXmlExporter exporter = new MusicXmlExporter();

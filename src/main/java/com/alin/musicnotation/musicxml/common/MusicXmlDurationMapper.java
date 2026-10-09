@@ -1,11 +1,15 @@
 package com.alin.musicnotation.musicxml.common;
 
 import com.alin.musicnotation.model.Duration;
+import com.alin.musicnotation.model.Tuplet;
 
 public final class MusicXmlDurationMapper {
 
     private MusicXmlDurationMapper() {}
 
+    /**
+     * Durata de bază (fără tuplet) în divisions.
+     */
     public static int getDurationInDivisions(Duration duration) {
         return switch (duration) {
             case WHOLE -> MusicXmlConstants.DIVISIONS;
@@ -14,6 +18,17 @@ public final class MusicXmlDurationMapper {
             case EIGHTH -> MusicXmlConstants.DIVISIONS / 8;
             case SIXTEENTH -> MusicXmlConstants.DIVISIONS / 16;
         };
+    }
+
+    /**
+     * Durata reală ținând cont de tuplet (dacă există).
+     */
+    public static int getDurationInDivisions(Duration duration, Tuplet tuplet) {
+        int base = getDurationInDivisions(duration);
+        if (tuplet == null) {
+            return base;
+        }
+        return (int) Math.round(base * tuplet.durationFactor());
     }
 
     public static String getTypeName(Duration duration) {

@@ -1,6 +1,7 @@
 package com.alin.musicnotation.musicxml.export;
 
 import com.alin.musicnotation.model.Note;
+import com.alin.musicnotation.model.Tuplet;
 import com.alin.musicnotation.model.articulation.Articulation;
 import com.alin.musicnotation.musicxml.common.MusicXmlDurationMapper;
 import com.alin.musicnotation.musicxml.common.MusicXmlPitchMapper;
@@ -20,7 +21,8 @@ public class MusicXmlNoteWriter {
     }
 
     public void writeNote(Note note, int slurNumber, boolean slurStart, boolean slurStop,
-                          List<Articulation> articulations) throws XMLStreamException {
+                          List<Articulation> articulations,
+                          boolean tupletStart, boolean tupletStop, int tupletNumber) throws XMLStreamException {
         writer.writeStartElement("note");
 
         if (note.isRest()) {
@@ -31,6 +33,19 @@ public class MusicXmlNoteWriter {
 
         writeDuration(note);
         writeType(note);
+
+        // ---- Time-modification (pentru tuplete) ----
+        Tuplet tuplet = note.tuplet();
+        if (tuplet != null) {
+            writer.writeStartElement("time-modification");
+            writer.writeStartElement("actual-notes");
+            writer.writeCharacters(String.valueOf(tuplet.numerator()));
+            writer.writeEndElement();
+            writer.writeStartElement("normal-notes");
+            writer.writeCharacters(String.valueOf(tuplet.denominator()));
+            writer.writeEndElement();
+            writer.writeEndElement(); // time-modification
+        }
 
         // ---- Tie ----
         if (note.tieStart()) {
@@ -45,15 +60,15 @@ public class MusicXmlNoteWriter {
         }
 
         // ---- Notations ----
-        notationWriter.writeNotations(note, slurNumber, slurStart, slurStop, articulations);
+        notationWriter.writeNotations(note, slurNumber, slurStart, slurStop,
+                articulations, tupletStart, tupletStop, tupletNumber);
 
-        writer.writeEndElement();
+        writer.writeEndElement(); // note
     }
 
     private void writePitch(Note note) throws XMLStreamException {
         var pitch = note.pitch();
         writer.writeStartElement("pitch");
-
         writer.writeStartElement("step");
         writer.writeCharacters(MusicXmlPitchMapper.getStep(pitch));
         writer.writeEndElement();
@@ -68,12 +83,12 @@ public class MusicXmlNoteWriter {
         writer.writeStartElement("octave");
         writer.writeCharacters(String.valueOf(MusicXmlPitchMapper.getOctave(pitch)));
         writer.writeEndElement();
-
         writer.writeEndElement(); // pitch
     }
 
     private void writeDuration(Note note) throws XMLStreamException {
-        int duration = MusicXmlDurationMapper.getDurationInDivisions(note.duration());
+        // Durata reală ține cont de tuplet
+        int duration = MusicXmlDurationMapper.getDurationInDivisions(note.duration(), note.tuplet());
         writer.writeStartElement("duration");
         writer.writeCharacters(String.valueOf(duration));
         writer.writeEndElement();

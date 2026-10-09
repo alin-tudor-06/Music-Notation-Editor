@@ -156,7 +156,7 @@ class MusicXmlFullTest {
         NodeList divisionsNodes = doc.getElementsByTagName("divisions");
         assertTrue(divisionsNodes.getLength() >= 1, "Should have at least one divisions element");
         for (int i = 0; i < divisionsNodes.getLength(); i++) {
-            assertEquals("16", divisionsNodes.item(i).getTextContent(), "All divisions should be 16");
+            assertEquals("480", divisionsNodes.item(i).getTextContent(), "All divisions should be 480");
         }
 
         // ============================================================
