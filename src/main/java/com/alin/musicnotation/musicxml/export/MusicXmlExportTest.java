@@ -116,6 +116,24 @@ public class MusicXmlExportTest {
         m8.addNote(new Note(Pitch.of("A4"), Duration.QUARTER));
         score.addMeasure(m8);
 
+        // Măsura 9: Start repeat
+        Measure m9 = new Measure();
+        m9.addStartRepeat();
+        m9.addNote(new Note(Pitch.of("C4"), Duration.QUARTER));
+        m9.addNote(new Note(Pitch.of("D4"), Duration.QUARTER));
+        m9.addNote(new Note(Pitch.of("E4"), Duration.QUARTER));
+        m9.addNote(new Note(Pitch.of("F4"), Duration.QUARTER));
+        score.addMeasure(m9);
+
+        // Măsura 10: End repeat
+        Measure m10 = new Measure();
+        m10.addNote(new Note(Pitch.of("G4"), Duration.QUARTER));
+        m10.addNote(new Note(Pitch.of("A4"), Duration.QUARTER));
+        m10.addNote(new Note(Pitch.of("B4"), Duration.QUARTER));
+        m10.addNote(new Note(Pitch.of("C5"), Duration.QUARTER));
+        m10.addEndRepeat();
+        score.addMeasure(m10);
+
         score.validate();
 
         MusicXmlExporter exporter = new MusicXmlExporter();

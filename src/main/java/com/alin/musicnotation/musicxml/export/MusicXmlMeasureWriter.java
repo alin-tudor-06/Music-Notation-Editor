@@ -20,11 +20,13 @@ public class MusicXmlMeasureWriter {
     private final XMLStreamWriter writer;
     private final MusicXmlNoteWriter noteWriter;
     private final MusicXmlDirectionWriter directionWriter;
+    private final MusicXmlBarlineWriter barlineWriter;
 
     public MusicXmlMeasureWriter(XMLStreamWriter writer) {
         this.writer = writer;
         this.noteWriter = new MusicXmlNoteWriter(writer);
         this.directionWriter = new MusicXmlDirectionWriter(writer);
+        this.barlineWriter = new MusicXmlBarlineWriter(writer);
     }
 
     public void writeMeasure(Measure measure, int measureNumber,
@@ -33,6 +35,11 @@ public class MusicXmlMeasureWriter {
 
         writer.writeStartElement("measure");
         writer.writeAttribute("number", String.valueOf(measureNumber));
+
+        // ---- Start Repeat (barline location="left") ----
+        if (measure.hasStartRepeat()) {
+            barlineWriter.writeStartRepeat();
+        }
 
         // ---- Attributes (clef, key, time) ----
         ClefType clefToWrite = currentClef;
@@ -58,7 +65,7 @@ public class MusicXmlMeasureWriter {
             writer.writeEndElement();
         }
 
-        // ---- Tempo (dacă există) ----
+        // ---- Tempo ----
         if (measure.tempo() != null) {
             directionWriter.writeTempo(measure.tempo());
         }
@@ -86,7 +93,7 @@ public class MusicXmlMeasureWriter {
         // ---- Scriem notele ----
         for (Note note : measure.notes()) {
 
-            // 1. Dinamici atașate acestei note (înainte de notă!)
+            // 1. Dinamici
             for (Dynamic dyn : measure.dynamics()) {
                 if (dyn.note() == note) {
                     directionWriter.writeDynamic(dyn);
@@ -98,13 +105,18 @@ public class MusicXmlMeasureWriter {
             boolean slurStart = noteSlurStart.getOrDefault(note, false);
             boolean slurStop = noteSlurStop.getOrDefault(note, false);
 
-            // 3. Articulații atașate acestei note
+            // 3. Articulații
             List<Articulation> articulations = measure.articulations().stream()
                     .filter(a -> a.note() == note)
                     .toList();
 
-            // 4. Scriem nota
+            // 4. Nota
             noteWriter.writeNote(note, slurNumber, slurStart, slurStop, articulations);
+        }
+
+        // ---- End Repeat (barline location="right") ----
+        if (measure.hasEndRepeat()) {
+            barlineWriter.writeEndRepeat();
         }
 
         writer.writeEndElement(); // measure
