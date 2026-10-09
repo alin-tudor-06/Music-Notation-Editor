@@ -249,10 +249,6 @@ public class NoteRenderer {
 
     private boolean shouldDisplayAccidental(Pitch pitch, KeySignature activeKey) {
         Accidental pitchAcc = pitch.accidental();
-        if (pitchAcc == Accidental.NONE) return false;
-        if (pitchAcc == Accidental.NATURAL) {
-            return activeKey != null && activeKey.altersStep(pitch.step());
-        }
-        return activeKey == null || activeKey.accidentalForStep(pitch.step()) != pitchAcc;
+        return pitchAcc != Accidental.NONE;
     }
 }

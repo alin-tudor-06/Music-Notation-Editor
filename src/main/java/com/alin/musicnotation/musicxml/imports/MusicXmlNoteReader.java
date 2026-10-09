@@ -1,21 +1,16 @@
 package com.alin.musicnotation.musicxml.imports;
 
+import com.alin.musicnotation.model.Accidental;
 import com.alin.musicnotation.model.Duration;
 import com.alin.musicnotation.model.Note;
 import com.alin.musicnotation.model.Pitch;
 import com.alin.musicnotation.model.articulation.ArticulationPlacement;
 import com.alin.musicnotation.model.articulation.ArticulationType;
-import com.alin.musicnotation.musicxml.common.MusicXmlPitchMapper;
 
 import javax.xml.stream.XMLStreamConstants;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Citește un element <note> din MusicXML.
- * Suportă: pitch, rest, duration, type, tie, slur, articulations.
- * TODO: tuplet.
- */
 public class MusicXmlNoteReader {
 
     public NoteReadResult readNote(MusicXmlReader xml, int divisions) throws Exception {
@@ -26,8 +21,15 @@ public class MusicXmlNoteReader {
         String typeName = null;
         boolean tieStart = false;
         boolean tieEnd = false;
+        String accidentalHint = null;
         List<NoteReadResult.SlurInfo> slurs = new ArrayList<>();
         List<NoteReadResult.ArticulationInfo> articulations = new ArrayList<>();
+
+        // Tuplet state
+        Integer actualNotes = null;
+        Integer normalNotes = null;
+        Integer tupletStartNumber = null;
+        Integer tupletStopNumber = null;
 
         while (xml.hasNext()) {
             int event = xml.next();
@@ -45,19 +47,29 @@ public class MusicXmlNoteReader {
                         octave = pd.octave();
                     }
                     case "type" -> typeName = xml.getElementText().trim();
+                    case "accidental" -> accidentalHint = xml.getElementText().trim();
                     case "tie" -> {
                         String type = xml.getAttribute("type");
                         if ("start".equals(type)) tieStart = true;
                         if ("stop".equals(type)) tieEnd = true;
                         xml.skipElement();
                     }
-                    case "notations" -> readNotations(xml, slurs, articulations);
+                    case "time-modification" -> {
+                        TimeModResult tm = readTimeModification(xml);
+                        actualNotes = tm.actual();
+                        normalNotes = tm.normal();
+                    }
+                    case "notations" -> {
+                        NotationsResult nr = readNotations(xml);
+                        slurs.addAll(nr.slurs());
+                        articulations.addAll(nr.articulations());
+                        if (nr.tupletStart() != null) tupletStartNumber = nr.tupletStart();
+                        if (nr.tupletStop() != null) tupletStopNumber = nr.tupletStop();
+                    }
                     default -> xml.skipElement();
                 }
             } else if (event == XMLStreamConstants.END_ELEMENT) {
-                if ("note".equals(xml.getLocalName())) {
-                    break;
-                }
+                if ("note".equals(xml.getLocalName())) break;
             }
         }
 
@@ -67,19 +79,71 @@ public class MusicXmlNoteReader {
         if (isRest || step == null || octave == null) {
             note = new Note(duration);
         } else {
-            Pitch pitch = MusicXmlPitchMapper.toPitch(step, alter, octave);
+            Accidental accidental = determineAccidental(alter, accidentalHint);
+            Pitch pitch = new Pitch(Pitch.Step.valueOf(step), accidental, octave);
             note = new Note(pitch, duration, tieStart, tieEnd);
         }
 
-        return new NoteReadResult(note, slurs, articulations);
+        // Construim tuplet info dacă există
+        NoteReadResult.TupletInfo tupletInfo = null;
+        if (actualNotes != null && normalNotes != null) {
+            int number = 1;
+            boolean isStart = false;
+            boolean isStop = false;
+            if (tupletStartNumber != null) { number = tupletStartNumber; isStart = true; }
+            if (tupletStopNumber != null) { number = tupletStopNumber; isStop = true; }
+            tupletInfo = new NoteReadResult.TupletInfo(actualNotes, normalNotes, number, isStart, isStop);
+        }
+
+        return new NoteReadResult(note, slurs, articulations, tupletInfo);
     }
 
     /**
-     * Citește <notations> și extrage slur start/stop + articulations.
+     * Determină accidentalul corect al pitch-ului.
+     * - Dacă MusicXML are elementul <accidental>, îl folosim ca hint pentru afișare.
+     * - Altfel, deducem din <alter>:
+     *   null = fără accidental, 0 = natural, >0 = sharp, <0 = flat.
      */
-    private void readNotations(MusicXmlReader xml,
-                               List<NoteReadResult.SlurInfo> slurs,
-                               List<NoteReadResult.ArticulationInfo> articulations) throws Exception {
+    private Accidental determineAccidental(Integer alter, String accidentalHint) {
+        if (accidentalHint != null) {
+            return switch (accidentalHint) {
+                case "sharp" -> Accidental.SHARP;
+                case "flat" -> Accidental.FLAT;
+                case "natural" -> Accidental.NATURAL;
+                default -> Accidental.NONE;
+            };
+        }
+        if (alter == null) return Accidental.NONE;
+        if (alter == 0) return Accidental.NATURAL;
+        if (alter > 0) return Accidental.SHARP;
+        return Accidental.FLAT;
+    }
+
+    private TimeModResult readTimeModification(MusicXmlReader xml) throws Exception {
+        Integer actual = null;
+        Integer normal = null;
+        while (xml.hasNext()) {
+            int event = xml.next();
+            if (event == XMLStreamConstants.START_ELEMENT) {
+                String name = xml.getLocalName();
+                switch (name) {
+                    case "actual-notes" -> actual = Integer.parseInt(xml.getElementText().trim());
+                    case "normal-notes" -> normal = Integer.parseInt(xml.getElementText().trim());
+                    default -> xml.skipElement();
+                }
+            } else if (event == XMLStreamConstants.END_ELEMENT) {
+                if ("time-modification".equals(xml.getLocalName())) break;
+            }
+        }
+        return new TimeModResult(actual, normal);
+    }
+
+    private NotationsResult readNotations(MusicXmlReader xml) throws Exception {
+        List<NoteReadResult.SlurInfo> slurs = new ArrayList<>();
+        List<NoteReadResult.ArticulationInfo> articulations = new ArrayList<>();
+        Integer tupletStart = null;
+        Integer tupletStop = null;
+
         while (xml.hasNext()) {
             int event = xml.next();
             if (event == XMLStreamConstants.START_ELEMENT) {
@@ -95,6 +159,17 @@ public class MusicXmlNoteReader {
                         slurs.add(new NoteReadResult.SlurInfo(number, "start".equals(type), "stop".equals(type)));
                         xml.skipElement();
                     }
+                    case "tuplet" -> {
+                        String type = xml.getAttribute("type");
+                        String numberStr = xml.getAttribute("number");
+                        int number = 1;
+                        if (numberStr != null) {
+                            try { number = Integer.parseInt(numberStr); } catch (NumberFormatException e) { number = 1; }
+                        }
+                        if ("start".equals(type)) tupletStart = number;
+                        else if ("stop".equals(type)) tupletStop = number;
+                        xml.skipElement();
+                    }
                     case "articulations" -> readArticulations(xml, articulations);
                     default -> xml.skipElement();
                 }
@@ -102,11 +177,10 @@ public class MusicXmlNoteReader {
                 if ("notations".equals(xml.getLocalName())) break;
             }
         }
+
+        return new NotationsResult(slurs, articulations, tupletStart, tupletStop);
     }
 
-    /**
-     * Citește <articulations> și extrage fiecare articulație.
-     */
     private void readArticulations(MusicXmlReader xml,
                                    List<NoteReadResult.ArticulationInfo> articulations) throws Exception {
         while (xml.hasNext()) {
@@ -115,7 +189,7 @@ public class MusicXmlNoteReader {
                 String name = xml.getLocalName();
                 ArticulationType type = mapArticulationName(name);
                 if (type != null) {
-                    ArticulationPlacement placement = parsePlacement(xml.getAttribute("placement"), type);
+                    ArticulationPlacement placement = parsePlacement(xml.getAttribute("placement"));
                     articulations.add(new NoteReadResult.ArticulationInfo(type, placement));
                 }
                 xml.skipElement();
@@ -137,7 +211,7 @@ public class MusicXmlNoteReader {
         };
     }
 
-    private ArticulationPlacement parsePlacement(String placementStr, ArticulationType type) {
+    private ArticulationPlacement parsePlacement(String placementStr) {
         if (placementStr != null) {
             if ("above".equals(placementStr)) return ArticulationPlacement.ABOVE;
             if ("below".equals(placementStr)) return ArticulationPlacement.BELOW;
@@ -181,4 +255,11 @@ public class MusicXmlNoteReader {
     }
 
     private record PitchData(String step, Integer alter, Integer octave) {}
+    private record TimeModResult(Integer actual, Integer normal) {}
+    private record NotationsResult(
+            List<NoteReadResult.SlurInfo> slurs,
+            List<NoteReadResult.ArticulationInfo> articulations,
+            Integer tupletStart,
+            Integer tupletStop
+    ) {}
 }

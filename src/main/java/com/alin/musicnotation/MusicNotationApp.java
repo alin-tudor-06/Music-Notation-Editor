@@ -9,6 +9,7 @@ import com.alin.musicnotation.model.dynamic.*;
 import com.alin.musicnotation.model.hairpin.*;
 import com.alin.musicnotation.model.tempo.*;
 import com.alin.musicnotation.model.text.*;
+import com.alin.musicnotation.musicxml.imports.MusicXmlImporter;
 import com.alin.musicnotation.renderer.*;
 import com.alin.musicnotation.layout.*;
 import com.alin.musicnotation.smufl.BravuraFont;
@@ -20,10 +21,13 @@ import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Label;
 import javafx.scene.control.Menu;
 import javafx.scene.control.MenuBar;
+import javafx.scene.control.ScrollPane;                 // ← import adăugat
 import javafx.scene.layout.BorderPane;
-import javafx.scene.layout.Pane;
 import javafx.stage.Stage;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.*;
 
 public class MusicNotationApp extends Application {
@@ -35,8 +39,14 @@ public class MusicNotationApp extends Application {
     private static final double NOTE_SPACING_PER_QUARTER = 120;
     private static final double SYSTEM_SPACING = STAFF_LINE_SPACING * 14;
     private static final double TOP_MARGIN = 140;
+    private static final double BOTTOM_MARGIN = 100;
 
-    private final Score score = createSampleScore();
+    // Fișierul de importat (dacă există pe Desktop)
+    private static final Path IMPORT_FILE = Paths.get(
+            System.getProperty("user.home"), "Desktop", "melody.musicxml");
+
+    private final Score score = loadScore();
+
     private final RenderConfig config = RenderConfig.defaultConfig();
     private final MeasureSpacingEngine spacingEngine = new MeasureSpacingEngine(NOTE_SPACING_PER_QUARTER);
     private final PageLayoutEngine pageLayoutEngine = new PageLayoutEngine(
@@ -79,6 +89,29 @@ public class MusicNotationApp extends Application {
         layoutRenderer = new LayoutRenderer(systemRenderer);
     }
 
+    /**
+     * Încearcă să încarce melody.musicxml de pe Desktop.
+     * Dacă nu există sau eșuează, folosește sample score-ul.
+     */
+    private Score loadScore() {
+        if (Files.exists(IMPORT_FILE)) {
+            try {
+                System.out.println("📂 Încărcare fișier: " + IMPORT_FILE);
+                MusicXmlImporter importer = new MusicXmlImporter();
+                Score imported = importer.importFromFile(IMPORT_FILE);
+                System.out.println("✅ Fișier importat cu succes: "
+                        + imported.measures().size() + " măsuri");
+                return imported;
+            } catch (Exception e) {
+                System.err.println("❌ Eroare la importul fișierului: " + e.getMessage());
+                e.printStackTrace();
+            }
+        } else {
+            System.out.println("ℹ️ Fișierul melody.musicxml nu există pe Desktop. Se folosește sample score-ul.");
+        }
+        return createSampleScore();
+    }
+
     @Override
     public void start(Stage primaryStage) {
         MenuBar menuBar = new MenuBar(
@@ -89,17 +122,25 @@ public class MusicNotationApp extends Application {
         );
 
         Canvas canvas = new Canvas();
-        Pane workspace = new Pane(canvas);
-        canvas.widthProperty().bind(workspace.widthProperty());
-        canvas.heightProperty().bind(workspace.heightProperty());
-        canvas.widthProperty().addListener((e) -> drawStaff(canvas));
-        canvas.heightProperty().addListener((e) -> drawStaff(canvas));
+
+        ScrollPane scrollPane = new ScrollPane();
+        scrollPane.setContent(canvas);
+        scrollPane.setFitToWidth(true);
+        scrollPane.setPannable(true);
+        scrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        scrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+
+        // ⚠️ Legăm DOAR lățimea (nu înălțimea!)
+        canvas.widthProperty().bind(scrollPane.widthProperty().subtract(20));
+
+        // La redimensionarea lățimii → recalculăm layout-ul și desenăm
+        scrollPane.widthProperty().addListener((e) -> drawStaff(canvas));
 
         Label statusBar = new Label("Ready");
 
         BorderPane root = new BorderPane();
         root.setTop(menuBar);
-        root.setCenter(workspace);
+        root.setCenter(scrollPane);
         root.setBottom(statusBar);
 
         Scene scene = new Scene(root, WINDOW_WIDTH, WINDOW_HEIGHT);
@@ -107,19 +148,32 @@ public class MusicNotationApp extends Application {
         primaryStage.setScene(scene);
         primaryStage.show();
 
-        // === TEST: Încărcare Bravura font ===
+        // Primul draw după ce fereastra s-a afișat
+        javafx.application.Platform.runLater(() -> drawStaff(canvas));
+
         Font bravura = BravuraFont.getFont();
         System.out.println("Bravura font family: " + bravura.getFamily());
     }
 
     private void drawStaff(Canvas canvas) {
         double width = canvas.getWidth();
-        double height = canvas.getHeight();
+        if (width < 100) return;
 
-        GraphicsContext gc = canvas.getGraphicsContext2D();
-        gc.clearRect(0, 0, width, height);
-
+        // 1. Calculăm layout-ul
         var result = layoutEngine.layout(score, width, STAFF_MARGIN, STAFF_MARGIN);
+
+        // 2. Calculăm înălțimea necesară
+        int systemCount = result.pageLayout().systemPlacements().size();
+        double neededHeight = TOP_MARGIN + systemCount * SYSTEM_SPACING + BOTTOM_MARGIN;
+
+        // 3. Setăm înălțimea canvas-ului (nu e bound → OK)
+        if (Math.abs(canvas.getHeight() - neededHeight) > 1) {
+            canvas.setHeight(neededHeight);
+        }
+
+        // 4. Desenăm
+        GraphicsContext gc = canvas.getGraphicsContext2D();
+        gc.clearRect(0, 0, canvas.getWidth(), canvas.getHeight());
 
         RenderingState initialState = new RenderingState(
                 score.initialClef(),
@@ -133,9 +187,7 @@ public class MusicNotationApp extends Application {
         // Score-ul începe în Do major, cheia sol, 4/4
         Score score = new Score(KeySignature.C_MAJOR, ClefType.TREBLE, TimeSignature.COMMON_TIME);
 
-        // ============================================================
-        // Măsura 1 – Accidentale (diez, bemol, becar) + Slur + Dinamică p
-        // ============================================================
+        // Măsura 1 – Accidentale + Slur + Dinamică p
         Measure m1 = new Measure();
         m1.addTempo(new Tempo("Allegro", 120));
         m1.addTextExpression(new TextExpression("dolce", TextPlacement.ABOVE));
@@ -152,13 +204,11 @@ public class MusicNotationApp extends Application {
         m1.addDynamic(new Dynamic(n1, DynamicType.P));
         score.addMeasure(m1);
 
-        // ============================================================
         // Măsura 2 – Becar + Tie + Articulație Accent
-        // ============================================================
         Measure m2 = new Measure();
         m2.addTextExpression(new TextExpression("cantabile", TextPlacement.BELOW));
 
-        Note n5 = new Note(Pitch.of("Fn4"), Duration.QUARTER);   // Fa natural
+        Note n5 = new Note(Pitch.of("Fn4"), Duration.QUARTER);
         Note n6 = new Note(Pitch.of("G4"), Duration.QUARTER);
         Note n7 = new Note(Pitch.of("A4"), Duration.QUARTER, true, false);
         Note n8 = new Note(Pitch.of("A4"), Duration.QUARTER, false, true);
@@ -170,9 +220,7 @@ public class MusicNotationApp extends Application {
         m2.addDynamic(new Dynamic(n5, DynamicType.MP));
         score.addMeasure(m2);
 
-        // ============================================================
         // Măsura 3 – Hairpin (crescendo) + Slur + Articulație Staccato
-        // ============================================================
         Measure m3 = new Measure();
         m3.addTimeSignature(TimeSignature.THREE_FOUR);
         m3.addTextExpression(new TextExpression("cresc.", TextPlacement.ABOVE));
@@ -190,9 +238,7 @@ public class MusicNotationApp extends Application {
         m3.addHairpin(new Hairpin(n9, n11, HairpinType.CRESCENDO, HairpinPlacement.BELOW));
         score.addMeasure(m3);
 
-        // ============================================================
         // Măsura 4 – Hairpin (decrescendo) + Dinamică f + Articulație Tenuto
-        // ============================================================
         Measure m4 = new Measure();
         m4.addTimeSignature(TimeSignature.COMMON_TIME);
         m4.addTextExpression(new TextExpression("decresc.", TextPlacement.BELOW));
@@ -211,9 +257,7 @@ public class MusicNotationApp extends Application {
         m4.addHairpin(new Hairpin(n12, n15, HairpinType.DECRESCENDO, HairpinPlacement.ABOVE));
         score.addMeasure(m4);
 
-        // ============================================================
         // Măsura 5 – Dinamică mf + Articulație Marcato + Slur
-        // ============================================================
         Measure m5 = new Measure();
         m5.addKeySignature(KeySignature.G_MAJOR);
         m5.addTextExpression(new TextExpression("espressivo", TextPlacement.ABOVE));
@@ -232,9 +276,7 @@ public class MusicNotationApp extends Application {
         m5.addDynamic(new Dynamic(n16, DynamicType.MF));
         score.addMeasure(m5);
 
-        // ============================================================
         // Măsura 6 – Dinamică pp + Articulație Fermata + Tie
-        // ============================================================
         Measure m6 = new Measure();
         m6.addTempo(Tempo.ofBpm(72));
         m6.addTextExpression(new TextExpression("adagio", TextPlacement.ABOVE));
@@ -249,9 +291,7 @@ public class MusicNotationApp extends Application {
         m6.addDynamic(new Dynamic(n20, DynamicType.PP));
         score.addMeasure(m6);
 
-        // ============================================================
         // Măsura 7 – Dinamică ff + Articulație Staccatissimo
-        // ============================================================
         Measure m7 = new Measure();
         m7.addKeySignature(KeySignature.C_MAJOR);
         m7.addTextExpression(new TextExpression("con brio", TextPlacement.ABOVE));
@@ -271,9 +311,7 @@ public class MusicNotationApp extends Application {
         m7.addDynamic(new Dynamic(n23, DynamicType.FF));
         score.addMeasure(m7);
 
-        // ============================================================
-        // Măsura 8 – Hairpin + Dinamică + Slur + Tie (combinație complexă)
-        // ============================================================
+        // Măsura 8 – Hairpin + Dinamică + Slur + Tie
         Measure m8 = new Measure();
         m8.addTextExpression(new TextExpression("molto legato", TextPlacement.ABOVE));
 
@@ -290,9 +328,7 @@ public class MusicNotationApp extends Application {
         m8.addHairpin(new Hairpin(n27, n30, HairpinType.CRESCENDO, HairpinPlacement.BELOW));
         score.addMeasure(m8);
 
-        // ============================================================
         // Măsura 9 – Dinamică FFF + Articulație Staccato + Slur
-        // ============================================================
         Measure m9 = new Measure();
         m9.addTimeSignature(TimeSignature.COMMON_TIME);
         m9.addTextExpression(new TextExpression("fortissimo", TextPlacement.BELOW));
@@ -312,9 +348,7 @@ public class MusicNotationApp extends Application {
         m9.addHairpin(new Hairpin(n31, n34, HairpinType.DECRESCENDO, HairpinPlacement.ABOVE));
         score.addMeasure(m9);
 
-        // ============================================================
         // Măsura 10 – Final: Notă întreagă cu Fermata + Dinamică ppp + Text "Fine"
-        // ============================================================
         Measure m10 = new Measure();
         m10.addKeySignature(KeySignature.C_MAJOR);
         m10.addTextExpression(new TextExpression("Fine", TextPlacement.ABOVE));
@@ -326,7 +360,6 @@ public class MusicNotationApp extends Application {
         m10.addEndRepeat();
         score.addMeasure(m10);
 
-        // Validăm score-ul
         score.validate();
         return score;
     }

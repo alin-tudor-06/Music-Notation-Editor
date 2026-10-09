@@ -4,6 +4,7 @@ import com.alin.musicnotation.model.Measure;
 import com.alin.musicnotation.model.Note;
 import com.alin.musicnotation.model.Slur;
 import com.alin.musicnotation.model.tempo.Tempo;
+import com.alin.musicnotation.model.Tuplet;
 import com.alin.musicnotation.model.articulation.Articulation;
 import com.alin.musicnotation.model.dynamic.Dynamic;
 import com.alin.musicnotation.model.hairpin.Hairpin;
@@ -49,11 +50,16 @@ public class MusicXmlMeasureReader {
         boolean startRepeat = false;
         boolean endRepeat = false;
 
-        // Hairpin state
         MusicXmlDirectionReader.HairpinInfo activeHairpinStart = null;
         Note activeHairpinStartNote = null;
         Note lastNoteSeen = null;
         List<Hairpin> parsedHairpins = new ArrayList<>();
+
+        // Tuplet state: pentru fiecare număr de tuplet, memorăm index-ul primei note
+        Map<Integer, Integer> tupletStartIdx = new LinkedHashMap<>();
+        Map<Integer, Integer> tupletStopIdx = new LinkedHashMap<>();
+        // Reținem numerator/denominator pentru fiecare număr de tuplet
+        Map<Integer, int[]> tupletRatios = new LinkedHashMap<>();
 
         while (xml.hasNext()) {
             int event = xml.next();
@@ -78,14 +84,12 @@ public class MusicXmlMeasureReader {
                             if (di.text() != null) parsedTexts.add(di.text());
                             if (di.hairpin() != null) {
                                 if (di.hairpin().direction() == MusicXmlDirectionReader.HairpinDirection.STOP) {
-                                    // Închidem hairpin-ul activ
                                     if (activeHairpinStart != null && activeHairpinStartNote != null
                                             && lastNoteSeen != null
                                             && !activeHairpinStartNote.equals(lastNoteSeen)) {
                                         HairpinType ht = activeHairpinStart.direction()
                                                 == MusicXmlDirectionReader.HairpinDirection.CRESCENDO
-                                                ? HairpinType.CRESCENDO
-                                                : HairpinType.DECRESCENDO;
+                                                ? HairpinType.CRESCENDO : HairpinType.DECRESCENDO;
                                         parsedHairpins.add(new Hairpin(
                                                 activeHairpinStartNote, lastNoteSeen,
                                                 ht, activeHairpinStart.placement()));
@@ -93,7 +97,6 @@ public class MusicXmlMeasureReader {
                                     activeHairpinStart = null;
                                     activeHairpinStartNote = null;
                                 } else {
-                                    // Start nou
                                     activeHairpinStart = di.hairpin();
                                     activeHairpinStartNote = null;
                                 }
@@ -115,7 +118,6 @@ public class MusicXmlMeasureReader {
                         addedNotes.add(note);
                         lastNoteSeen = note;
 
-                        // Atașăm nota de start pentru hairpin dacă era în așteptare
                         if (activeHairpinStart != null && activeHairpinStartNote == null) {
                             activeHairpinStartNote = note;
                         }
@@ -133,6 +135,14 @@ public class MusicXmlMeasureReader {
                             dynamicsByNote.put(note, new ArrayList<>(pendingDynamics));
                             pendingDynamics.clear();
                         }
+
+                        // Tuplet info
+                        if (result.tuplet() != null) {
+                            NoteReadResult.TupletInfo ti = result.tuplet();
+                            tupletRatios.put(ti.tupletNumber(), new int[]{ti.numerator(), ti.denominator()});
+                            if (ti.isStart()) tupletStartIdx.put(ti.tupletNumber(), idx);
+                            if (ti.isStop()) tupletStopIdx.put(ti.tupletNumber(), idx);
+                        }
                     }
                     default -> xml.skipElement();
                 }
@@ -143,20 +153,17 @@ public class MusicXmlMeasureReader {
             }
         }
 
-        // La final: dacă un hairpin a rămas activ, îl închidem pe ultima notă
+        // Hairpin rămas activ
         if (activeHairpinStart != null && activeHairpinStartNote != null
-                && lastNoteSeen != null
-                && !activeHairpinStartNote.equals(lastNoteSeen)) {
+                && lastNoteSeen != null && !activeHairpinStartNote.equals(lastNoteSeen)) {
             HairpinType ht = activeHairpinStart.direction()
                     == MusicXmlDirectionReader.HairpinDirection.CRESCENDO
-                    ? HairpinType.CRESCENDO
-                    : HairpinType.DECRESCENDO;
-            parsedHairpins.add(new Hairpin(
-                    activeHairpinStartNote, lastNoteSeen,
+                    ? HairpinType.CRESCENDO : HairpinType.DECRESCENDO;
+            parsedHairpins.add(new Hairpin(activeHairpinStartNote, lastNoteSeen,
                     ht, activeHairpinStart.placement()));
         }
 
-        // Construim slurs
+        // Slurs
         for (Integer num : slurStartIdx.keySet()) {
             Integer start = slurStartIdx.get(num);
             Integer stop = slurStopIdx.get(num);
@@ -196,6 +203,17 @@ public class MusicXmlMeasureReader {
         // Hairpins
         for (Hairpin hp : parsedHairpins) {
             measure.addHairpin(hp);
+        }
+
+        // Tuplete
+        for (Integer num : tupletStartIdx.keySet()) {
+            Integer start = tupletStartIdx.get(num);
+            Integer stop = tupletStopIdx.get(num);
+            int[] ratio = tupletRatios.get(num);
+            if (start != null && stop != null && ratio != null && start <= stop) {
+                List<Note> tupletNotes = new ArrayList<>(addedNotes.subList(start, stop + 1));
+                measure.addTuplet(new Tuplet(ratio[0], ratio[1], tupletNotes));
+            }
         }
 
         // Repeat signs

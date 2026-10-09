@@ -6,19 +6,22 @@ import com.alin.musicnotation.model.articulation.ArticulationType;
 
 import java.util.List;
 
-/**
- * Rezultatul citirii unei note:
- * - nota propriu-zisă
- * - info despre slurs (start/stop + number)
- * - info despre articulații
- */
 public record NoteReadResult(
         Note note,
         List<SlurInfo> slurs,
-        List<ArticulationInfo> articulations
+        List<ArticulationInfo> articulations,
+        TupletInfo tuplet
 ) {
-
     public record SlurInfo(int number, boolean start, boolean stop) {}
-
     public record ArticulationInfo(ArticulationType type, ArticulationPlacement placement) {}
+
+    /**
+     * Info despre tuplet pentru o notă:
+     * - numerator/denominator (ex: 3/2 pentru triplet)
+     * - tupletNumber (numărul tupletului din MusicXML)
+     * - isStart / isStop (nota începe sau termină tupletul)
+     * Poate fi null dacă nota nu e într-un tuplet.
+     */
+    public record TupletInfo(int numerator, int denominator, int tupletNumber,
+                             boolean isStart, boolean isStop) {}
 }
