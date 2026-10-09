@@ -20,13 +20,14 @@ import java.util.Map;
 
 /**
  * Citește un element <measure>.
- * Suportă: attributes, note, slur, articulations, dynamics, tempo, text.
- * TODO: barline (repeat), hairpin.
+ * Suportă: attributes, note, slur, articulations, dynamics, tempo, text, barline (repeat).
+ * TODO: hairpin.
  */
 public class MusicXmlMeasureReader {
 
     private final MusicXmlNoteReader noteReader = new MusicXmlNoteReader();
     private final MusicXmlDirectionReader directionReader = new MusicXmlDirectionReader();
+    private final MusicXmlBarlineReader barlineReader = new MusicXmlBarlineReader();
 
     public MeasureReadResult readMeasure(MusicXmlReader xml, int currentDivisions) throws Exception {
         Measure measure = new Measure();
@@ -45,10 +46,12 @@ public class MusicXmlMeasureReader {
         List<MusicXmlDirectionReader.DynamicInfo> pendingDynamics = new ArrayList<>();
         Map<Note, List<MusicXmlDirectionReader.DynamicInfo>> dynamicsByNote = new LinkedHashMap<>();
 
-        // Tempo (poate fi doar unul pe măsură)
         MusicXmlDirectionReader.TempoInfo parsedTempo = null;
-        // Text expressions (pot fi mai multe)
         List<MusicXmlDirectionReader.TextInfo> parsedTexts = new ArrayList<>();
+
+        // Repeat signs
+        boolean startRepeat = false;
+        boolean endRepeat = false;
 
         while (xml.hasNext()) {
             int event = xml.next();
@@ -71,6 +74,16 @@ public class MusicXmlMeasureReader {
                             if (di.dynamic() != null) pendingDynamics.add(di.dynamic());
                             if (di.tempo() != null && parsedTempo == null) parsedTempo = di.tempo();
                             if (di.text() != null) parsedTexts.add(di.text());
+                        }
+                    }
+                    case "barline" -> {
+                        MusicXmlBarlineReader.BarlineInfo bi = barlineReader.readBarline(xml);
+                        if (bi != null) {
+                            if ("forward".equals(bi.direction())) {
+                                startRepeat = true;
+                            } else if ("backward".equals(bi.direction())) {
+                                endRepeat = true;
+                            }
                         }
                     }
                     case "note" -> {
@@ -139,6 +152,10 @@ public class MusicXmlMeasureReader {
         for (MusicXmlDirectionReader.TextInfo ti : parsedTexts) {
             measure.addTextExpression(new TextExpression(ti.text(), ti.placement()));
         }
+
+        // Repeat signs
+        if (startRepeat) measure.addStartRepeat();
+        if (endRepeat) measure.addEndRepeat();
 
         return new MeasureReadResult(measure, parsedClef, parsedKey, parsedTime, parsedDivisions);
     }
