@@ -10,7 +10,6 @@ public class EditorState {
     private Note selectedNote;
     private Measure selectedMeasure;
 
-    // ─── Hover ghost ───
     private boolean hovering;
     private double hoverX;
     private Pitch hoverPitch;

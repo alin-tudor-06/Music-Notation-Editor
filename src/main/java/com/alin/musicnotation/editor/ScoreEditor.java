@@ -65,7 +65,6 @@ public final class ScoreEditor {
         return current;
     }
 
-    /** Șterge nota din score. */
     public static boolean removeNote(Score score, Note note) {
         for (Measure m : score.measures()) {
             if (m.notes().contains(note)) {

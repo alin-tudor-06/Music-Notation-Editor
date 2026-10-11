@@ -30,6 +30,8 @@ import com.alin.musicnotation.layout.*;
 import com.alin.musicnotation.smufl.BravuraFont;
 import javafx.animation.AnimationTimer;
 import javafx.application.Application;
+import javafx.event.ActionEvent;
+import javafx.event.EventHandler;
 import javafx.geometry.Orientation;
 import javafx.scene.Scene;
 import javafx.scene.canvas.Canvas;
@@ -76,7 +78,6 @@ public class MusicNotationApp extends Application {
             spacingEngine, pageLayoutEngine, config
     );
 
-    // Renderers
     private final NoteRenderer noteRenderer = new NoteRenderer();
     private final BeamRenderer beamRenderer = new BeamRenderer();
     private final TupletRenderer tupletRenderer = new TupletRenderer();
@@ -94,18 +95,17 @@ public class MusicNotationApp extends Application {
 
     private final LayoutRenderer layoutRenderer;
 
-    // Playback
     private final MidiPlayer midiPlayer = new MidiPlayer();
     private final PlaybackCursor playbackCursor = new PlaybackCursor();
     private List<MidiSequenceBuilder.NoteTiming> noteTimings = List.of();
 
-    // Editor
     private final EditorState editorState = new EditorState();
 
-    // UI
     private Canvas canvas;
     private Label statusBar;
     private ToolBar playbackToolBar;
+    private ToolBar itemToolBar;
+    private ToggleGroup editModeGroup;
     private Button playBtn;
     private Slider volumeSlider;
     private Slider tempoSlider;
@@ -115,7 +115,8 @@ public class MusicNotationApp extends Application {
                 tempoRenderer, textExpressionRenderer, noteRenderer, beamRenderer,
                 tupletRenderer, slurRenderer, articulationRenderer, dynamicRenderer,
                 hairpinRenderer, repeatRenderer,
-                clefRenderer, keySignatureRenderer, timeSignatureRenderer,tieRenderer
+                clefRenderer, keySignatureRenderer, timeSignatureRenderer,
+                tieRenderer
         );
         MeasureRenderer measureRenderer = new MeasureRenderer(config, measurePainter);
         SystemRenderer systemRenderer = new SystemRenderer(
@@ -124,22 +125,26 @@ public class MusicNotationApp extends Application {
         layoutRenderer = new LayoutRenderer(systemRenderer);
     }
 
-    // ============================================================
-    //  START
-    // ============================================================
 
     @Override
     public void start(Stage primaryStage) {
         this.primaryStage = primaryStage;
         this.score = createEmptyScore();
 
+        statusBar = new Label();
+
         MenuBar menuBar = buildMenuBar();
-        ToolBar paletteToolbar = buildPaletteToolbar();
+        ToolBar categoryToolbar = buildCategoryToolbar();
+        itemToolBar = new ToolBar();
+        itemToolBar.setStyle("-fx-font-size: 18px;");
+
         ToolBar attributesToolbar = buildAttributesToolbar();
 
         playbackToolBar = buildPlaybackToolBar();
         playbackToolBar.setVisible(false);
         playbackToolBar.setManaged(false);
+
+        showCategoryItems("Notes");
 
         canvas = new Canvas();
         ScrollPane scrollPane = new ScrollPane(canvas);
@@ -151,10 +156,8 @@ public class MusicNotationApp extends Application {
         canvas.widthProperty().bind(scrollPane.widthProperty().subtract(20));
         scrollPane.widthProperty().addListener((e) -> drawStaff());
 
-        statusBar = new Label();
-
         BorderPane root = new BorderPane();
-        root.setTop(new VBox(menuBar, paletteToolbar, attributesToolbar, playbackToolBar));
+        root.setTop(new VBox(menuBar, categoryToolbar, itemToolBar, attributesToolbar, playbackToolBar));
         root.setCenter(scrollPane);
         root.setBottom(statusBar);
 
@@ -185,9 +188,6 @@ public class MusicNotationApp extends Application {
         midiPlayer.close();
     }
 
-    // ============================================================
-    //  MENIU
-    // ============================================================
 
     private MenuBar buildMenuBar() {
         MenuItem newItem = new MenuItem("New");
@@ -228,79 +228,54 @@ public class MusicNotationApp extends Application {
         return new MenuBar(fileMenu, playbackMenu);
     }
 
-    // ============================================================
-    //  PALETTE TOOLBAR
-    // ============================================================
 
-    private ToolBar buildPaletteToolbar() {
-        ToggleGroup group = new ToggleGroup();
+    private ToolBar buildCategoryToolbar() {
+        ToggleGroup catGroup = new ToggleGroup();
 
-        ToggleButton selectBtn = makeToggle("↖", EditMode.SELECT, group, true);
-        ToggleButton wholeBtn = makeToggle("𝅝", EditMode.ADD_WHOLE, group, false);
-        ToggleButton halfBtn = makeToggle("𝅗𝅥", EditMode.ADD_HALF, group, false);
-        ToggleButton quarterBtn = makeToggle("♩", EditMode.ADD_QUARTER, group, false);
-        ToggleButton eighthBtn = makeToggle("♪", EditMode.ADD_EIGHTH, group, false);
-        ToggleButton sixteenthBtn = makeToggle("♬", EditMode.ADD_SIXTEENTH, group, false);
+        ToggleButton notesCat = makeCategoryButton("Notes", catGroup, true);
+        ToggleButton restsCat = makeCategoryButton("Rests", catGroup, false);
+        ToggleButton accCat = makeCategoryButton("Accidentals", catGroup, false);
+        ToggleButton artCat = makeCategoryButton("Articulations", catGroup, false);
+        ToggleButton dynCat = makeCategoryButton("Dynamics", catGroup, false);
+        ToggleButton connCat = makeCategoryButton("Connections", catGroup, false);
+        ToggleButton hairCat = makeCategoryButton("Hairpins", catGroup, false);
+        ToggleButton signsCat = makeCategoryButton("Signs", catGroup, false);
 
-        ToggleButton wholeRestBtn = makeToggle("𝄻", EditMode.ADD_WHOLE_REST, group, false);
-        ToggleButton halfRestBtn = makeToggle("𝄼", EditMode.ADD_HALF_REST, group, false);
-        ToggleButton quarterRestBtn = makeToggle("𝄽", EditMode.ADD_QUARTER_REST, group, false);
-        ToggleButton eighthRestBtn = makeToggle("𝄾", EditMode.ADD_EIGHTH_REST, group, false);
-        ToggleButton sixteenthRestBtn = makeToggle("𝄿", EditMode.ADD_SIXTEENTH_REST, group, false);
+        catGroup.selectedToggleProperty().addListener((obs, oldT, newT) -> {
+            if (newT == null) {
+                catGroup.selectToggle(oldT);
+                return;
+            }
+            String cat = (String) newT.getUserData();
+            showCategoryItems(cat);
+        });
 
-        ToggleButton sharpBtn = makeToggle("♯", EditMode.ACCIDENTAL_SHARP, group, false);
-        ToggleButton flatBtn = makeToggle("♭", EditMode.ACCIDENTAL_FLAT, group, false);
-        ToggleButton naturalBtn = makeToggle("♮", EditMode.ACCIDENTAL_NATURAL, group, false);
+        ToolBar tb = new ToolBar(
+                notesCat, restsCat, accCat, artCat, dynCat, connCat, hairCat, signsCat
+        );
+        tb.setStyle("-fx-font-size: 13px; -fx-padding: 4;");
+        return tb;
+    }
 
-        ToggleButton staccatoBtn = makeToggle("•", EditMode.ARTICULATION_STACCATO, group, false);
-        ToggleButton staccatissimoBtn = makeToggle("▾", EditMode.ARTICULATION_STACCATISSIMO, group, false);
-        ToggleButton accentBtn = makeToggle(">", EditMode.ARTICULATION_ACCENT, group, false);
-        ToggleButton marcatoBtn = makeToggle("^", EditMode.ARTICULATION_MARCATO, group, false);
-        ToggleButton tenutoBtn = makeToggle("–", EditMode.ARTICULATION_TENUTO, group, false);
-        ToggleButton fermataBtn = makeToggle("⌒", EditMode.ARTICULATION_FERMATA, group, false);
+    private ToggleButton makeCategoryButton(String label, ToggleGroup g, boolean selected) {
+        ToggleButton b = new ToggleButton(label);
+        b.setToggleGroup(g);
+        b.setUserData(label);
+        b.setSelected(selected);
+        b.setMinWidth(100);
+        b.setStyle("-fx-font-size: 13px;");
+        return b;
+    }
 
-        ToggleButton pppBtn = makeToggle("ppp", EditMode.DYNAMIC_PPP, group, false);
-        ToggleButton ppBtn = makeToggle("pp", EditMode.DYNAMIC_PP, group, false);
-        ToggleButton pBtn = makeToggle("p", EditMode.DYNAMIC_P, group, false);
-        ToggleButton mpBtn = makeToggle("mp", EditMode.DYNAMIC_MP, group, false);
-        ToggleButton mfBtn = makeToggle("mf", EditMode.DYNAMIC_MF, group, false);
-        ToggleButton fBtn = makeToggle("f", EditMode.DYNAMIC_F, group, false);
-        ToggleButton ffBtn = makeToggle("ff", EditMode.DYNAMIC_FF, group, false);
-        ToggleButton fffBtn = makeToggle("fff", EditMode.DYNAMIC_FFF, group, false);
 
-        // Butoane cu dialog
-        Button tempoBtn = new Button("♩= Tempo");
-        tempoBtn.setStyle("-fx-font-size: 12px;");
-        tempoBtn.setOnAction(e -> showTempoDialog());
+    private void showCategoryItems(String category) {
+        editorState.setMode(EditMode.SELECT);
+        editorState.clearHover();
+        editorState.clearPendingHairpin();
+        editorState.clearPendingConnections();
 
-        Button textBtn = new Button("Text");
-        textBtn.setStyle("-fx-font-size: 12px;");
-        textBtn.setOnAction(e -> showTextDialog());
-
-        // Butoane Repeat
-        Button startRepeatBtn = new Button("‖:");
-        startRepeatBtn.setStyle("-fx-font-size: 14px;");
-        startRepeatBtn.setTooltip(new Tooltip("Toggle Start Repeat pe măsura selectată"));
-        startRepeatBtn.setOnAction(e -> toggleStartRepeat());
-
-        Button endRepeatBtn = new Button(":‖");
-        endRepeatBtn.setStyle("-fx-font-size: 14px;");
-        endRepeatBtn.setTooltip(new Tooltip("Toggle End Repeat pe măsura selectată"));
-        endRepeatBtn.setOnAction(e -> toggleEndRepeat());
-
-        // Butoane Hairpin
-        ToggleButton crescendoBtn = makeToggle("↗", EditMode.HAIRPIN_CRESCENDO, group, false);
-        ToggleButton decrescendoBtn = makeToggle("↘", EditMode.HAIRPIN_DECRESCENDO, group, false);
-        crescendoBtn.setTooltip(new Tooltip("Crescendo (2 click-uri: start, end)"));
-        decrescendoBtn.setTooltip(new Tooltip("Decrescendo (2 click-uri: start, end)"));
-
-        // Butoane Tie / Slur
-        ToggleButton tieBtn = makeToggle("⌒", EditMode.TIE, group, false);
-        ToggleButton slurBtn = makeToggle("‿", EditMode.SLUR, group, false);
-        tieBtn.setTooltip(new Tooltip("Tie / legătură de durată (2 click-uri)"));
-        slurBtn.setTooltip(new Tooltip("Slur / legătură de portament (2 click-uri)"));
-
-        group.selectedToggleProperty().addListener((obs, oldT, newT) -> {
+        editModeGroup = new ToggleGroup();
+        editModeGroup.selectedToggleProperty().addListener((obs, oldT, newT) -> {
             if (newT == null) {
                 editorState.setMode(EditMode.SELECT);
             } else {
@@ -313,29 +288,108 @@ public class MusicNotationApp extends Application {
             drawStaff();
         });
 
-        ToolBar toolbar = new ToolBar(
-                selectBtn,
-                new Separator(Orientation.VERTICAL),
-                wholeBtn, halfBtn, quarterBtn, eighthBtn, sixteenthBtn,
-                new Separator(Orientation.VERTICAL),
-                wholeRestBtn, halfRestBtn, quarterRestBtn, eighthRestBtn, sixteenthRestBtn,
-                new Separator(Orientation.VERTICAL),
-                sharpBtn, flatBtn, naturalBtn,
-                new Separator(Orientation.VERTICAL),
-                staccatoBtn, staccatissimoBtn, accentBtn, marcatoBtn, tenutoBtn, fermataBtn,
-                new Separator(Orientation.VERTICAL),
-                pppBtn, ppBtn, pBtn, mpBtn, mfBtn, fBtn, ffBtn, fffBtn,
-                new Separator(Orientation.VERTICAL),
-                tempoBtn, textBtn,
-                new Separator(Orientation.VERTICAL),
-                startRepeatBtn, endRepeatBtn,
-                new Separator(Orientation.VERTICAL),
-                crescendoBtn, decrescendoBtn,
-                new Separator(Orientation.VERTICAL),
-                tieBtn, slurBtn
-        );
-        toolbar.setStyle("-fx-font-size: 18px;");
-        return toolbar;
+        itemToolBar.getItems().clear();
+
+        switch (category) {
+            case "Notes" -> {
+                addSelectButton();
+                itemToolBar.getItems().add(new Separator(Orientation.VERTICAL));
+                itemToolBar.getItems().addAll(
+                        makeToggle("𝅝", EditMode.ADD_WHOLE, editModeGroup, false),
+                        makeToggle("𝅗𝅥", EditMode.ADD_HALF, editModeGroup, false),
+                        makeToggle("♩", EditMode.ADD_QUARTER, editModeGroup, false),
+                        makeToggle("♪", EditMode.ADD_EIGHTH, editModeGroup, false),
+                        makeToggle("♬", EditMode.ADD_SIXTEENTH, editModeGroup, false)
+                );
+            }
+            case "Rests" -> {
+                addSelectButton();
+                itemToolBar.getItems().add(new Separator(Orientation.VERTICAL));
+                itemToolBar.getItems().addAll(
+                        makeToggle("𝄻", EditMode.ADD_WHOLE_REST, editModeGroup, false),
+                        makeToggle("𝄼", EditMode.ADD_HALF_REST, editModeGroup, false),
+                        makeToggle("𝄽", EditMode.ADD_QUARTER_REST, editModeGroup, false),
+                        makeToggle("𝄾", EditMode.ADD_EIGHTH_REST, editModeGroup, false),
+                        makeToggle("𝄿", EditMode.ADD_SIXTEENTH_REST, editModeGroup, false)
+                );
+            }
+            case "Accidentals" -> {
+                addSelectButton();
+                itemToolBar.getItems().add(new Separator(Orientation.VERTICAL));
+                itemToolBar.getItems().addAll(
+                        makeToggle("♯", EditMode.ACCIDENTAL_SHARP, editModeGroup, false),
+                        makeToggle("♭", EditMode.ACCIDENTAL_FLAT, editModeGroup, false),
+                        makeToggle("♮", EditMode.ACCIDENTAL_NATURAL, editModeGroup, false)
+                );
+            }
+            case "Articulations" -> {
+                addSelectButton();
+                itemToolBar.getItems().add(new Separator(Orientation.VERTICAL));
+                itemToolBar.getItems().addAll(
+                        makeToggle("•", EditMode.ARTICULATION_STACCATO, editModeGroup, false),
+                        makeToggle("▾", EditMode.ARTICULATION_STACCATISSIMO, editModeGroup, false),
+                        makeToggle(">", EditMode.ARTICULATION_ACCENT, editModeGroup, false),
+                        makeToggle("^", EditMode.ARTICULATION_MARCATO, editModeGroup, false),
+                        makeToggle("–", EditMode.ARTICULATION_TENUTO, editModeGroup, false),
+                        makeToggle("⌒", EditMode.ARTICULATION_FERMATA, editModeGroup, false)
+                );
+            }
+            case "Dynamics" -> {
+                addSelectButton();
+                itemToolBar.getItems().add(new Separator(Orientation.VERTICAL));
+                itemToolBar.getItems().addAll(
+                        makeToggle("ppp", EditMode.DYNAMIC_PPP, editModeGroup, false),
+                        makeToggle("pp", EditMode.DYNAMIC_PP, editModeGroup, false),
+                        makeToggle("p", EditMode.DYNAMIC_P, editModeGroup, false),
+                        makeToggle("mp", EditMode.DYNAMIC_MP, editModeGroup, false),
+                        makeToggle("mf", EditMode.DYNAMIC_MF, editModeGroup, false),
+                        makeToggle("f", EditMode.DYNAMIC_F, editModeGroup, false),
+                        makeToggle("ff", EditMode.DYNAMIC_FF, editModeGroup, false),
+                        makeToggle("fff", EditMode.DYNAMIC_FFF, editModeGroup, false)
+                );
+            }
+            case "Connections" -> {
+                addSelectButton();
+                itemToolBar.getItems().add(new Separator(Orientation.VERTICAL));
+                ToggleButton tieBtn = makeToggle("⌒", EditMode.TIE, editModeGroup, false);
+                tieBtn.setTooltip(new Tooltip("Tie / legătură de durată (2 click-uri)"));
+                ToggleButton slurBtn = makeToggle("‿", EditMode.SLUR, editModeGroup, false);
+                slurBtn.setTooltip(new Tooltip("Slur / legătură de portament (2 click-uri)"));
+                itemToolBar.getItems().addAll(tieBtn, slurBtn);
+            }
+            case "Hairpins" -> {
+                addSelectButton();
+                itemToolBar.getItems().add(new Separator(Orientation.VERTICAL));
+                ToggleButton cresc = makeToggle("↗", EditMode.HAIRPIN_CRESCENDO, editModeGroup, false);
+                cresc.setTooltip(new Tooltip("Crescendo (2 click-uri: start, end)"));
+                ToggleButton decresc = makeToggle("↘", EditMode.HAIRPIN_DECRESCENDO, editModeGroup, false);
+                decresc.setTooltip(new Tooltip("Decrescendo (2 click-uri: start, end)"));
+                itemToolBar.getItems().addAll(cresc, decresc);
+            }
+            case "Signs" -> {
+                Button tempoBtn = makeActionButton("♩= Tempo", "Adaugă tempo pe măsura selectată", e -> showTempoDialog());
+                Button textBtn = makeActionButton("Text", "Adaugă expresie text pe măsura selectată", e -> showTextDialog());
+                Button startRepBtn = makeActionButton("‖:", "Toggle Start Repeat pe măsura selectată", e -> toggleStartRepeat());
+                Button endRepBtn = makeActionButton(":‖", "Toggle End Repeat pe măsura selectată", e -> toggleEndRepeat());
+
+                itemToolBar.getItems().addAll(
+                        tempoBtn,
+                        textBtn,
+                        new Separator(Orientation.VERTICAL),
+                        startRepBtn,
+                        endRepBtn
+                );
+            }
+        }
+
+        updateStatusBar();
+        if (canvas != null) drawStaff();
+    }
+
+    private void addSelectButton() {
+        ToggleButton selectToggle = makeToggle("↖", EditMode.SELECT, editModeGroup, true);
+        selectToggle.setTooltip(new Tooltip("Select (mod implicit)"));
+        itemToolBar.getItems().add(selectToggle);
     }
 
     private ToggleButton makeToggle(String label, EditMode mode, ToggleGroup group, boolean selected) {
@@ -344,12 +398,18 @@ public class MusicNotationApp extends Application {
         btn.setUserData(mode);
         btn.setSelected(selected);
         btn.setMinWidth(45);
+        btn.setStyle("-fx-font-size: 16px;");
         return btn;
     }
 
-    // ============================================================
-    //  REPEAT SIGNS (toggle)
-    // ============================================================
+    private Button makeActionButton(String label, String tooltip, EventHandler<ActionEvent> handler) {
+        Button btn = new Button(label);
+        btn.setTooltip(new Tooltip(tooltip));
+        btn.setOnAction(handler);
+        btn.setStyle("-fx-font-size: 13px;");
+        return btn;
+    }
+
 
     private void toggleStartRepeat() {
         Measure m = editorState.getSelectedMeasure();
@@ -381,9 +441,6 @@ public class MusicNotationApp extends Application {
         drawStaff();
     }
 
-    // ============================================================
-    //  DIALOG TEMPO / TEXT
-    // ============================================================
 
     private void showTempoDialog() {
         Measure m = editorState.getSelectedMeasure();
@@ -490,9 +547,6 @@ public class MusicNotationApp extends Application {
         }
     }
 
-    // ============================================================
-    //  ATTRIBUTES TOOLBAR
-    // ============================================================
 
     private ToolBar buildAttributesToolbar() {
         ComboBox<String> clefBox = new ComboBox<>();
@@ -595,9 +649,6 @@ public class MusicNotationApp extends Application {
         drawStaff();
     }
 
-    // ============================================================
-    //  PLAYBACK TOOLBAR
-    // ============================================================
 
     private ToolBar buildPlaybackToolBar() {
         playBtn = new Button("▶ Play");
@@ -665,9 +716,6 @@ public class MusicNotationApp extends Application {
         return toolBar;
     }
 
-    // ============================================================
-    //  FILE ACTIONS
-    // ============================================================
 
     private void actionNew() {
         applyScore(createEmptyScore(), null);
@@ -745,9 +793,6 @@ public class MusicNotationApp extends Application {
         }
     }
 
-    // ============================================================
-    //  MOUSE HANDLERS
-    // ============================================================
 
     private void handleCanvasClick(MouseEvent event) {
         double mx = event.getX();
@@ -755,7 +800,6 @@ public class MusicNotationApp extends Application {
 
         RenderedLayout layout = layoutRenderer.getLastLayout();
 
-        // ─── Mod TIE ───
         if (editorState.getMode() == EditMode.TIE) {
             Note hit = HitTester.findNoteAt(layout, mx, my);
             if (hit == null) {
@@ -789,7 +833,6 @@ public class MusicNotationApp extends Application {
             return;
         }
 
-        // ─── Mod SLUR ───
         if (editorState.getMode() == EditMode.SLUR) {
             Note hit = HitTester.findNoteAt(layout, mx, my);
             if (hit == null) {
@@ -823,7 +866,6 @@ public class MusicNotationApp extends Application {
             return;
         }
 
-        // ─── Mod HAIRPIN ───
         if (editorState.getMode().isHairpinMode()) {
             Note hit = HitTester.findNoteAt(layout, mx, my);
             if (hit == null) {
@@ -864,7 +906,6 @@ public class MusicNotationApp extends Application {
             return;
         }
 
-        // ─── Mod ACCIDENTAL ───
         if (editorState.getMode().isAccidentalMode()) {
             Note hit = HitTester.findNoteAt(layout, mx, my);
             if (hit == null) {
@@ -885,7 +926,6 @@ public class MusicNotationApp extends Application {
             return;
         }
 
-        // ─── Mod ARTICULAȚIE ───
         if (editorState.getMode().isArticulationMode()) {
             Note hit = HitTester.findNoteAt(layout, mx, my);
             if (hit == null) {
@@ -909,7 +949,6 @@ public class MusicNotationApp extends Application {
             return;
         }
 
-        // ─── Mod DINAMICĂ ───
         if (editorState.getMode().isDynamicMode()) {
             Note hit = HitTester.findNoteAt(layout, mx, my);
             if (hit == null) {
@@ -935,7 +974,6 @@ public class MusicNotationApp extends Application {
             return;
         }
 
-        // ─── Mod ADD ───
         if (editorState.getMode().isAddMode()) {
             RenderedLayout.MeasureHitBox mh = HitTester.findMeasureAt(layout, mx, my);
             if (mh == null) return;
@@ -956,7 +994,6 @@ public class MusicNotationApp extends Application {
             return;
         }
 
-        // ─── Mod SELECT ───
         Note hit = HitTester.findNoteAt(layout, mx, my);
         if (hit != null) {
             editorState.setSelectedNote(hit);
@@ -1104,10 +1141,6 @@ public class MusicNotationApp extends Application {
         }
     }
 
-    /**
-     * Tie: aplică sau șterge tie între două note.
-     * Necesită același pitch.
-     */
     private void applyTieBetween(Note first, Note second) {
         if (first.isRest() || second.isRest()) {
             statusBar.setText("⚠️ Tie nu se aplică pe pauze");
@@ -1122,14 +1155,12 @@ public class MusicNotationApp extends Application {
         int idxSecond = findGlobalIndex(second);
         if (idxFirst == -1 || idxSecond == -1) return;
 
-        // Asigurăm că primul e înainte
         if (idxFirst > idxSecond) {
             Note tmp = first;
             first = second;
             second = tmp;
         }
 
-        // Toggle: dacă există deja, ștergem
         if (first.tieStart() && second.tieEnd()) {
             first.setTieStart(false);
             second.setTieEnd(false);
@@ -1142,10 +1173,6 @@ public class MusicNotationApp extends Application {
         statusBar.setText("✅ Tie adăugat");
     }
 
-    /**
-     * Slur: aplică sau șterge slur între două note.
-     * Include toate notele non-pauză între cele două.
-     */
     private void applySlurBetween(Note first, Note second) {
         int idxFirst = findGlobalIndex(first);
         int idxSecond = findGlobalIndex(second);
@@ -1160,7 +1187,6 @@ public class MusicNotationApp extends Application {
             idxSecond = tmpIdx;
         }
 
-        // Colectăm notele non-pauză între cele două
         List<Note> between = new ArrayList<>();
         int counter = 0;
         for (Measure m : score.measures()) {
@@ -1177,7 +1203,6 @@ public class MusicNotationApp extends Application {
             return;
         }
 
-        // Căutăm slur identic existent
         Slur toRemove = null;
         Measure slurMeasure = null;
         for (Measure m : score.measures()) {
@@ -1247,10 +1272,6 @@ public class MusicNotationApp extends Application {
         };
     }
 
-    // ============================================================
-    //  INTERNAL
-    // ============================================================
-
     private static Score createEmptyScore() {
         Score score = new Score(KeySignature.C_MAJOR, ClefType.TREBLE, TimeSignature.COMMON_TIME);
         score.addMeasure(new Measure());
@@ -1288,6 +1309,8 @@ public class MusicNotationApp extends Application {
     }
 
     private void updateStatusBar() {
+        if (statusBar == null) return;
+
         String name = currentFile != null
                 ? currentFile.getFileName().toString()
                 : "untitled";
@@ -1328,11 +1351,9 @@ public class MusicNotationApp extends Application {
         return null;
     }
 
-    // ============================================================
-    //  DRAW
-    // ============================================================
-
     private void drawStaff() {
+        if (canvas == null) return;
+
         double width = canvas.getWidth();
         if (width < 100) return;
 
@@ -1362,7 +1383,6 @@ public class MusicNotationApp extends Application {
 
         RenderedLayout layout = layoutRenderer.getLastLayout();
 
-        // Chenar albastru pentru măsura selectată
         if (editorState.getSelectedMeasure() != null) {
             for (RenderedLayout.MeasureHitBox mb : layout.measures()) {
                 if (mb.measure() == editorState.getSelectedMeasure()) {
@@ -1375,15 +1395,12 @@ public class MusicNotationApp extends Application {
             }
         }
 
-        // Chenar verde pentru pendingHairpinStartNote
         if (editorState.getPendingHairpinStartNote() != null) {
             drawNoteRing(gc, layout, editorState.getPendingHairpinStartNote(), Color.LIMEGREEN);
         }
-        // Chenar portocaliu pentru pendingTieStartNote
         if (editorState.getPendingTieStartNote() != null) {
             drawNoteRing(gc, layout, editorState.getPendingTieStartNote(), Color.ORANGE);
         }
-        // Chenar magenta pentru pendingSlurStartNote
         if (editorState.getPendingSlurStartNote() != null) {
             drawNoteRing(gc, layout, editorState.getPendingSlurStartNote(), Color.MAGENTA);
         }
