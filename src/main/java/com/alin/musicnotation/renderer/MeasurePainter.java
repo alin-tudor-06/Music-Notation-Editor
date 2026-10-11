@@ -192,11 +192,11 @@ public final class MeasurePainter {
                     staff.lineSpacing(), BarlineType.START_REPEAT);
         }
 
-        if (isLastMeasure) {
-            repeatRenderer.drawFinalBarline(gc, barX, firstLineY, staffHeight, staff.lineSpacing());
-        } else if (measure.hasEndRepeat()) {
+        if (measure.hasEndRepeat()) {
             repeatRenderer.drawBarline(gc, barX, firstLineY, staffHeight,
                     staff.lineSpacing(), BarlineType.END_REPEAT);
+        } else if (isLastMeasure) {
+            repeatRenderer.drawFinalBarline(gc, barX, firstLineY, staffHeight, staff.lineSpacing());
         } else {
             repeatRenderer.drawBarline(gc, barX, firstLineY, staffHeight,
                     staff.lineSpacing(), BarlineType.SINGLE);

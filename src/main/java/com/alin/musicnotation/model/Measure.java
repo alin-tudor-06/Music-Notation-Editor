@@ -170,6 +170,14 @@ public final class Measure {
         endRepeat = true;
     }
 
+    public void removeStartRepeat() {
+        startRepeat = false;
+    }
+
+    public void removeEndRepeat() {
+        endRepeat = false;
+    }
+
     public boolean hasStartRepeat() {
         return startRepeat;
     }

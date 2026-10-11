@@ -263,7 +263,7 @@ public class MusicNotationApp extends Application {
         ToggleButton ffBtn = makeToggle("ff", EditMode.DYNAMIC_FF, group, false);
         ToggleButton fffBtn = makeToggle("fff", EditMode.DYNAMIC_FFF, group, false);
 
-        // Butoane cu dialog (nu sunt ToggleButtons)
+        // ─── Butoane cu dialog ───
         Button tempoBtn = new Button("♩= Tempo");
         tempoBtn.setStyle("-fx-font-size: 12px;");
         tempoBtn.setOnAction(e -> showTempoDialog());
@@ -271,6 +271,17 @@ public class MusicNotationApp extends Application {
         Button textBtn = new Button("Text");
         textBtn.setStyle("-fx-font-size: 12px;");
         textBtn.setOnAction(e -> showTextDialog());
+
+        // ─── Butoane Repeat (toggle direct pe măsura selectată) ───
+        Button startRepeatBtn = new Button("‖:");
+        startRepeatBtn.setStyle("-fx-font-size: 14px;");
+        startRepeatBtn.setTooltip(new Tooltip("Toggle Start Repeat pe măsura selectată"));
+        startRepeatBtn.setOnAction(e -> toggleStartRepeat());
+
+        Button endRepeatBtn = new Button(":‖");
+        endRepeatBtn.setStyle("-fx-font-size: 14px;");
+        endRepeatBtn.setTooltip(new Tooltip("Toggle End Repeat pe măsura selectată"));
+        endRepeatBtn.setOnAction(e -> toggleEndRepeat());
 
         group.selectedToggleProperty().addListener((obs, oldT, newT) -> {
             if (newT == null) {
@@ -296,7 +307,9 @@ public class MusicNotationApp extends Application {
                 new Separator(Orientation.VERTICAL),
                 pppBtn, ppBtn, pBtn, mpBtn, mfBtn, fBtn, ffBtn, fffBtn,
                 new Separator(Orientation.VERTICAL),
-                tempoBtn, textBtn
+                tempoBtn, textBtn,
+                new Separator(Orientation.VERTICAL),
+                startRepeatBtn, endRepeatBtn
         );
         toolbar.setStyle("-fx-font-size: 18px;");
         return toolbar;
@@ -309,6 +322,40 @@ public class MusicNotationApp extends Application {
         btn.setSelected(selected);
         btn.setMinWidth(45);
         return btn;
+    }
+
+    // ============================================================
+    //  REPEAT SIGNS (toggle)
+    // ============================================================
+
+    private void toggleStartRepeat() {
+        Measure m = editorState.getSelectedMeasure();
+        if (m == null) {
+            statusBar.setText("⚠️ Selectează mai întâi o măsură (click pe spațiul gol din ea)");
+            return;
+        }
+        if (m.hasStartRepeat()) {
+            m.removeStartRepeat();
+        } else {
+            m.addStartRepeat();
+        }
+        applyScoreToMidi(score);   // ← ADĂUGAT
+        drawStaff();
+    }
+
+    private void toggleEndRepeat() {
+        Measure m = editorState.getSelectedMeasure();
+        if (m == null) {
+            statusBar.setText("⚠️ Selectează mai întâi o măsură (click pe spațiul gol din ea)");
+            return;
+        }
+        if (m.hasEndRepeat()) {
+            m.removeEndRepeat();
+        } else {
+            m.addEndRepeat();
+        }
+        applyScoreToMidi(score);   // ← ADĂUGAT
+        drawStaff();
     }
 
     // ============================================================
@@ -364,11 +411,10 @@ public class MusicNotationApp extends Application {
         try {
             Integer bpm = bpmStr != null ? Integer.parseInt(bpmStr) : null;
             if (text == null && bpm == null) {
-                // Ambele goale → ștergem tempo
                 m.removeTempo();
             } else {
                 Tempo tempo = new Tempo(text, bpm, placement);
-                m.setTempo(tempo);   // înlocuiește dacă există
+                m.setTempo(tempo);
             }
             applyScoreToMidi(score);
             drawStaff();
@@ -757,7 +803,7 @@ public class MusicNotationApp extends Application {
             return;
         }
 
-        // ─── Mod ADD (note/pauze) ───
+        // ─── Mod ADD ───
         if (editorState.getMode().isAddMode()) {
             RenderedLayout.MeasureHitBox mh = HitTester.findMeasureAt(layout, mx, my);
             if (mh == null) return;
@@ -857,9 +903,6 @@ public class MusicNotationApp extends Application {
         }
     }
 
-    /**
-     * Aplică accidentalul pe o notă cu toggle.
-     */
     private void applyAccidentalToNote(Note note, Accidental target) {
         if (note.isRest()) {
             statusBar.setText("⚠️ Nu poți aplica accidental pe o pauză");
@@ -872,9 +915,6 @@ public class MusicNotationApp extends Application {
         note.setPitch(newPitch);
     }
 
-    /**
-     * Aplică sau scoate o articulație pe o notă (toggle).
-     */
     private void applyArticulationToNote(Note note, ArticulationType type) {
         if (note.isRest()) {
             statusBar.setText("⚠️ Nu poți aplica articulație pe o pauză");
@@ -898,9 +938,6 @@ public class MusicNotationApp extends Application {
         }
     }
 
-    /**
-     * Aplică sau înlocuiește dinamica pe o notă.
-     */
     private void applyDynamicToNote(Note note, DynamicType target) {
         if (note.isRest()) {
             statusBar.setText("⚠️ Nu poți aplica dinamică pe o pauză");
@@ -1016,6 +1053,7 @@ public class MusicNotationApp extends Application {
         }
         return null;
     }
+
 
     // ============================================================
     //  DRAW

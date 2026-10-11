@@ -7,7 +7,6 @@ import com.alin.musicnotation.model.Note;
 import com.alin.musicnotation.model.Pitch;
 import com.alin.musicnotation.model.Score;
 import com.alin.musicnotation.model.tempo.Tempo;
-import com.alin.musicnotation.model.TimeSignature;
 import com.alin.musicnotation.model.Tuplet;
 
 import javax.sound.midi.InvalidMidiDataException;
@@ -17,7 +16,9 @@ import javax.sound.midi.Sequence;
 import javax.sound.midi.ShortMessage;
 import javax.sound.midi.Track;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 public final class MidiSequenceBuilder {
 
@@ -38,8 +39,12 @@ public final class MidiSequenceBuilder {
         long currentTick = 0;
         KeySignature currentKey = score.keySignature();
 
-        for (Measure measure : score.measures()) {
-            // Actualizăm gama dacă măsura o schimbă
+        // ─── Ordinea de redare (cu repeat expandat) ───
+        List<Integer> playOrder = computePlayOrder(score);
+
+        for (int measureIdx : playOrder) {
+            Measure measure = score.measures().get(measureIdx);
+
             if (measure.keySignature() != null) {
                 currentKey = measure.keySignature();
             }
@@ -72,24 +77,55 @@ public final class MidiSequenceBuilder {
     }
 
     /**
-     * Calculează numărul MIDI aplicând gama curentă.
-     * Dacă nota are accidental explicit → îl respectăm.
-     * Altfel, dacă gama alterează step-ul → aplicăm alterarea.
+     * Calculează ordinea de redare a măsurilor, expandând repeat signs.
+     * Reguli:
+     * - Fiecare end repeat declanșează o singură revenire.
+     * - Când întâlnim un end repeat, căutăm înapoi ultimul start repeat.
+     *   Dacă nu există, revenim la începutul partiturii.
+     * - Repetițiile deja efectuate nu se mai repetă.
      */
+    private static List<Integer> computePlayOrder(Score score) {
+        List<Measure> measures = score.measures();
+        List<Integer> order = new ArrayList<>();
+        if (measures.isEmpty()) return order;
+
+        Set<Integer> playedEndRepeats = new HashSet<>();
+        int safety = 0;
+        int maxIterations = measures.size() * 20;   // protecție anti-loop infinit
+
+        int i = 0;
+        while (i < measures.size() && safety++ < maxIterations) {
+            Measure m = measures.get(i);
+            order.add(i);
+
+            if (m.hasEndRepeat() && !playedEndRepeats.contains(i)) {
+                playedEndRepeats.add(i);
+
+                // Căutăm înapoi ultimul start repeat
+                int jumpTo = 0;
+                for (int j = i; j >= 0; j--) {
+                    if (measures.get(j).hasStartRepeat()) {
+                        jumpTo = j;
+                        break;
+                    }
+                }
+                i = jumpTo;
+            } else {
+                i++;
+            }
+        }
+        return order;
+    }
+
     private static int midiNumberWithKey(Pitch pitch, KeySignature key) {
         int base = pitch.toMidiNumber();
-
-        // Accidental explicit → îl respectăm
         if (pitch.accidental() != Accidental.NONE) {
             return base;
         }
-
-        // Fără accidental → aplicăm gama (dacă alterează step-ul)
         if (key != null && key.altersStep(pitch.step())) {
             Accidental keyAcc = key.accidentalForStep(pitch.step());
             return base + keyAcc.semitoneOffset();
         }
-
         return base;
     }
 
@@ -114,19 +150,21 @@ public final class MidiSequenceBuilder {
     }
 
     /**
-     * Poziții temporale pentru cursor (neschimbat).
+     * Poziții temporale pentru cursor – TREBUIE să folosească aceeași ordine de redare
+     * ca build(), altfel cursorul sare greșit la repeat.
      */
     public static List<NoteTiming> computeTimings(Score score) {
         List<NoteTiming> timings = new ArrayList<>();
+        List<Integer> playOrder = computePlayOrder(score);
+
         long currentTick = 0;
-        int measureIdx = 0;
-        for (Measure measure : score.measures()) {
+        for (int measureIdx : playOrder) {
+            Measure measure = score.measures().get(measureIdx);
             for (Note note : measure.notes()) {
                 long noteTicks = computeTicks(note);
                 timings.add(new NoteTiming(note, measureIdx, currentTick, currentTick + noteTicks));
                 currentTick += noteTicks;
             }
-            measureIdx++;
         }
         return timings;
     }
