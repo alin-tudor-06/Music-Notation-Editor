@@ -101,6 +101,10 @@ public final class Measure {
         dynamics.add(dynamic);
     }
 
+    public void removeDynamic(Dynamic dynamic) {
+        dynamics.remove(dynamic);
+    }
+
     public void addHairpin(Hairpin hairpin) {
         Objects.requireNonNull(hairpin, "hairpin must not be null");
         Note start = hairpin.startNote();

@@ -10,6 +10,8 @@ import com.alin.musicnotation.layout.ScoreLayoutEngine;
 import com.alin.musicnotation.model.*;
 import com.alin.musicnotation.model.articulation.Articulation;
 import com.alin.musicnotation.model.articulation.ArticulationType;
+import com.alin.musicnotation.model.dynamic.Dynamic;
+import com.alin.musicnotation.model.dynamic.DynamicType;
 import com.alin.musicnotation.model.clef.ClefType;
 import com.alin.musicnotation.musicxml.export.MusicXmlExporter;
 import com.alin.musicnotation.musicxml.imports.MusicXmlImporter;
@@ -248,6 +250,15 @@ public class MusicNotationApp extends Application {
         ToggleButton tenutoBtn = makeToggle("–", EditMode.ARTICULATION_TENUTO, group, false);
         ToggleButton fermataBtn = makeToggle("⌒", EditMode.ARTICULATION_FERMATA, group, false);
 
+        ToggleButton pppBtn = makeToggle("ppp", EditMode.DYNAMIC_PPP, group, false);
+        ToggleButton ppBtn = makeToggle("pp", EditMode.DYNAMIC_PP, group, false);
+        ToggleButton pBtn = makeToggle("p", EditMode.DYNAMIC_P, group, false);
+        ToggleButton mpBtn = makeToggle("mp", EditMode.DYNAMIC_MP, group, false);
+        ToggleButton mfBtn = makeToggle("mf", EditMode.DYNAMIC_MF, group, false);
+        ToggleButton fBtn = makeToggle("f", EditMode.DYNAMIC_F, group, false);
+        ToggleButton ffBtn = makeToggle("ff", EditMode.DYNAMIC_FF, group, false);
+        ToggleButton fffBtn = makeToggle("fff", EditMode.DYNAMIC_FFF, group, false);
+
         group.selectedToggleProperty().addListener((obs, oldT, newT) -> {
             if (newT == null) {
                 editorState.setMode(EditMode.SELECT);
@@ -268,7 +279,9 @@ public class MusicNotationApp extends Application {
                 new Separator(Orientation.VERTICAL),
                 sharpBtn, flatBtn, naturalBtn,
                 new Separator(Orientation.VERTICAL),
-                staccatoBtn, staccatissimoBtn, accentBtn, marcatoBtn, tenutoBtn, fermataBtn
+                staccatoBtn, staccatissimoBtn, accentBtn, marcatoBtn, tenutoBtn, fermataBtn,
+                new Separator(Orientation.VERTICAL),
+                pppBtn, ppBtn, pBtn, mpBtn, mfBtn, fBtn, ffBtn, fffBtn
         );
         toolbar.setStyle("-fx-font-size: 18px;");
         return toolbar;
@@ -593,6 +606,32 @@ public class MusicNotationApp extends Application {
             return;
         }
 
+        // ─── Mod DINAMICĂ ───
+        if (editorState.getMode().isDynamicMode()) {
+            Note hit = HitTester.findNoteAt(layout, mx, my);
+            if (hit == null) {
+                statusBar.setText("⚠️ Click pe o notă pentru a aplica dinamica");
+                return;
+            }
+            DynamicType target = switch (editorState.getMode()) {
+                case DYNAMIC_PPP -> DynamicType.PPP;
+                case DYNAMIC_PP -> DynamicType.PP;
+                case DYNAMIC_P -> DynamicType.P;
+                case DYNAMIC_MP -> DynamicType.MP;
+                case DYNAMIC_MF -> DynamicType.MF;
+                case DYNAMIC_F -> DynamicType.F;
+                case DYNAMIC_FF -> DynamicType.FF;
+                case DYNAMIC_FFF -> DynamicType.FFF;
+                default -> null;
+            };
+            if (target != null) {
+                applyDynamicToNote(hit, target);
+                applyScoreToMidi(score);
+                drawStaff();
+            }
+            return;
+        }
+
         // ─── Mod ADD (note/pauze) ───
         if (editorState.getMode().isAddMode()) {
             RenderedLayout.MeasureHitBox mh = HitTester.findMeasureAt(layout, mx, my);
@@ -740,6 +779,46 @@ public class MusicNotationApp extends Application {
             targetMeasure.removeArticulation(existing);
         } else {
             targetMeasure.addArticulation(new Articulation(note, type));
+        }
+    }
+
+    private void applyDynamicToNote(Note note, DynamicType target) {
+        if (note.isRest()) {
+            statusBar.setText("⚠️ Nu poți aplica dinamică pe o pauză");
+            return;
+        }
+
+        // Găsim măsura care conține nota
+        Measure targetMeasure = null;
+        for (Measure m : score.measures()) {
+            if (m.notes().contains(note)) {
+                targetMeasure = m;
+                break;
+            }
+        }
+        if (targetMeasure == null) return;
+
+        // Căutăm dinamică existentă pe această notă
+        Dynamic existing = null;
+        for (Dynamic d : targetMeasure.dynamics()) {
+            if (d.note() == note) {
+                existing = d;
+                break;
+            }
+        }
+
+        if (existing != null) {
+            if (existing.type() == target) {
+                // Aceeași dinamică → toggle off
+                targetMeasure.removeDynamic(existing);
+            } else {
+                // Dinamică diferită → o înlocuim
+                targetMeasure.removeDynamic(existing);
+                targetMeasure.addDynamic(new Dynamic(note, target));
+            }
+        } else {
+            // Nu exista → adăugăm
+            targetMeasure.addDynamic(new Dynamic(note, target));
         }
     }
 

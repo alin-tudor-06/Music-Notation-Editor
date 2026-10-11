@@ -24,7 +24,16 @@ public enum EditMode {
     ARTICULATION_ACCENT,
     ARTICULATION_MARCATO,
     ARTICULATION_TENUTO,
-    ARTICULATION_FERMATA;
+    ARTICULATION_FERMATA,
+
+    DYNAMIC_PPP,
+    DYNAMIC_PP,
+    DYNAMIC_P,
+    DYNAMIC_MP,
+    DYNAMIC_MF,
+    DYNAMIC_F,
+    DYNAMIC_FF,
+    DYNAMIC_FFF;
 
     public boolean isRestMode() {
         return this == ADD_WHOLE_REST || this == ADD_HALF_REST
@@ -53,5 +62,12 @@ public enum EditMode {
                 || this == ARTICULATION_MARCATO
                 || this == ARTICULATION_TENUTO
                 || this == ARTICULATION_FERMATA;
+    }
+
+    public boolean isDynamicMode() {
+        return this == DYNAMIC_PPP || this == DYNAMIC_PP
+                || this == DYNAMIC_P || this == DYNAMIC_MP
+                || this == DYNAMIC_MF || this == DYNAMIC_F
+                || this == DYNAMIC_FF || this == DYNAMIC_FFF;
     }
 }
