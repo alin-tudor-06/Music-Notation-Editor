@@ -142,6 +142,14 @@ public final class Measure {
         this.tempo = tempo;
     }
 
+    public void setTempo(Tempo tempo) {
+        this.tempo = tempo;
+    }
+
+    public void removeTempo() {
+        this.tempo = null;
+    }
+
     public Tempo tempo() {
         return tempo;
     }
@@ -181,6 +189,14 @@ public final class Measure {
             }
         }
         textExpressions.add(expression);
+    }
+
+    public void removeTextExpression(TextExpression expression) {
+        textExpressions.remove(expression);
+    }
+
+    public void clearTextExpressions() {
+        textExpressions.clear();
     }
 
     public List<TextExpression> textExpressions() {

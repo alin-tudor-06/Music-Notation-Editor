@@ -10,9 +10,13 @@ import com.alin.musicnotation.layout.ScoreLayoutEngine;
 import com.alin.musicnotation.model.*;
 import com.alin.musicnotation.model.articulation.Articulation;
 import com.alin.musicnotation.model.articulation.ArticulationType;
+import com.alin.musicnotation.model.clef.ClefType;
 import com.alin.musicnotation.model.dynamic.Dynamic;
 import com.alin.musicnotation.model.dynamic.DynamicType;
-import com.alin.musicnotation.model.clef.ClefType;
+import com.alin.musicnotation.model.tempo.Tempo;
+import com.alin.musicnotation.model.tempo.TempoPlacement;
+import com.alin.musicnotation.model.text.TextExpression;
+import com.alin.musicnotation.model.text.TextPlacement;
 import com.alin.musicnotation.musicxml.export.MusicXmlExporter;
 import com.alin.musicnotation.musicxml.imports.MusicXmlImporter;
 import com.alin.musicnotation.playback.MidiPlayer;
@@ -46,7 +50,7 @@ import java.util.List;
 
 public class MusicNotationApp extends Application {
 
-    private static final double WINDOW_WIDTH = 1000;
+    private static final double WINDOW_WIDTH = 1200;
     private static final double WINDOW_HEIGHT = 1000;
     private static final double STAFF_LINE_SPACING = 16;
     private static final double STAFF_MARGIN = 80;
@@ -259,6 +263,15 @@ public class MusicNotationApp extends Application {
         ToggleButton ffBtn = makeToggle("ff", EditMode.DYNAMIC_FF, group, false);
         ToggleButton fffBtn = makeToggle("fff", EditMode.DYNAMIC_FFF, group, false);
 
+        // Butoane cu dialog (nu sunt ToggleButtons)
+        Button tempoBtn = new Button("♩= Tempo");
+        tempoBtn.setStyle("-fx-font-size: 12px;");
+        tempoBtn.setOnAction(e -> showTempoDialog());
+
+        Button textBtn = new Button("Text");
+        textBtn.setStyle("-fx-font-size: 12px;");
+        textBtn.setOnAction(e -> showTextDialog());
+
         group.selectedToggleProperty().addListener((obs, oldT, newT) -> {
             if (newT == null) {
                 editorState.setMode(EditMode.SELECT);
@@ -281,7 +294,9 @@ public class MusicNotationApp extends Application {
                 new Separator(Orientation.VERTICAL),
                 staccatoBtn, staccatissimoBtn, accentBtn, marcatoBtn, tenutoBtn, fermataBtn,
                 new Separator(Orientation.VERTICAL),
-                pppBtn, ppBtn, pBtn, mpBtn, mfBtn, fBtn, ffBtn, fffBtn
+                pppBtn, ppBtn, pBtn, mpBtn, mfBtn, fBtn, ffBtn, fffBtn,
+                new Separator(Orientation.VERTICAL),
+                tempoBtn, textBtn
         );
         toolbar.setStyle("-fx-font-size: 18px;");
         return toolbar;
@@ -294,6 +309,116 @@ public class MusicNotationApp extends Application {
         btn.setSelected(selected);
         btn.setMinWidth(45);
         return btn;
+    }
+
+    // ============================================================
+    //  DIALOG TEMPO / TEXT
+    // ============================================================
+
+    private void showTempoDialog() {
+        Measure m = editorState.getSelectedMeasure();
+        if (m == null) {
+            statusBar.setText("⚠️ Selectează mai întâi o măsură (click pe spațiul gol din ea)");
+            return;
+        }
+
+        Dialog<ButtonType> dialog = new Dialog<>();
+        dialog.setTitle("Tempo");
+        dialog.setHeaderText("Setează tempo pentru măsura selectată");
+
+        TextField textField = new TextField();
+        if (m.tempo() != null && m.tempo().hasText()) {
+            textField.setText(m.tempo().text());
+        }
+        textField.setPromptText("Allegro");
+
+        TextField bpmField = new TextField();
+        if (m.tempo() != null && m.tempo().hasBpm()) {
+            bpmField.setText(String.valueOf(m.tempo().bpm()));
+        }
+        bpmField.setPromptText("120");
+
+        ComboBox<String> placementBox = new ComboBox<>();
+        placementBox.getItems().addAll("Above", "Below");
+        if (m.tempo() != null && m.tempo().placement() == TempoPlacement.BELOW) {
+            placementBox.setValue("Below");
+        } else {
+            placementBox.setValue("Above");
+        }
+
+        VBox content = new VBox(8,
+                new Label("Text (opțional):"), textField,
+                new Label("BPM (opțional):"), bpmField,
+                new Label("Poziționare:"), placementBox
+        );
+        dialog.getDialogPane().setContent(content);
+        dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
+
+        if (dialog.showAndWait().orElse(ButtonType.CANCEL) != ButtonType.OK) return;
+
+        String text = textField.getText().isBlank() ? null : textField.getText();
+        String bpmStr = bpmField.getText().isBlank() ? null : bpmField.getText();
+        TempoPlacement placement = placementBox.getValue().equals("Below")
+                ? TempoPlacement.BELOW : TempoPlacement.ABOVE;
+
+        try {
+            Integer bpm = bpmStr != null ? Integer.parseInt(bpmStr) : null;
+            if (text == null && bpm == null) {
+                // Ambele goale → ștergem tempo
+                m.removeTempo();
+            } else {
+                Tempo tempo = new Tempo(text, bpm, placement);
+                m.setTempo(tempo);   // înlocuiește dacă există
+            }
+            applyScoreToMidi(score);
+            drawStaff();
+        } catch (NumberFormatException ex) {
+            statusBar.setText("⚠️ BPM invalid (trebuie număr)");
+        }
+    }
+
+    private void showTextDialog() {
+        Measure m = editorState.getSelectedMeasure();
+        if (m == null) {
+            statusBar.setText("⚠️ Selectează mai întâi o măsură (click pe spațiul gol din ea)");
+            return;
+        }
+
+        Dialog<ButtonType> dialog = new Dialog<>();
+        dialog.setTitle("Text Expression");
+        dialog.setHeaderText("Adaugă o expresie text pe măsura selectată");
+
+        TextField textField = new TextField();
+        textField.setPromptText("dolce, cantabile, ...");
+
+        ComboBox<String> placementBox = new ComboBox<>();
+        placementBox.getItems().addAll("Above", "Below");
+        placementBox.setValue("Above");
+
+        VBox content = new VBox(8,
+                new Label("Text:"), textField,
+                new Label("Poziționare:"), placementBox
+        );
+        dialog.getDialogPane().setContent(content);
+        dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
+
+        if (dialog.showAndWait().orElse(ButtonType.CANCEL) != ButtonType.OK) return;
+
+        String text = textField.getText().isBlank() ? null : textField.getText();
+        if (text == null) {
+            statusBar.setText("⚠️ Text gol");
+            return;
+        }
+        TextPlacement placement = placementBox.getValue().equals("Below")
+                ? TextPlacement.BELOW : TextPlacement.ABOVE;
+
+        try {
+            m.addTextExpression(new TextExpression(text, placement));
+            applyScoreToMidi(score);
+            drawStaff();
+        } catch (IllegalStateException ex) {
+            statusBar.setText("⚠️ Expresia există deja");
+        }
     }
 
     // ============================================================
@@ -755,18 +880,9 @@ public class MusicNotationApp extends Application {
             statusBar.setText("⚠️ Nu poți aplica articulație pe o pauză");
             return;
         }
-
-        // Găsim măsura care conține nota
-        Measure targetMeasure = null;
-        for (Measure m : score.measures()) {
-            if (m.notes().contains(note)) {
-                targetMeasure = m;
-                break;
-            }
-        }
+        Measure targetMeasure = findMeasureContaining(note);
         if (targetMeasure == null) return;
 
-        // Căutăm o articulație existentă de același tip pe această notă
         Articulation existing = null;
         for (Articulation a : targetMeasure.articulations()) {
             if (a.note() == note && a.type() == type) {
@@ -782,23 +898,17 @@ public class MusicNotationApp extends Application {
         }
     }
 
+    /**
+     * Aplică sau înlocuiește dinamica pe o notă.
+     */
     private void applyDynamicToNote(Note note, DynamicType target) {
         if (note.isRest()) {
             statusBar.setText("⚠️ Nu poți aplica dinamică pe o pauză");
             return;
         }
-
-        // Găsim măsura care conține nota
-        Measure targetMeasure = null;
-        for (Measure m : score.measures()) {
-            if (m.notes().contains(note)) {
-                targetMeasure = m;
-                break;
-            }
-        }
+        Measure targetMeasure = findMeasureContaining(note);
         if (targetMeasure == null) return;
 
-        // Căutăm dinamică existentă pe această notă
         Dynamic existing = null;
         for (Dynamic d : targetMeasure.dynamics()) {
             if (d.note() == note) {
@@ -809,17 +919,21 @@ public class MusicNotationApp extends Application {
 
         if (existing != null) {
             if (existing.type() == target) {
-                // Aceeași dinamică → toggle off
                 targetMeasure.removeDynamic(existing);
             } else {
-                // Dinamică diferită → o înlocuim
                 targetMeasure.removeDynamic(existing);
                 targetMeasure.addDynamic(new Dynamic(note, target));
             }
         } else {
-            // Nu exista → adăugăm
             targetMeasure.addDynamic(new Dynamic(note, target));
         }
+    }
+
+    private Measure findMeasureContaining(Note note) {
+        for (Measure m : score.measures()) {
+            if (m.notes().contains(note)) return m;
+        }
+        return null;
     }
 
     private static Duration modeToDuration(EditMode mode) {
