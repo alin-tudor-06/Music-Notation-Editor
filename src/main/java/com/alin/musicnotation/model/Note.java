@@ -1,7 +1,7 @@
 package com.alin.musicnotation.model;
 
 public final class Note {
-    private final Pitch pitch;
+    private Pitch pitch;
     private final Duration duration;
     private final boolean isRest;
     private final boolean tieStart;
@@ -40,6 +40,13 @@ public final class Note {
             throw new IllegalStateException("Note already belongs to another tuplet: " + this.tuplet);
         }
         this.tuplet = tuplet;
+    }
+
+    public void setPitch(Pitch pitch) {
+        if (isRest) {
+            throw new IllegalStateException("Cannot set pitch on a rest");
+        }
+        this.pitch = pitch;
     }
 
     @Override

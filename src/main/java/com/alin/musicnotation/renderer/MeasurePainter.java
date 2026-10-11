@@ -5,7 +5,6 @@ import com.alin.musicnotation.model.Note;
 import com.alin.musicnotation.model.layout.NoteLayout;
 import com.alin.musicnotation.model.repeat.BarlineType;
 import javafx.scene.canvas.GraphicsContext;
-import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 
@@ -69,7 +68,8 @@ public final class MeasurePainter {
             RenderingState newState,
             RenderConfig config,
             boolean isLastMeasure,
-            Note highlightNote
+            Note highlightNote,
+            boolean isFirstMeasureOfSystem
     ) {
 
         var staff = config.staff();
@@ -86,38 +86,48 @@ public final class MeasurePainter {
         double middleLineY = firstLineY + staff.middleLine() * (lineSpacing / 2);
         double startPadding = measureConfig.startPadding();
 
-        // 1. Tempo & text
+        // ─── 1. Tempo & text ───
         tempoRenderer.draw(gc, measure, startX, firstLineY, lineSpacing);
         textExpressionRenderer.draw(gc, measure, startX, firstLineY, staffHeight, lineSpacing);
 
-        // 2. Draw clef / key / time changes
-        double currentX = startX + startPadding;
-
-        if (measure.clef() != null && measure.clef() != oldState.currentClef()) {
-            clefRenderer.drawClef(gc, currentX + 6, firstLineY, staffHeight, lineSpacing, measure.clef());
-            currentX += 44 + 6;
-        }
-
-        if (measure.keySignature() != null && !measure.keySignature().equals(oldState.currentKey())) {
-            double keyWidth = keySignatureRenderer.drawChange(
-                    gc, currentX, firstLineY,
-                    oldState.currentKey(), measure.keySignature(),
-                    newState.currentClef(), lineSpacing
-            );
-            currentX += keyWidth;
-        }
-
-        if (measure.timeSignature() != null && !measure.timeSignature().equals(oldState.currentTime())) {
-            Font font = Font.font("Serif", FontWeight.BOLD, lineSpacing * 2.2);
-            double timeWidth = timeSignatureRenderer.drawChange(
-                    gc, currentX, firstLineY,
-                    staffHeight, lineSpacing, measure.timeSignature()
-            );
-            currentX += timeWidth + 10;
-        }
-
-        // 3. Shift and draw notes
+        // ─── 2. Clef / key / time changes ───
+        // noteOffsetX pornește ca valoarea din layout engine.
+        // După desenare, comparăm cu poziția reală și folosim maximul.
         double noteOffsetX = startX + startPadding + extraWidth;
+
+        if (!isFirstMeasureOfSystem) {
+            double currentX = startX + startPadding;
+
+            if (measure.clef() != null && measure.clef() != oldState.currentClef()) {
+                clefRenderer.drawClef(gc, currentX + 6, firstLineY, staffHeight, lineSpacing, measure.clef());
+                currentX += 44 + 6;
+            }
+
+            if (measure.keySignature() != null && !measure.keySignature().equals(oldState.currentKey())) {
+                double keyWidth = keySignatureRenderer.drawChange(
+                        gc, currentX, firstLineY,
+                        oldState.currentKey(), measure.keySignature(),
+                        newState.currentClef(), lineSpacing
+                );
+                currentX += keyWidth;
+            }
+
+            if (measure.timeSignature() != null && !measure.timeSignature().equals(oldState.currentTime())) {
+                double timeWidth = timeSignatureRenderer.drawChange(
+                        gc, currentX, firstLineY,
+                        staffHeight, lineSpacing, measure.timeSignature()
+                );
+                currentX += timeWidth + 10;
+            }
+
+            // ─── Safety net: dacă simbolurile desenate au ocupat mai mult
+            //               decât estimate, împingem notele la dreapta.
+            if (currentX > noteOffsetX) {
+                noteOffsetX = currentX + 6;
+            }
+        }
+
+        // ─── 3. Shift notes by noteOffsetX ───
         Map<Note, NoteLayout> shiftedMap = new HashMap<>();
         for (Map.Entry<Note, NoteLayout> entry : layoutMap.entrySet()) {
             NoteLayout l = entry.getValue();
@@ -130,7 +140,7 @@ public final class MeasurePainter {
         layouts.sort(Comparator.comparingDouble(NoteLayout::x));
         Set<Note> beamedNotes = BeamAnalyzer.computeBeamedNotes(layouts);
 
-        // Draw notes, beams, tuplets, slurs, articulations, dynamics, hairpins
+        // ─── 4. Notes, beams, tuplets, slurs, articulations, dynamics, hairpins ───
         noteRenderer.draw(gc, measure, shiftedMap, firstLineY, middleLineY, staff.middleLine(),
                 note.headWidth(), note.headHeight(), note.stemLength(),
                 note.ledgerExtension(), note.outlineWidth(),
@@ -138,19 +148,6 @@ public final class MeasurePainter {
                 note.restWidth(), note.restHeight(), note.eighthRestSlant(),
                 staff.topLine(), staff.bottomLine(), staff.lineSpacing(),
                 beamedNotes, newState.currentKey());
-
-        // ─── HIGHLIGHT pentru nota curentă ───
-        if (highlightNote != null) {
-            NoteLayout hl = shiftedMap.get(highlightNote);
-            if (hl != null) {
-                gc.setGlobalAlpha(0.45);
-                gc.setFill(Color.web("#FFB74D"));
-                double w = note.headWidth() * 2.4;
-                double h = note.headHeight() * 2.4;
-                gc.fillOval(hl.x() - w / 2, hl.y() - h / 2, w, h);
-                gc.setGlobalAlpha(1.0);
-            }
-        }
 
         beamRenderer.draw(gc, measure, shiftedMap, middleLineY, staff.middleLine(),
                 beam.thickness(), beam.spacing(), beam.hookLength(),
@@ -173,7 +170,20 @@ public final class MeasurePainter {
         hairpinRenderer.draw(gc, measure, shiftedMap, firstLineY, staffHeight,
                 staff.lineSpacing(), note.headWidth(), note.headHeight());
 
-        // 4. Barlines
+        // ─── 5. Highlight notă ───
+        if (highlightNote != null) {
+            NoteLayout hl = shiftedMap.get(highlightNote);
+            if (hl != null) {
+                gc.setGlobalAlpha(0.45);
+                gc.setFill(javafx.scene.paint.Color.web("#FFB74D"));
+                double w = note.headWidth() * 2.4;
+                double h = note.headHeight() * 2.4;
+                gc.fillOval(hl.x() - w / 2, hl.y() - h / 2, w, h);
+                gc.setGlobalAlpha(1.0);
+            }
+        }
+
+        // ─── 6. Barlines ───
         double barX = startX + justifiedWidth;
 
         if (measure.hasStartRepeat()) {

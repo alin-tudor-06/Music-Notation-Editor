@@ -2,7 +2,10 @@ package com.alin.musicnotation.renderer;
 
 import com.alin.musicnotation.editor.RenderedLayout;
 import com.alin.musicnotation.layout.SystemPlacement;
+import com.alin.musicnotation.model.KeySignature;
 import com.alin.musicnotation.model.Note;
+import com.alin.musicnotation.model.TimeSignature;
+import com.alin.musicnotation.model.clef.ClefType;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
@@ -48,36 +51,24 @@ public final class SystemRenderer {
         double lineSpacing = config.staff().lineSpacing();
         double startPadding = config.measure().startPadding();
 
-        // Determinăm starea care va fi afișată la începutul sistemului
+        // ─── Determinăm starea de afișat la începutul sistemului ───
+        // Folosim suprascrierile primei măsuri (dacă are), altfel starea curentă.
         RenderingState displayState = state;
 
-        if (!isFirstSystem && !placement.systemLayout().measureLayouts().isEmpty()) {
-            int firstIndex = placement.systemLayout().measureLayouts().get(0).measureIndex();
-            MeasureRenderData firstData = renderDataMap.get(firstIndex);
+        if (!placement.systemLayout().measureLayouts().isEmpty()) {
+            int firstIdx = placement.systemLayout().measureLayouts().get(0).measureIndex();
+            MeasureRenderData firstData = renderDataMap.get(firstIdx);
             if (firstData != null) {
-                var firstMeasure = firstData.measure();
-
-                var displayClef = state.currentClef();
-                var displayKey = state.currentKey();
-                var displayTime = state.currentTime();
-
-                if (firstMeasure.clef() != null && firstMeasure.clef() != state.currentClef()) {
-                    displayClef = firstMeasure.clef();
-                }
-                if (firstMeasure.keySignature() != null && !firstMeasure.keySignature().equals(state.currentKey())) {
-                    displayKey = firstMeasure.keySignature();
-                }
-                if (firstMeasure.timeSignature() != null && !firstMeasure.timeSignature().equals(state.currentTime())) {
-                    displayTime = firstMeasure.timeSignature();
-                }
-
-                displayState = new RenderingState(displayClef, displayKey, displayTime);
+                var fm = firstData.measure();
+                ClefType c = fm.clef() != null ? fm.clef() : state.currentClef();
+                KeySignature k = fm.keySignature() != null ? fm.keySignature() : state.currentKey();
+                TimeSignature t = fm.timeSignature() != null ? fm.timeSignature() : state.currentTime();
+                displayState = new RenderingState(c, k, t);
             }
         }
 
-        // Desenăm la începutul sistemului în ordinea: CLEF → KEY → TIME
+        // ─── Desenăm CLEF → KEY → TIME la începutul sistemului ───
         double currentX = systemX + 6;
-
         clefRenderer.drawClef(gc, currentX, systemY, staffHeight, lineSpacing, displayState.currentClef());
         currentX += 44;
 
@@ -93,6 +84,7 @@ public final class SystemRenderer {
 
         RenderingState currentState = state;
         double lastBarX = systemX;
+        boolean isFirstMeasureOfSystem = true;
 
         for (var measureLayout : placement.systemLayout().measureLayouts()) {
             int index = measureLayout.measureIndex();
@@ -103,15 +95,23 @@ public final class SystemRenderer {
 
             double measureWidth = data.justifiedWidth();
 
-            // Adaugă hit box pentru măsură
-            builder.addMeasure(data.measure(), currentX, systemY,
-                    measureWidth, staffHeight, systemY, lineSpacing,
-                    currentState.currentClef());
+            // ─── BUG FIX 2: Clef corect pentru hit-box ───
+            // Dacă măsura are clef propriu, folosim acela; altfel starea curentă.
+            ClefType clefForMeasure = data.measure().clef() != null
+                    ? data.measure().clef()
+                    : currentState.currentClef();
+
+            // Extindem hit box-ul cu 4 spații de portativ sus/jos pentru note cu linii suplimentare
+            double extend = 4.0 * lineSpacing;
+            builder.addMeasure(data.measure(), currentX, systemY - extend,
+                    measureWidth, staffHeight + 2 * extend, systemY, lineSpacing,
+                    clefForMeasure);
 
             currentState = measureRenderer.render(gc, data, currentX, systemY,
-                    currentState, highlightNote, builder);
+                    currentState, highlightNote, builder, isFirstMeasureOfSystem);
             currentX += measureWidth;
             lastBarX = currentX;
+            isFirstMeasureOfSystem = false;
         }
 
         double systemEndX = lastBarX + SYSTEM_END_PADDING;

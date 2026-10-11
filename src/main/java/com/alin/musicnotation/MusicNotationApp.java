@@ -29,6 +29,7 @@ import javafx.scene.input.KeyEvent;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.VBox;
+import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
@@ -50,7 +51,6 @@ public class MusicNotationApp extends Application {
     private static final double TOP_MARGIN = 140;
     private static final double BOTTOM_MARGIN = 100;
 
-    // ─── Stare aplicație ───
     private Score score;
     private Path currentFile;
     private Stage primaryStage;
@@ -121,16 +121,13 @@ public class MusicNotationApp extends Application {
         this.score = createEmptyScore();
 
         MenuBar menuBar = buildMenuBar();
-
-        // Toolbar palette
         ToolBar paletteToolbar = buildPaletteToolbar();
+        ToolBar attributesToolbar = buildAttributesToolbar();
 
-        // Toolbar playback (ascunsă inițial)
         playbackToolBar = buildPlaybackToolBar();
         playbackToolBar.setVisible(false);
         playbackToolBar.setManaged(false);
 
-        // Canvas + ScrollPane
         canvas = new Canvas();
         ScrollPane scrollPane = new ScrollPane(canvas);
         scrollPane.setFitToWidth(true);
@@ -144,7 +141,7 @@ public class MusicNotationApp extends Application {
         statusBar = new Label();
 
         BorderPane root = new BorderPane();
-        root.setTop(new VBox(menuBar, paletteToolbar, playbackToolBar));
+        root.setTop(new VBox(menuBar, paletteToolbar, attributesToolbar, playbackToolBar));
         root.setCenter(scrollPane);
         root.setBottom(statusBar);
 
@@ -153,8 +150,12 @@ public class MusicNotationApp extends Application {
         primaryStage.setScene(scene);
         primaryStage.show();
 
-        // Evenimente
         canvas.setOnMouseClicked(this::handleCanvasClick);
+        canvas.setOnMouseMoved(this::handleMouseMoved);
+        canvas.setOnMouseExited(e -> {
+            editorState.clearHover();
+            drawStaff();
+        });
         scene.setOnKeyPressed(this::handleKeyPressed);
 
         applyScoreToMidi(score);
@@ -234,12 +235,19 @@ public class MusicNotationApp extends Application {
         ToggleButton eighthRestBtn = makeToggle("𝄾", EditMode.ADD_EIGHTH_REST, group, false);
         ToggleButton sixteenthRestBtn = makeToggle("𝄿", EditMode.ADD_SIXTEENTH_REST, group, false);
 
+        ToggleButton sharpBtn = makeToggle("♯", EditMode.ACCIDENTAL_SHARP, group, false);
+        ToggleButton flatBtn = makeToggle("♭", EditMode.ACCIDENTAL_FLAT, group, false);
+        ToggleButton naturalBtn = makeToggle("♮", EditMode.ACCIDENTAL_NATURAL, group, false);
+
         group.selectedToggleProperty().addListener((obs, oldT, newT) -> {
             if (newT == null) {
                 editorState.setMode(EditMode.SELECT);
             } else {
                 editorState.setMode((EditMode) newT.getUserData());
             }
+            editorState.clearHover();
+            updateStatusBar();
+            drawStaff();
         });
 
         ToolBar toolbar = new ToolBar(
@@ -247,7 +255,9 @@ public class MusicNotationApp extends Application {
                 new Separator(Orientation.VERTICAL),
                 wholeBtn, halfBtn, quarterBtn, eighthBtn, sixteenthBtn,
                 new Separator(Orientation.VERTICAL),
-                wholeRestBtn, halfRestBtn, quarterRestBtn, eighthRestBtn, sixteenthRestBtn
+                wholeRestBtn, halfRestBtn, quarterRestBtn, eighthRestBtn, sixteenthRestBtn,
+                new Separator(Orientation.VERTICAL),
+                sharpBtn, flatBtn, naturalBtn
         );
         toolbar.setStyle("-fx-font-size: 18px;");
         return toolbar;
@@ -260,6 +270,111 @@ public class MusicNotationApp extends Application {
         btn.setSelected(selected);
         btn.setMinWidth(45);
         return btn;
+    }
+
+    // ============================================================
+    //  ATTRIBUTES TOOLBAR
+    // ============================================================
+
+    private ToolBar buildAttributesToolbar() {
+        ComboBox<String> clefBox = new ComboBox<>();
+        clefBox.getItems().addAll("Treble", "Bass", "Alto", "Tenor");
+        clefBox.setPromptText("Clef");
+        clefBox.setPrefWidth(110);
+        clefBox.setOnAction(e -> {
+            String val = clefBox.getValue();
+            if (val == null) return;
+            ClefType ct = switch (val) {
+                case "Treble" -> ClefType.TREBLE;
+                case "Bass" -> ClefType.BASS;
+                case "Alto" -> ClefType.ALTO;
+                case "Tenor" -> ClefType.TENOR;
+                default -> ClefType.TREBLE;
+            };
+            applyAttributeToSelectedMeasure(m -> m.addClef(ct));
+            clefBox.setValue(null);
+        });
+
+        ComboBox<String> keyBox = new ComboBox<>();
+        keyBox.getItems().addAll(
+                "C major", "G major", "D major", "A major", "E major", "B major",
+                "F# major", "C# major",
+                "F major", "Bb major", "Eb major", "Ab major", "Db major",
+                "Gb major", "Cb major"
+        );
+        keyBox.setPromptText("Key");
+        keyBox.setPrefWidth(120);
+        keyBox.setOnAction(e -> {
+            String val = keyBox.getValue();
+            if (val == null) return;
+            KeySignature ks = switch (val) {
+                case "C major" -> KeySignature.C_MAJOR;
+                case "G major" -> KeySignature.G_MAJOR;
+                case "D major" -> KeySignature.D_MAJOR;
+                case "A major" -> KeySignature.A_MAJOR;
+                case "E major" -> KeySignature.E_MAJOR;
+                case "B major" -> KeySignature.B_MAJOR;
+                case "F# major" -> KeySignature.F_SHARP_MAJOR;
+                case "C# major" -> KeySignature.C_SHARP_MAJOR;
+                case "F major" -> KeySignature.F_MAJOR;
+                case "Bb major" -> KeySignature.B_FLAT_MAJOR;
+                case "Eb major" -> KeySignature.E_FLAT_MAJOR;
+                case "Ab major" -> KeySignature.A_FLAT_MAJOR;
+                case "Db major" -> KeySignature.D_FLAT_MAJOR;
+                case "Gb major" -> KeySignature.G_FLAT_MAJOR;
+                case "Cb major" -> KeySignature.C_FLAT_MAJOR;
+                default -> KeySignature.C_MAJOR;
+            };
+            applyAttributeToSelectedMeasure(m -> m.addKeySignature(ks));
+            keyBox.setValue(null);
+        });
+
+        ComboBox<String> timeBox = new ComboBox<>();
+        timeBox.getItems().addAll(
+                "4/4", "3/4", "2/4", "6/8", "9/8", "12/8", "2/2", "3/8", "5/4"
+        );
+        timeBox.setPromptText("Time");
+        timeBox.setPrefWidth(80);
+        timeBox.setOnAction(e -> {
+            String val = timeBox.getValue();
+            if (val == null) return;
+            TimeSignature ts = switch (val) {
+                case "4/4" -> TimeSignature.COMMON_TIME;
+                case "3/4" -> TimeSignature.THREE_FOUR;
+                case "2/4" -> TimeSignature.TWO_FOUR;
+                case "6/8" -> TimeSignature.SIX_EIGHT;
+                case "9/8" -> TimeSignature.NINE_EIGHT;
+                case "12/8" -> TimeSignature.TWELVE_EIGHT;
+                case "2/2" -> TimeSignature.CUT_TIME;
+                case "3/8" -> new TimeSignature(3, 8);
+                case "5/4" -> new TimeSignature(5, 4);
+                default -> TimeSignature.COMMON_TIME;
+            };
+            applyAttributeToSelectedMeasure(m -> m.addTimeSignature(ts));
+            timeBox.setValue(null);
+        });
+
+        ToolBar toolbar = new ToolBar(
+                new Label("Attributes:"),
+                new Separator(Orientation.VERTICAL),
+                new Label("Clef"), clefBox,
+                new Separator(Orientation.VERTICAL),
+                new Label("Key"), keyBox,
+                new Separator(Orientation.VERTICAL),
+                new Label("Time"), timeBox
+        );
+        return toolbar;
+    }
+
+    private void applyAttributeToSelectedMeasure(java.util.function.Consumer<Measure> action) {
+        Measure m = editorState.getSelectedMeasure();
+        if (m == null) {
+            statusBar.setText("⚠️ Selectează mai întâi o măsură (click pe spațiul gol din ea)");
+            return;
+        }
+        action.accept(m);
+        applyScoreToMidi(score);
+        drawStaff();
     }
 
     // ============================================================
@@ -333,7 +448,7 @@ public class MusicNotationApp extends Application {
     }
 
     // ============================================================
-    //  ACȚIUNI FILE
+    //  FILE ACTIONS
     // ============================================================
 
     private void actionNew() {
@@ -413,7 +528,7 @@ public class MusicNotationApp extends Application {
     }
 
     // ============================================================
-    //  MOUSE + KEYBOARD
+    //  MOUSE HANDLERS
     // ============================================================
 
     private void handleCanvasClick(MouseEvent event) {
@@ -422,7 +537,49 @@ public class MusicNotationApp extends Application {
 
         RenderedLayout layout = layoutRenderer.getLastLayout();
 
-        // 1. Dacă am dat click pe o notă existentă → selectare
+        // ─── Mod ACCIDENTAL → aplică pe nota de sub click ───
+        if (editorState.getMode().isAccidentalMode()) {
+            Note hit = HitTester.findNoteAt(layout, mx, my);
+            if (hit == null) {
+                statusBar.setText("⚠️ Click pe o notă pentru a aplica accidentalul");
+                return;
+            }
+            Accidental target = switch (editorState.getMode()) {
+                case ACCIDENTAL_SHARP -> Accidental.SHARP;
+                case ACCIDENTAL_FLAT -> Accidental.FLAT;
+                case ACCIDENTAL_NATURAL -> Accidental.NATURAL;
+                default -> null;
+            };
+            if (target != null) {
+                applyAccidentalToNote(hit, target);
+                applyScoreToMidi(score);
+                drawStaff();
+            }
+            return;
+        }
+
+        // ─── Mod ADD → adaugă notă/pauză ───
+        if (editorState.getMode().isAddMode()) {
+            RenderedLayout.MeasureHitBox mh = HitTester.findMeasureAt(layout, mx, my);
+            if (mh == null) return;
+
+            Duration dur = modeToDuration(editorState.getMode());
+            Note newNote;
+            if (editorState.getMode().isRestMode()) {
+                newNote = new Note(dur);
+            } else {
+                int pos = HitTester.staffPositionFromY(mh, my);
+                Pitch pitch = HitTester.pitchFromStaffPosition(pos, mh.clef());
+                newNote = new Note(pitch, dur);
+            }
+
+            ScoreEditor.addNoteSmart(score, mh.measure(), newNote);
+            applyScoreToMidi(score);
+            drawStaff();
+            return;
+        }
+
+        // ─── Mod SELECT ───
         Note hit = HitTester.findNoteAt(layout, mx, my);
         if (hit != null) {
             editorState.setSelectedNote(hit);
@@ -430,34 +587,64 @@ public class MusicNotationApp extends Application {
             return;
         }
 
-        // 2. Mod SELECT → deselectare
-        if (editorState.getMode() == EditMode.SELECT) {
+        RenderedLayout.MeasureHitBox mh = HitTester.findMeasureAt(layout, mx, my);
+        if (mh != null) {
+            editorState.setSelectedMeasure(mh.measure());
+        } else {
             editorState.clearSelection();
-            drawStaff();
+        }
+        drawStaff();
+    }
+
+    private void handleMouseMoved(MouseEvent event) {
+        // Ghost doar în modul ADD pentru NOTE (nu pauze, nu select, nu accidental)
+        boolean showGhost = editorState.getMode().isAddMode()
+                && !editorState.getMode().isRestMode();
+
+        if (!showGhost) {
+            if (editorState.isHovering()) {
+                editorState.clearHover();
+                drawStaff();
+            }
             return;
         }
 
-        // 3. Mod ADD → găsim măsura
-        RenderedLayout.MeasureHitBox mh = HitTester.findMeasureAt(layout, mx, my);
-        if (mh == null) return;
+        double mx = event.getX();
+        double my = event.getY();
 
-        // 4. Construim nota
-        Duration dur = modeToDuration(editorState.getMode());
-        Note newNote;
-        if (editorState.getMode().isRestMode()) {
-            newNote = new Note(dur);
-        } else {
-            int pos = HitTester.staffPositionFromY(mh, my);
-            Pitch pitch = HitTester.pitchFromStaffPosition(pos, mh.clef());
-            newNote = new Note(pitch, dur);
+        RenderedLayout layout = layoutRenderer.getLastLayout();
+        RenderedLayout.MeasureHitBox mh = HitTester.findMeasureAt(layout, mx, my);
+
+        if (mh == null) {
+            if (editorState.isHovering()) {
+                editorState.clearHover();
+                drawStaff();
+            }
+            return;
         }
 
-        // 5. Adăugăm în score
-        ScoreEditor.addNoteSmart(score, mh.measure(), newNote);
+        Note hit = HitTester.findNoteAt(layout, mx, my);
+        if (hit != null) {
+            if (editorState.isHovering()) {
+                editorState.clearHover();
+                drawStaff();
+            }
+            return;
+        }
 
-        // 6. Rebuild MIDI + redraw
-        applyScoreToMidi(score);
-        drawStaff();
+        int pos = HitTester.staffPositionFromY(mh, my);
+        Pitch pitch = HitTester.pitchFromStaffPosition(pos, mh.clef());
+
+        boolean changed = !editorState.isHovering()
+                || editorState.getHoverPitch() == null
+                || !editorState.getHoverPitch().equals(pitch)
+                || Math.abs(editorState.getHoverX() - mx) > 1.5;
+
+        editorState.setHover(mx, pitch, mh.clef(), mh.staffFirstLineY(), mh.staffLineSpacing());
+
+        if (changed) {
+            drawStaff();
+        }
     }
 
     private void handleKeyPressed(KeyEvent event) {
@@ -472,6 +659,23 @@ public class MusicNotationApp extends Application {
         }
     }
 
+    /**
+     * Aplică accidentalul pe o notă cu toggle:
+     * - Dacă nota are deja accidentalul → îl scoate (NONE)
+     * - Altfel → îl setează
+     */
+    private void applyAccidentalToNote(Note note, Accidental target) {
+        if (note.isRest()) {
+            statusBar.setText("⚠️ Nu poți aplica accidental pe o pauză");
+            return;
+        }
+        Pitch old = note.pitch();
+        Accidental current = old.accidental();
+        Accidental newAcc = (current == target) ? Accidental.NONE : target;
+        Pitch newPitch = new Pitch(old.step(), newAcc, old.octave());
+        note.setPitch(newPitch);
+    }
+
     private static Duration modeToDuration(EditMode mode) {
         return switch (mode) {
             case ADD_WHOLE, ADD_WHOLE_REST -> Duration.WHOLE;
@@ -484,7 +688,7 @@ public class MusicNotationApp extends Application {
     }
 
     // ============================================================
-    //  LOGICĂ INTERNĂ
+    //  INTERNAL
     // ============================================================
 
     private static Score createEmptyScore() {
@@ -499,6 +703,7 @@ public class MusicNotationApp extends Application {
         this.currentFile = file;
         playbackCursor.reset();
         editorState.clearSelection();
+        editorState.clearHover();
 
         applyScoreToMidi(score);
         updateStatusBar();
@@ -524,9 +729,15 @@ public class MusicNotationApp extends Application {
         String name = currentFile != null
                 ? currentFile.getFileName().toString()
                 : "untitled";
+        String sel = editorState.getSelectedMeasure() != null
+                ? "  |  Măsură selectată"
+                : editorState.getSelectedNote() != null
+                ? "  |  Notă selectată"
+                : "";
         statusBar.setText("📄 " + name
                 + "  |  " + score.measures().size() + " măsuri"
-                + "  |  Mod: " + editorState.getMode());
+                + "  |  Mod: " + editorState.getMode()
+                + sel);
     }
 
     private void showError(String title, Exception e) {
@@ -545,6 +756,10 @@ public class MusicNotationApp extends Application {
         }
         return null;
     }
+
+    // ============================================================
+    //  DRAW
+    // ============================================================
 
     private void drawStaff() {
         double width = canvas.getWidth();
@@ -567,7 +782,6 @@ public class MusicNotationApp extends Application {
                 score.initialTimeSignature()
         );
 
-        // Highlight: playback cursor are prioritate, altfel nota selectată
         Note highlight = playbackCursor.isPlaying()
                 ? playbackCursor.getCurrentNote()
                 : editorState.getSelectedNote();
@@ -575,7 +789,70 @@ public class MusicNotationApp extends Application {
         layoutRenderer.render(gc, result.pageLayout(), result.renderDataList(),
                 initialState, highlight);
 
+        // Chenar albastru pentru măsura selectată
+        if (editorState.getSelectedMeasure() != null) {
+            RenderedLayout layout = layoutRenderer.getLastLayout();
+            for (RenderedLayout.MeasureHitBox mb : layout.measures()) {
+                if (mb.measure() == editorState.getSelectedMeasure()) {
+                    gc.setStroke(Color.DODGERBLUE);
+                    gc.setLineWidth(2.5);
+                    gc.strokeRect(mb.x() - 4, mb.y() + 20,
+                            mb.width() + 8, mb.height() - 40);
+                    break;
+                }
+            }
+        }
+
+        // Ghost preview
+        drawHoverGhost(gc);
+
         updateStatusBar();
+    }
+
+    private void drawHoverGhost(GraphicsContext gc) {
+        if (!editorState.isHovering()) return;
+        if (editorState.getHoverPitch() == null) return;
+
+        Pitch hp = editorState.getHoverPitch();
+        ClefType clef = editorState.getHoverClef();
+        int pos = StaffPositionCalculator.staffPosition(hp, clef);
+        double noteY = editorState.getHoverStaffFirstLineY()
+                + pos * (editorState.getHoverLineSpacing() / 2.0);
+        double noteX = editorState.getHoverX();
+
+        double w = config.note().headWidth();
+        double h = config.note().headHeight();
+
+        gc.setGlobalAlpha(0.55);
+        gc.setFill(Color.GRAY);
+        gc.fillOval(noteX - w / 2, noteY - h / 2, w, h);
+
+        int topLinePos = config.staff().topLine();
+        int bottomLinePos = config.staff().bottomLine();
+        gc.setStroke(Color.GRAY);
+        gc.setLineWidth(1);
+
+        if (pos < topLinePos) {
+            int count = -pos / 2;
+            for (int i = 1; i <= count; i++) {
+                int lp = -2 * i;
+                double ly = editorState.getHoverStaffFirstLineY()
+                        + lp * (editorState.getHoverLineSpacing() / 2.0);
+                double halfW = w / 2 + 6;
+                gc.strokeLine(noteX - halfW, ly, noteX + halfW, ly);
+            }
+        } else if (pos > bottomLinePos) {
+            int count = (pos - bottomLinePos) / 2;
+            for (int i = 1; i <= count; i++) {
+                int lp = bottomLinePos + 2 * i;
+                double ly = editorState.getHoverStaffFirstLineY()
+                        + lp * (editorState.getHoverLineSpacing() / 2.0);
+                double halfW = w / 2 + 6;
+                gc.strokeLine(noteX - halfW, ly, noteX + halfW, ly);
+            }
+        }
+
+        gc.setGlobalAlpha(1.0);
     }
 
     public static void main(String[] args) {

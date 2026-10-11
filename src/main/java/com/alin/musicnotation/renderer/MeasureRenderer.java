@@ -26,7 +26,8 @@ public final class MeasureRenderer {
                                  double firstLineY,
                                  RenderingState state,
                                  Note highlightNote,
-                                 RenderedLayout.Builder builder) {
+                                 RenderedLayout.Builder builder,
+                                 boolean isFirstMeasureOfSystem) {
 
         Measure measure = data.measure();
         MeasureSpacingResult spacingResult = data.spacingResult();
@@ -49,7 +50,7 @@ public final class MeasureRenderer {
                 scale
         );
 
-        // Populăm hit-box-urile notelor cu poziții absolute
+        // Populăm hit-box-urile notelor
         double startPadding = config.measure().startPadding();
         double noteOffsetX = startX + startPadding + data.extraWidth();
         for (NoteLayout nl : justifiedLayouts.values()) {
@@ -58,7 +59,7 @@ public final class MeasureRenderer {
                         nl.note(),
                         noteOffsetX + nl.x(),
                         nl.y(),
-                        14  // rază hit-box
+                        14
                 );
             }
         }
@@ -74,7 +75,8 @@ public final class MeasureRenderer {
                 measureState,
                 config,
                 data.isLastMeasure(),
-                highlightNote
+                highlightNote,
+                isFirstMeasureOfSystem
         );
 
         return measureState;

@@ -1,9 +1,13 @@
 package com.alin.musicnotation.playback;
 
+import com.alin.musicnotation.model.Accidental;
+import com.alin.musicnotation.model.KeySignature;
 import com.alin.musicnotation.model.Measure;
 import com.alin.musicnotation.model.Note;
+import com.alin.musicnotation.model.Pitch;
 import com.alin.musicnotation.model.Score;
 import com.alin.musicnotation.model.tempo.Tempo;
+import com.alin.musicnotation.model.TimeSignature;
 import com.alin.musicnotation.model.Tuplet;
 
 import javax.sound.midi.InvalidMidiDataException;
@@ -15,10 +19,6 @@ import javax.sound.midi.Track;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Construiește o {@link Sequence} MIDI din Score.
- * Folosește TICKS_PER_QUARTER = 480, la fel ca DIVISIONS-ul MusicXML.
- */
 public final class MidiSequenceBuilder {
 
     public static final int TICKS_PER_QUARTER = 480;
@@ -32,13 +32,18 @@ public final class MidiSequenceBuilder {
         Sequence sequence = new Sequence(Sequence.PPQ, TICKS_PER_QUARTER);
         Track track = sequence.createTrack();
 
-        // Program change: piano
         ShortMessage pc = new ShortMessage(ShortMessage.PROGRAM_CHANGE, MIDI_CHANNEL, PIANO_PROGRAM, 0);
         track.add(new MidiEvent(pc, 0));
 
         long currentTick = 0;
+        KeySignature currentKey = score.keySignature();
 
         for (Measure measure : score.measures()) {
+            // Actualizăm gama dacă măsura o schimbă
+            if (measure.keySignature() != null) {
+                currentKey = measure.keySignature();
+            }
+
             Tempo tempo = measure.tempo();
             if (tempo != null && tempo.hasBpm()) {
                 addTempoEvent(track, currentTick, tempo.bpm());
@@ -48,7 +53,7 @@ public final class MidiSequenceBuilder {
                 long noteTicks = computeTicks(note);
 
                 if (!note.isRest()) {
-                    int midiNote = note.pitch().toMidiNumber();
+                    int midiNote = midiNumberWithKey(note.pitch(), currentKey);
                     ShortMessage on = new ShortMessage(ShortMessage.NOTE_ON, MIDI_CHANNEL, midiNote, DEFAULT_VELOCITY);
                     ShortMessage off = new ShortMessage(ShortMessage.NOTE_OFF, MIDI_CHANNEL, midiNote, 0);
                     track.add(new MidiEvent(on, currentTick));
@@ -59,12 +64,33 @@ public final class MidiSequenceBuilder {
             }
         }
 
-        // End of track
         MetaMessage endMsg = new MetaMessage();
         endMsg.setMessage(0x2F, new byte[0], 0);
         track.add(new MidiEvent(endMsg, currentTick));
 
         return sequence;
+    }
+
+    /**
+     * Calculează numărul MIDI aplicând gama curentă.
+     * Dacă nota are accidental explicit → îl respectăm.
+     * Altfel, dacă gama alterează step-ul → aplicăm alterarea.
+     */
+    private static int midiNumberWithKey(Pitch pitch, KeySignature key) {
+        int base = pitch.toMidiNumber();
+
+        // Accidental explicit → îl respectăm
+        if (pitch.accidental() != Accidental.NONE) {
+            return base;
+        }
+
+        // Fără accidental → aplicăm gama (dacă alterează step-ul)
+        if (key != null && key.altersStep(pitch.step())) {
+            Accidental keyAcc = key.accidentalForStep(pitch.step());
+            return base + keyAcc.semitoneOffset();
+        }
+
+        return base;
     }
 
     private static long computeTicks(Note note) {
@@ -88,8 +114,7 @@ public final class MidiSequenceBuilder {
     }
 
     /**
-     * Calculează poziția în tick-uri pentru fiecare notă.
-     * Folosit pentru cursor vizual.
+     * Poziții temporale pentru cursor (neschimbat).
      */
     public static List<NoteTiming> computeTimings(Score score) {
         List<NoteTiming> timings = new ArrayList<>();
