@@ -25,6 +25,7 @@ public final class MeasurePainter {
     private final ClefRenderer clefRenderer;
     private final KeySignatureRenderer keySignatureRenderer;
     private final TimeSignatureRenderer timeSignatureRenderer;
+    private final TieRenderer tieRenderer;
 
     public MeasurePainter(
             TempoRenderer tempoRenderer,
@@ -39,7 +40,8 @@ public final class MeasurePainter {
             RepeatRenderer repeatRenderer,
             ClefRenderer clefRenderer,
             KeySignatureRenderer keySignatureRenderer,
-            TimeSignatureRenderer timeSignatureRenderer) {
+            TimeSignatureRenderer timeSignatureRenderer,
+            TieRenderer tieRenderer) {
 
         this.tempoRenderer = tempoRenderer;
         this.textExpressionRenderer = textExpressionRenderer;
@@ -54,6 +56,7 @@ public final class MeasurePainter {
         this.clefRenderer = clefRenderer;
         this.keySignatureRenderer = keySignatureRenderer;
         this.timeSignatureRenderer = timeSignatureRenderer;
+        this.tieRenderer=tieRenderer;
     }
 
     public void paint(
@@ -159,6 +162,9 @@ public final class MeasurePainter {
 
         slurRenderer.draw(gc, measure, shiftedMap, middleLineY, staff.middleLine(),
                 slur.offset(), staff.lineSpacing(), note.headWidth());
+
+        tieRenderer.draw(gc, measure, shiftedMap, middleLineY, staff.middleLine(),
+                slur.offset() * 0.6, staff.lineSpacing(), note.headWidth());
 
         articulationRenderer.draw(gc, measure, shiftedMap, middleLineY, staff.middleLine(),
                 articulation.fontSizeFactor(), articulation.offset(),

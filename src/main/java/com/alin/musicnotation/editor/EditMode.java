@@ -36,7 +36,10 @@ public enum EditMode {
     DYNAMIC_FFF,
 
     HAIRPIN_CRESCENDO,
-    HAIRPIN_DECRESCENDO;
+    HAIRPIN_DECRESCENDO,
+
+    TIE,
+    SLUR;
 
     public boolean isRestMode() {
         return this == ADD_WHOLE_REST || this == ADD_HALF_REST
@@ -76,5 +79,9 @@ public enum EditMode {
 
     public boolean isHairpinMode() {
         return this == HAIRPIN_CRESCENDO || this == HAIRPIN_DECRESCENDO;
+    }
+
+    public boolean isConnectionMode() {
+        return this == TIE || this == SLUR;
     }
 }

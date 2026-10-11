@@ -37,6 +37,8 @@ public class EditorState {
         selectedNote = null;
         selectedMeasure = null;
         pendingHairpinStartNote = null;
+        pendingTieStartNote = null;
+        pendingSlurStartNote = null;
     }
 
     public boolean isHovering() { return hovering; }
@@ -63,4 +65,18 @@ public class EditorState {
     public Note getPendingHairpinStartNote() { return pendingHairpinStartNote; }
     public void setPendingHairpinStartNote(Note note) { this.pendingHairpinStartNote = note; }
     public void clearPendingHairpin() { this.pendingHairpinStartNote = null; }
+
+    private Note pendingTieStartNote;
+    private Note pendingSlurStartNote;
+
+    public Note getPendingTieStartNote() { return pendingTieStartNote; }
+    public void setPendingTieStartNote(Note note) { this.pendingTieStartNote = note; }
+
+    public Note getPendingSlurStartNote() { return pendingSlurStartNote; }
+    public void setPendingSlurStartNote(Note note) { this.pendingSlurStartNote = note; }
+
+    public void clearPendingConnections() {
+        pendingTieStartNote = null;
+        pendingSlurStartNote = null;
+    }
 }

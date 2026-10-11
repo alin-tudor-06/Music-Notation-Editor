@@ -4,8 +4,8 @@ public final class Note {
     private Pitch pitch;
     private final Duration duration;
     private final boolean isRest;
-    private final boolean tieStart;
-    private final boolean tieEnd;
+    private  boolean tieStart;
+    private  boolean tieEnd;
     private Tuplet tuplet;
 
     public Note(Pitch pitch, Duration duration) {
@@ -48,6 +48,9 @@ public final class Note {
         }
         this.pitch = pitch;
     }
+
+    public void setTieStart(boolean tieStart) { this.tieStart = tieStart; }
+    public void setTieEnd(boolean tieEnd) { this.tieEnd = tieEnd; }
 
     @Override
     public String toString() {

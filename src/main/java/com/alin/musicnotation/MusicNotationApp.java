@@ -49,6 +49,7 @@ import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.List;
 
 public class MusicNotationApp extends Application {
@@ -89,6 +90,7 @@ public class MusicNotationApp extends Application {
     private final ClefRenderer clefRenderer = new ClefRenderer();
     private final KeySignatureRenderer keySignatureRenderer = new KeySignatureRenderer();
     private final TimeSignatureRenderer timeSignatureRenderer = new TimeSignatureRenderer();
+    private final TieRenderer tieRenderer = new TieRenderer();
 
     private final LayoutRenderer layoutRenderer;
 
@@ -113,7 +115,7 @@ public class MusicNotationApp extends Application {
                 tempoRenderer, textExpressionRenderer, noteRenderer, beamRenderer,
                 tupletRenderer, slurRenderer, articulationRenderer, dynamicRenderer,
                 hairpinRenderer, repeatRenderer,
-                clefRenderer, keySignatureRenderer, timeSignatureRenderer
+                clefRenderer, keySignatureRenderer, timeSignatureRenderer,tieRenderer
         );
         MeasureRenderer measureRenderer = new MeasureRenderer(config, measurePainter);
         SystemRenderer systemRenderer = new SystemRenderer(
@@ -266,7 +268,7 @@ public class MusicNotationApp extends Application {
         ToggleButton ffBtn = makeToggle("ff", EditMode.DYNAMIC_FF, group, false);
         ToggleButton fffBtn = makeToggle("fff", EditMode.DYNAMIC_FFF, group, false);
 
-        // ─── Butoane cu dialog ───
+        // Butoane cu dialog
         Button tempoBtn = new Button("♩= Tempo");
         tempoBtn.setStyle("-fx-font-size: 12px;");
         tempoBtn.setOnAction(e -> showTempoDialog());
@@ -275,7 +277,7 @@ public class MusicNotationApp extends Application {
         textBtn.setStyle("-fx-font-size: 12px;");
         textBtn.setOnAction(e -> showTextDialog());
 
-        // ─── Butoane Repeat (toggle direct pe măsura selectată) ───
+        // Butoane Repeat
         Button startRepeatBtn = new Button("‖:");
         startRepeatBtn.setStyle("-fx-font-size: 14px;");
         startRepeatBtn.setTooltip(new Tooltip("Toggle Start Repeat pe măsura selectată"));
@@ -286,11 +288,17 @@ public class MusicNotationApp extends Application {
         endRepeatBtn.setTooltip(new Tooltip("Toggle End Repeat pe măsura selectată"));
         endRepeatBtn.setOnAction(e -> toggleEndRepeat());
 
-        // ─── Butoane Hairpin ───
+        // Butoane Hairpin
         ToggleButton crescendoBtn = makeToggle("↗", EditMode.HAIRPIN_CRESCENDO, group, false);
         ToggleButton decrescendoBtn = makeToggle("↘", EditMode.HAIRPIN_DECRESCENDO, group, false);
         crescendoBtn.setTooltip(new Tooltip("Crescendo (2 click-uri: start, end)"));
         decrescendoBtn.setTooltip(new Tooltip("Decrescendo (2 click-uri: start, end)"));
+
+        // Butoane Tie / Slur
+        ToggleButton tieBtn = makeToggle("⌒", EditMode.TIE, group, false);
+        ToggleButton slurBtn = makeToggle("‿", EditMode.SLUR, group, false);
+        tieBtn.setTooltip(new Tooltip("Tie / legătură de durată (2 click-uri)"));
+        slurBtn.setTooltip(new Tooltip("Slur / legătură de portament (2 click-uri)"));
 
         group.selectedToggleProperty().addListener((obs, oldT, newT) -> {
             if (newT == null) {
@@ -300,6 +308,7 @@ public class MusicNotationApp extends Application {
             }
             editorState.clearHover();
             editorState.clearPendingHairpin();
+            editorState.clearPendingConnections();
             updateStatusBar();
             drawStaff();
         });
@@ -321,7 +330,9 @@ public class MusicNotationApp extends Application {
                 new Separator(Orientation.VERTICAL),
                 startRepeatBtn, endRepeatBtn,
                 new Separator(Orientation.VERTICAL),
-                crescendoBtn, decrescendoBtn
+                crescendoBtn, decrescendoBtn,
+                new Separator(Orientation.VERTICAL),
+                tieBtn, slurBtn
         );
         toolbar.setStyle("-fx-font-size: 18px;");
         return toolbar;
@@ -744,6 +755,74 @@ public class MusicNotationApp extends Application {
 
         RenderedLayout layout = layoutRenderer.getLastLayout();
 
+        // ─── Mod TIE ───
+        if (editorState.getMode() == EditMode.TIE) {
+            Note hit = HitTester.findNoteAt(layout, mx, my);
+            if (hit == null) {
+                statusBar.setText("⚠️ Click pe o notă");
+                return;
+            }
+            if (hit.isRest()) {
+                statusBar.setText("⚠️ Tie nu se aplică pe pauze");
+                return;
+            }
+
+            Note pending = editorState.getPendingTieStartNote();
+            if (pending == null) {
+                editorState.setPendingTieStartNote(hit);
+                statusBar.setText("🎵 Nota de start setată. Click pe nota de end.");
+                drawStaff();
+                return;
+            }
+
+            if (hit == pending) {
+                editorState.clearPendingConnections();
+                statusBar.setText("⚠️ Anulat (aceeași notă)");
+                drawStaff();
+                return;
+            }
+
+            applyTieBetween(pending, hit);
+            editorState.clearPendingConnections();
+            applyScoreToMidi(score);
+            drawStaff();
+            return;
+        }
+
+        // ─── Mod SLUR ───
+        if (editorState.getMode() == EditMode.SLUR) {
+            Note hit = HitTester.findNoteAt(layout, mx, my);
+            if (hit == null) {
+                statusBar.setText("⚠️ Click pe o notă");
+                return;
+            }
+            if (hit.isRest()) {
+                statusBar.setText("⚠️ Slur nu se aplică pe pauze");
+                return;
+            }
+
+            Note pending = editorState.getPendingSlurStartNote();
+            if (pending == null) {
+                editorState.setPendingSlurStartNote(hit);
+                statusBar.setText("🎵 Nota de start setată. Click pe nota de end.");
+                drawStaff();
+                return;
+            }
+
+            if (hit == pending) {
+                editorState.clearPendingConnections();
+                statusBar.setText("⚠️ Anulat (aceeași notă)");
+                drawStaff();
+                return;
+            }
+
+            applySlurBetween(pending, hit);
+            editorState.clearPendingConnections();
+            applyScoreToMidi(score);
+            drawStaff();
+            return;
+        }
+
         // ─── Mod HAIRPIN ───
         if (editorState.getMode().isHairpinMode()) {
             Note hit = HitTester.findNoteAt(layout, mx, my);
@@ -947,6 +1026,7 @@ public class MusicNotationApp extends Application {
     private void handleKeyPressed(KeyEvent event) {
         if (event.getCode() == KeyCode.ESCAPE) {
             editorState.clearPendingHairpin();
+            editorState.clearPendingConnections();
             drawStaff();
             return;
         }
@@ -1024,6 +1104,131 @@ public class MusicNotationApp extends Application {
         }
     }
 
+    /**
+     * Tie: aplică sau șterge tie între două note.
+     * Necesită același pitch.
+     */
+    private void applyTieBetween(Note first, Note second) {
+        if (first.isRest() || second.isRest()) {
+            statusBar.setText("⚠️ Tie nu se aplică pe pauze");
+            return;
+        }
+        if (!first.pitch().equals(second.pitch())) {
+            statusBar.setText("⚠️ Tie necesită același pitch");
+            return;
+        }
+
+        int idxFirst = findGlobalIndex(first);
+        int idxSecond = findGlobalIndex(second);
+        if (idxFirst == -1 || idxSecond == -1) return;
+
+        // Asigurăm că primul e înainte
+        if (idxFirst > idxSecond) {
+            Note tmp = first;
+            first = second;
+            second = tmp;
+        }
+
+        // Toggle: dacă există deja, ștergem
+        if (first.tieStart() && second.tieEnd()) {
+            first.setTieStart(false);
+            second.setTieEnd(false);
+            statusBar.setText("✅ Tie șters");
+            return;
+        }
+
+        first.setTieStart(true);
+        second.setTieEnd(true);
+        statusBar.setText("✅ Tie adăugat");
+    }
+
+    /**
+     * Slur: aplică sau șterge slur între două note.
+     * Include toate notele non-pauză între cele două.
+     */
+    private void applySlurBetween(Note first, Note second) {
+        int idxFirst = findGlobalIndex(first);
+        int idxSecond = findGlobalIndex(second);
+        if (idxFirst == -1 || idxSecond == -1) return;
+
+        if (idxFirst > idxSecond) {
+            Note tmp = first;
+            first = second;
+            second = tmp;
+            int tmpIdx = idxFirst;
+            idxFirst = idxSecond;
+            idxSecond = tmpIdx;
+        }
+
+        // Colectăm notele non-pauză între cele două
+        List<Note> between = new ArrayList<>();
+        int counter = 0;
+        for (Measure m : score.measures()) {
+            for (Note n : m.notes()) {
+                if (counter >= idxFirst && counter <= idxSecond) {
+                    if (!n.isRest()) between.add(n);
+                }
+                counter++;
+            }
+        }
+
+        if (between.size() < 2) {
+            statusBar.setText("⚠️ Slur necesită cel puțin 2 note non-pauză");
+            return;
+        }
+
+        // Căutăm slur identic existent
+        Slur toRemove = null;
+        Measure slurMeasure = null;
+        for (Measure m : score.measures()) {
+            for (Slur s : m.slurs()) {
+                if (s.notes().size() == between.size()) {
+                    boolean same = true;
+                    for (int i = 0; i < between.size(); i++) {
+                        if (s.notes().get(i) != between.get(i)) {
+                            same = false;
+                            break;
+                        }
+                    }
+                    if (same) {
+                        toRemove = s;
+                        slurMeasure = m;
+                        break;
+                    }
+                }
+            }
+            if (toRemove != null) break;
+        }
+
+        if (toRemove != null) {
+            slurMeasure.removeSlur(toRemove);
+            statusBar.setText("✅ Slur șters");
+        } else {
+            Measure targetMeasure = findMeasureContaining(between.get(0));
+            if (targetMeasure == null) {
+                statusBar.setText("⚠️ Nu am găsit măsura");
+                return;
+            }
+            try {
+                targetMeasure.addSlur(new Slur(between));
+                statusBar.setText("✅ Slur adăugat");
+            } catch (IllegalStateException ex) {
+                statusBar.setText("⚠️ " + ex.getMessage());
+            }
+        }
+    }
+
+    private int findGlobalIndex(Note note) {
+        int counter = 0;
+        for (Measure m : score.measures()) {
+            for (Note n : m.notes()) {
+                if (n == note) return counter;
+                counter++;
+            }
+        }
+        return -1;
+    }
+
     private Measure findMeasureContaining(Note note) {
         for (Measure m : score.measures()) {
             if (m.notes().contains(note)) return m;
@@ -1060,6 +1265,7 @@ public class MusicNotationApp extends Application {
         editorState.clearSelection();
         editorState.clearHover();
         editorState.clearPendingHairpin();
+        editorState.clearPendingConnections();
 
         applyScoreToMidi(score);
         updateStatusBar();
@@ -1090,9 +1296,14 @@ public class MusicNotationApp extends Application {
                 : editorState.getSelectedNote() != null
                 ? "  |  Notă selectată"
                 : "";
-        String pendingInfo = editorState.getPendingHairpinStartNote() != null
-                ? "  |  Hairpin: aștept nota de end (ESC anulează)"
-                : "";
+        String pendingInfo = "";
+        if (editorState.getPendingHairpinStartNote() != null) {
+            pendingInfo = "  |  Hairpin: aștept nota de end (ESC anulează)";
+        } else if (editorState.getPendingTieStartNote() != null) {
+            pendingInfo = "  |  Tie: aștept nota de end (ESC anulează)";
+        } else if (editorState.getPendingSlurStartNote() != null) {
+            pendingInfo = "  |  Slur: aștept nota de end (ESC anulează)";
+        }
         statusBar.setText("📄 " + name
                 + "  |  " + score.measures().size() + " măsuri"
                 + "  |  Mod: " + editorState.getMode()
@@ -1149,9 +1360,10 @@ public class MusicNotationApp extends Application {
         layoutRenderer.render(gc, result.pageLayout(), result.renderDataList(),
                 initialState, highlight);
 
+        RenderedLayout layout = layoutRenderer.getLastLayout();
+
         // Chenar albastru pentru măsura selectată
         if (editorState.getSelectedMeasure() != null) {
-            RenderedLayout layout = layoutRenderer.getLastLayout();
             for (RenderedLayout.MeasureHitBox mb : layout.measures()) {
                 if (mb.measure() == editorState.getSelectedMeasure()) {
                     gc.setStroke(Color.DODGERBLUE);
@@ -1163,25 +1375,35 @@ public class MusicNotationApp extends Application {
             }
         }
 
-        // Chenar verde pentru nota pending hairpin
+        // Chenar verde pentru pendingHairpinStartNote
         if (editorState.getPendingHairpinStartNote() != null) {
-            RenderedLayout layout = layoutRenderer.getLastLayout();
-            Note pending = editorState.getPendingHairpinStartNote();
-            for (RenderedLayout.NoteHitBox nb : layout.notes()) {
-                if (nb.note() == pending) {
-                    gc.setStroke(Color.LIMEGREEN);
-                    gc.setLineWidth(3.0);
-                    gc.strokeOval(nb.centerX() - nb.radius(),
-                            nb.centerY() - nb.radius(),
-                            nb.radius() * 2, nb.radius() * 2);
-                    break;
-                }
-            }
+            drawNoteRing(gc, layout, editorState.getPendingHairpinStartNote(), Color.LIMEGREEN);
+        }
+        // Chenar portocaliu pentru pendingTieStartNote
+        if (editorState.getPendingTieStartNote() != null) {
+            drawNoteRing(gc, layout, editorState.getPendingTieStartNote(), Color.ORANGE);
+        }
+        // Chenar magenta pentru pendingSlurStartNote
+        if (editorState.getPendingSlurStartNote() != null) {
+            drawNoteRing(gc, layout, editorState.getPendingSlurStartNote(), Color.MAGENTA);
         }
 
         drawHoverGhost(gc);
 
         updateStatusBar();
+    }
+
+    private void drawNoteRing(GraphicsContext gc, RenderedLayout layout, Note note, Color color) {
+        for (RenderedLayout.NoteHitBox nb : layout.notes()) {
+            if (nb.note() == note) {
+                gc.setStroke(color);
+                gc.setLineWidth(3.0);
+                gc.strokeOval(nb.centerX() - nb.radius(),
+                        nb.centerY() - nb.radius(),
+                        nb.radius() * 2, nb.radius() * 2);
+                break;
+            }
+        }
     }
 
     private void drawHoverGhost(GraphicsContext gc) {

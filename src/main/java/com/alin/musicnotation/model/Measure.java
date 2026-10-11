@@ -71,6 +71,10 @@ public final class Measure {
         slurs.add(slur);
     }
 
+    public void removeSlur(Slur slur) {
+        slurs.remove(slur);
+    }
+
     public void addArticulation(Articulation articulation) {
         Objects.requireNonNull(articulation, "articulation must not be null");
         if (!notes.contains(articulation.note())) {
