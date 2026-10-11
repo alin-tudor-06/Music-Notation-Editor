@@ -8,6 +8,8 @@ import com.alin.musicnotation.editor.ScoreEditor;
 import com.alin.musicnotation.layout.PageLayoutEngine;
 import com.alin.musicnotation.layout.ScoreLayoutEngine;
 import com.alin.musicnotation.model.*;
+import com.alin.musicnotation.model.articulation.Articulation;
+import com.alin.musicnotation.model.articulation.ArticulationType;
 import com.alin.musicnotation.model.clef.ClefType;
 import com.alin.musicnotation.musicxml.export.MusicXmlExporter;
 import com.alin.musicnotation.musicxml.imports.MusicXmlImporter;
@@ -239,6 +241,13 @@ public class MusicNotationApp extends Application {
         ToggleButton flatBtn = makeToggle("♭", EditMode.ACCIDENTAL_FLAT, group, false);
         ToggleButton naturalBtn = makeToggle("♮", EditMode.ACCIDENTAL_NATURAL, group, false);
 
+        ToggleButton staccatoBtn = makeToggle("•", EditMode.ARTICULATION_STACCATO, group, false);
+        ToggleButton staccatissimoBtn = makeToggle("▾", EditMode.ARTICULATION_STACCATISSIMO, group, false);
+        ToggleButton accentBtn = makeToggle(">", EditMode.ARTICULATION_ACCENT, group, false);
+        ToggleButton marcatoBtn = makeToggle("^", EditMode.ARTICULATION_MARCATO, group, false);
+        ToggleButton tenutoBtn = makeToggle("–", EditMode.ARTICULATION_TENUTO, group, false);
+        ToggleButton fermataBtn = makeToggle("⌒", EditMode.ARTICULATION_FERMATA, group, false);
+
         group.selectedToggleProperty().addListener((obs, oldT, newT) -> {
             if (newT == null) {
                 editorState.setMode(EditMode.SELECT);
@@ -257,7 +266,9 @@ public class MusicNotationApp extends Application {
                 new Separator(Orientation.VERTICAL),
                 wholeRestBtn, halfRestBtn, quarterRestBtn, eighthRestBtn, sixteenthRestBtn,
                 new Separator(Orientation.VERTICAL),
-                sharpBtn, flatBtn, naturalBtn
+                sharpBtn, flatBtn, naturalBtn,
+                new Separator(Orientation.VERTICAL),
+                staccatoBtn, staccatissimoBtn, accentBtn, marcatoBtn, tenutoBtn, fermataBtn
         );
         toolbar.setStyle("-fx-font-size: 18px;");
         return toolbar;
@@ -537,7 +548,7 @@ public class MusicNotationApp extends Application {
 
         RenderedLayout layout = layoutRenderer.getLastLayout();
 
-        // ─── Mod ACCIDENTAL → aplică pe nota de sub click ───
+        // ─── Mod ACCIDENTAL ───
         if (editorState.getMode().isAccidentalMode()) {
             Note hit = HitTester.findNoteAt(layout, mx, my);
             if (hit == null) {
@@ -558,7 +569,31 @@ public class MusicNotationApp extends Application {
             return;
         }
 
-        // ─── Mod ADD → adaugă notă/pauză ───
+        // ─── Mod ARTICULAȚIE ───
+        if (editorState.getMode().isArticulationMode()) {
+            Note hit = HitTester.findNoteAt(layout, mx, my);
+            if (hit == null) {
+                statusBar.setText("⚠️ Click pe o notă pentru a aplica articulația");
+                return;
+            }
+            ArticulationType target = switch (editorState.getMode()) {
+                case ARTICULATION_STACCATO -> ArticulationType.STACCATO;
+                case ARTICULATION_STACCATISSIMO -> ArticulationType.STACCATISSIMO;
+                case ARTICULATION_ACCENT -> ArticulationType.ACCENT;
+                case ARTICULATION_MARCATO -> ArticulationType.MARCATO;
+                case ARTICULATION_TENUTO -> ArticulationType.TENUTO;
+                case ARTICULATION_FERMATA -> ArticulationType.FERMATA;
+                default -> null;
+            };
+            if (target != null) {
+                applyArticulationToNote(hit, target);
+                applyScoreToMidi(score);
+                drawStaff();
+            }
+            return;
+        }
+
+        // ─── Mod ADD (note/pauze) ───
         if (editorState.getMode().isAddMode()) {
             RenderedLayout.MeasureHitBox mh = HitTester.findMeasureAt(layout, mx, my);
             if (mh == null) return;
@@ -597,7 +632,6 @@ public class MusicNotationApp extends Application {
     }
 
     private void handleMouseMoved(MouseEvent event) {
-        // Ghost doar în modul ADD pentru NOTE (nu pauze, nu select, nu accidental)
         boolean showGhost = editorState.getMode().isAddMode()
                 && !editorState.getMode().isRestMode();
 
@@ -660,9 +694,7 @@ public class MusicNotationApp extends Application {
     }
 
     /**
-     * Aplică accidentalul pe o notă cu toggle:
-     * - Dacă nota are deja accidentalul → îl scoate (NONE)
-     * - Altfel → îl setează
+     * Aplică accidentalul pe o notă cu toggle.
      */
     private void applyAccidentalToNote(Note note, Accidental target) {
         if (note.isRest()) {
@@ -674,6 +706,41 @@ public class MusicNotationApp extends Application {
         Accidental newAcc = (current == target) ? Accidental.NONE : target;
         Pitch newPitch = new Pitch(old.step(), newAcc, old.octave());
         note.setPitch(newPitch);
+    }
+
+    /**
+     * Aplică sau scoate o articulație pe o notă (toggle).
+     */
+    private void applyArticulationToNote(Note note, ArticulationType type) {
+        if (note.isRest()) {
+            statusBar.setText("⚠️ Nu poți aplica articulație pe o pauză");
+            return;
+        }
+
+        // Găsim măsura care conține nota
+        Measure targetMeasure = null;
+        for (Measure m : score.measures()) {
+            if (m.notes().contains(note)) {
+                targetMeasure = m;
+                break;
+            }
+        }
+        if (targetMeasure == null) return;
+
+        // Căutăm o articulație existentă de același tip pe această notă
+        Articulation existing = null;
+        for (Articulation a : targetMeasure.articulations()) {
+            if (a.note() == note && a.type() == type) {
+                existing = a;
+                break;
+            }
+        }
+
+        if (existing != null) {
+            targetMeasure.removeArticulation(existing);
+        } else {
+            targetMeasure.addArticulation(new Articulation(note, type));
+        }
     }
 
     private static Duration modeToDuration(EditMode mode) {
@@ -789,7 +856,6 @@ public class MusicNotationApp extends Application {
         layoutRenderer.render(gc, result.pageLayout(), result.renderDataList(),
                 initialState, highlight);
 
-        // Chenar albastru pentru măsura selectată
         if (editorState.getSelectedMeasure() != null) {
             RenderedLayout layout = layoutRenderer.getLastLayout();
             for (RenderedLayout.MeasureHitBox mb : layout.measures()) {
@@ -803,7 +869,6 @@ public class MusicNotationApp extends Application {
             }
         }
 
-        // Ghost preview
         drawHoverGhost(gc);
 
         updateStatusBar();

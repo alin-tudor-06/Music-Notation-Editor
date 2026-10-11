@@ -84,6 +84,10 @@ public final class Measure {
         articulations.add(articulation);
     }
 
+    public void removeArticulation(Articulation articulation) {
+        articulations.remove(articulation);
+    }
+
     public void addDynamic(Dynamic dynamic) {
         Objects.requireNonNull(dynamic, "dynamic must not be null");
         if (!notes.contains(dynamic.note())) {

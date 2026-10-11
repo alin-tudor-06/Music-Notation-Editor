@@ -17,7 +17,14 @@ public enum EditMode {
 
     ACCIDENTAL_SHARP,
     ACCIDENTAL_FLAT,
-    ACCIDENTAL_NATURAL;
+    ACCIDENTAL_NATURAL,
+
+    ARTICULATION_STACCATO,
+    ARTICULATION_STACCATISSIMO,
+    ARTICULATION_ACCENT,
+    ARTICULATION_MARCATO,
+    ARTICULATION_TENUTO,
+    ARTICULATION_FERMATA;
 
     public boolean isRestMode() {
         return this == ADD_WHOLE_REST || this == ADD_HALF_REST
@@ -37,5 +44,14 @@ public enum EditMode {
         return this == ACCIDENTAL_SHARP
                 || this == ACCIDENTAL_FLAT
                 || this == ACCIDENTAL_NATURAL;
+    }
+
+    public boolean isArticulationMode() {
+        return this == ARTICULATION_STACCATO
+                || this == ARTICULATION_STACCATISSIMO
+                || this == ARTICULATION_ACCENT
+                || this == ARTICULATION_MARCATO
+                || this == ARTICULATION_TENUTO
+                || this == ARTICULATION_FERMATA;
     }
 }
