@@ -132,6 +132,10 @@ public final class Measure {
         hairpins.add(hairpin);
     }
 
+    public void removeHairpin(Hairpin hairpin) {
+        hairpins.remove(hairpin);
+    }
+
     // ----- Tempo -----
 
     public void addTempo(Tempo tempo) {

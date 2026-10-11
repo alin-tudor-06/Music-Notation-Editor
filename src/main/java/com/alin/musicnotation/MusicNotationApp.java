@@ -13,6 +13,9 @@ import com.alin.musicnotation.model.articulation.ArticulationType;
 import com.alin.musicnotation.model.clef.ClefType;
 import com.alin.musicnotation.model.dynamic.Dynamic;
 import com.alin.musicnotation.model.dynamic.DynamicType;
+import com.alin.musicnotation.model.hairpin.Hairpin;
+import com.alin.musicnotation.model.hairpin.HairpinPlacement;
+import com.alin.musicnotation.model.hairpin.HairpinType;
 import com.alin.musicnotation.model.tempo.Tempo;
 import com.alin.musicnotation.model.tempo.TempoPlacement;
 import com.alin.musicnotation.model.text.TextExpression;
@@ -283,6 +286,12 @@ public class MusicNotationApp extends Application {
         endRepeatBtn.setTooltip(new Tooltip("Toggle End Repeat pe măsura selectată"));
         endRepeatBtn.setOnAction(e -> toggleEndRepeat());
 
+        // ─── Butoane Hairpin ───
+        ToggleButton crescendoBtn = makeToggle("↗", EditMode.HAIRPIN_CRESCENDO, group, false);
+        ToggleButton decrescendoBtn = makeToggle("↘", EditMode.HAIRPIN_DECRESCENDO, group, false);
+        crescendoBtn.setTooltip(new Tooltip("Crescendo (2 click-uri: start, end)"));
+        decrescendoBtn.setTooltip(new Tooltip("Decrescendo (2 click-uri: start, end)"));
+
         group.selectedToggleProperty().addListener((obs, oldT, newT) -> {
             if (newT == null) {
                 editorState.setMode(EditMode.SELECT);
@@ -290,6 +299,7 @@ public class MusicNotationApp extends Application {
                 editorState.setMode((EditMode) newT.getUserData());
             }
             editorState.clearHover();
+            editorState.clearPendingHairpin();
             updateStatusBar();
             drawStaff();
         });
@@ -309,7 +319,9 @@ public class MusicNotationApp extends Application {
                 new Separator(Orientation.VERTICAL),
                 tempoBtn, textBtn,
                 new Separator(Orientation.VERTICAL),
-                startRepeatBtn, endRepeatBtn
+                startRepeatBtn, endRepeatBtn,
+                new Separator(Orientation.VERTICAL),
+                crescendoBtn, decrescendoBtn
         );
         toolbar.setStyle("-fx-font-size: 18px;");
         return toolbar;
@@ -339,7 +351,7 @@ public class MusicNotationApp extends Application {
         } else {
             m.addStartRepeat();
         }
-        applyScoreToMidi(score);   // ← ADĂUGAT
+        applyScoreToMidi(score);
         drawStaff();
     }
 
@@ -354,7 +366,7 @@ public class MusicNotationApp extends Application {
         } else {
             m.addEndRepeat();
         }
-        applyScoreToMidi(score);   // ← ADĂUGAT
+        applyScoreToMidi(score);
         drawStaff();
     }
 
@@ -732,6 +744,47 @@ public class MusicNotationApp extends Application {
 
         RenderedLayout layout = layoutRenderer.getLastLayout();
 
+        // ─── Mod HAIRPIN ───
+        if (editorState.getMode().isHairpinMode()) {
+            Note hit = HitTester.findNoteAt(layout, mx, my);
+            if (hit == null) {
+                statusBar.setText("⚠️ Click pe o notă");
+                return;
+            }
+
+            Note pending = editorState.getPendingHairpinStartNote();
+            if (pending == null) {
+                editorState.setPendingHairpinStartNote(hit);
+                statusBar.setText("🎵 Nota de start setată. Click pe nota de end.");
+                drawStaff();
+                return;
+            }
+
+            if (hit == pending) {
+                editorState.clearPendingHairpin();
+                statusBar.setText("⚠️ Anulat (aceeași notă)");
+                drawStaff();
+                return;
+            }
+
+            HairpinType type = editorState.getMode() == EditMode.HAIRPIN_CRESCENDO
+                    ? HairpinType.CRESCENDO : HairpinType.DECRESCENDO;
+
+            try {
+                Measure measure = findMeasureContaining(pending);
+                if (measure == null) return;
+                measure.addHairpin(new Hairpin(pending, hit, type, HairpinPlacement.BELOW));
+                editorState.clearPendingHairpin();
+                applyScoreToMidi(score);
+                statusBar.setText("✅ Hairpin adăugat");
+            } catch (IllegalStateException ex) {
+                statusBar.setText("⚠️ " + ex.getMessage());
+                editorState.clearPendingHairpin();
+            }
+            drawStaff();
+            return;
+        }
+
         // ─── Mod ACCIDENTAL ───
         if (editorState.getMode().isAccidentalMode()) {
             Note hit = HitTester.findNoteAt(layout, mx, my);
@@ -892,6 +945,11 @@ public class MusicNotationApp extends Application {
     }
 
     private void handleKeyPressed(KeyEvent event) {
+        if (event.getCode() == KeyCode.ESCAPE) {
+            editorState.clearPendingHairpin();
+            drawStaff();
+            return;
+        }
         if (event.getCode() == KeyCode.DELETE || event.getCode() == KeyCode.BACK_SPACE) {
             Note sel = editorState.getSelectedNote();
             if (sel != null) {
@@ -1001,6 +1059,7 @@ public class MusicNotationApp extends Application {
         playbackCursor.reset();
         editorState.clearSelection();
         editorState.clearHover();
+        editorState.clearPendingHairpin();
 
         applyScoreToMidi(score);
         updateStatusBar();
@@ -1031,10 +1090,14 @@ public class MusicNotationApp extends Application {
                 : editorState.getSelectedNote() != null
                 ? "  |  Notă selectată"
                 : "";
+        String pendingInfo = editorState.getPendingHairpinStartNote() != null
+                ? "  |  Hairpin: aștept nota de end (ESC anulează)"
+                : "";
         statusBar.setText("📄 " + name
                 + "  |  " + score.measures().size() + " măsuri"
                 + "  |  Mod: " + editorState.getMode()
-                + sel);
+                + sel
+                + pendingInfo);
     }
 
     private void showError(String title, Exception e) {
@@ -1053,7 +1116,6 @@ public class MusicNotationApp extends Application {
         }
         return null;
     }
-
 
     // ============================================================
     //  DRAW
@@ -1087,6 +1149,7 @@ public class MusicNotationApp extends Application {
         layoutRenderer.render(gc, result.pageLayout(), result.renderDataList(),
                 initialState, highlight);
 
+        // Chenar albastru pentru măsura selectată
         if (editorState.getSelectedMeasure() != null) {
             RenderedLayout layout = layoutRenderer.getLastLayout();
             for (RenderedLayout.MeasureHitBox mb : layout.measures()) {
@@ -1095,6 +1158,22 @@ public class MusicNotationApp extends Application {
                     gc.setLineWidth(2.5);
                     gc.strokeRect(mb.x() - 4, mb.y() + 20,
                             mb.width() + 8, mb.height() - 40);
+                    break;
+                }
+            }
+        }
+
+        // Chenar verde pentru nota pending hairpin
+        if (editorState.getPendingHairpinStartNote() != null) {
+            RenderedLayout layout = layoutRenderer.getLastLayout();
+            Note pending = editorState.getPendingHairpinStartNote();
+            for (RenderedLayout.NoteHitBox nb : layout.notes()) {
+                if (nb.note() == pending) {
+                    gc.setStroke(Color.LIMEGREEN);
+                    gc.setLineWidth(3.0);
+                    gc.strokeOval(nb.centerX() - nb.radius(),
+                            nb.centerY() - nb.radius(),
+                            nb.radius() * 2, nb.radius() * 2);
                     break;
                 }
             }

@@ -36,6 +36,7 @@ public class EditorState {
     public void clearSelection() {
         selectedNote = null;
         selectedMeasure = null;
+        pendingHairpinStartNote = null;
     }
 
     public boolean isHovering() { return hovering; }
@@ -56,4 +57,10 @@ public class EditorState {
     }
 
     public void clearHover() { this.hovering = false; }
+
+    private Note pendingHairpinStartNote;
+
+    public Note getPendingHairpinStartNote() { return pendingHairpinStartNote; }
+    public void setPendingHairpinStartNote(Note note) { this.pendingHairpinStartNote = note; }
+    public void clearPendingHairpin() { this.pendingHairpinStartNote = null; }
 }
